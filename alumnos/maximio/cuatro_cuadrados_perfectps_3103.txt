@@ -1,0 +1,221 @@
+from pybricks.hubs import PrimeHub
+from pybricks.pupdevices import Motor
+from pybricks.parameters import Port, Direction
+from pybricks.robotics import DriveBase
+from pybricks.tools import wait
+
+hub = PrimeHub()
+
+left_motor = Motor(Port.A)
+right_motor = Motor(Port.B, Direction.COUNTERCLOCKWISE)
+
+wheel_diameter = 56
+axle_track = 120
+
+robot = DriveBase(left_motor, right_motor, wheel_diameter, axle_track)
+
+robot.settings(straight_speed=200, turn_rate=90)
+
+DISTANCIA = 220   # ajustado para ~20 cm
+GIRO = 100         # 🔥 corregido para cerrar el cuadrado
+
+def lado():
+    robot.straight(DISTANCIA)
+    wait(300)
+    robot.turn(GIRO)
+    wait(300)
+
+for i in range(4):
+    lado()
+
+
+2
+
+
+from pybricks.hubs import PrimeHub
+from pybricks.pupdevices import Motor
+from pybricks.parameters import Port, Direction
+from pybricks.robotics import DriveBase
+from pybricks.tools import wait
+
+hub = PrimeHub()
+
+# 🔥 dejar quieto para calibrar bien
+wait(2000)
+
+# reset gyro UNA vez
+hub.imu.reset_heading(0)
+
+left_motor = Motor(Port.A)
+right_motor = Motor(Port.B, Direction.COUNTERCLOCKWISE)
+
+wheel_diameter = 56
+axle_track = 120
+
+robot = DriveBase(left_motor, right_motor, wheel_diameter, axle_track)
+
+robot.settings(straight_speed=200, turn_rate=90)
+
+DISTANCIA = 220
+GIRO = 98
+
+# 🔥 alineación inicial con gyro (solo una vez)
+def alinear_inicio():
+    while abs(hub.imu.heading()) > 1:
+        if hub.imu.heading() > 0:
+            robot.drive(0, -30)
+        else:
+            robot.drive(0, 30)
+        wait(10)
+    robot.stop()
+
+def lado():
+    robot.straight(DISTANCIA)
+    wait(300)
+    robot.turn(GIRO)
+    wait(300)
+
+# corregir orientación inicial
+alinear_inicio()
+
+# hacer cuadrado
+for i in range(4):
+    lado()
+
+
+3
+
+from pybricks.hubs import PrimeHub
+from pybricks.pupdevices import Motor
+from pybricks.parameters import Port, Direction
+from pybricks.robotics import DriveBase
+from pybricks.tools import wait
+
+hub = PrimeHub()
+
+# 🔥 calibración inicial del gyro (quieto)
+wait(2000)
+hub.imu.reset_heading(0)
+
+left_motor = Motor(Port.A)
+right_motor = Motor(Port.B, Direction.COUNTERCLOCKWISE)
+
+wheel_diameter = 56
+axle_track = 120
+
+robot = DriveBase(left_motor, right_motor, wheel_diameter, axle_track)
+
+robot.settings(straight_speed=200, turn_rate=90)
+
+DISTANCIA_TOTAL = 220
+GIRO = 98
+
+# 🔥 alineación inicial (una sola vez)
+def alinear_inicio():
+    while abs(hub.imu.heading()) > 1:
+        if hub.imu.heading() > 0:
+            robot.drive(0, -30)
+        else:
+            robot.drive(0, 30)
+        wait(10)
+    robot.stop()
+
+# 🔥 avance progresivo SIN pausas
+def avanzar_pro():
+    distancia = 0
+
+    while distancia < DISTANCIA_TOTAL:
+
+        if distancia < 50:
+            velocidad = 100
+        elif distancia < 170:
+            velocidad = 300
+        else:
+            velocidad = 100
+
+        robot.drive(velocidad, 0)
+        wait(10)
+
+        distancia += velocidad * 0.01  # aproximación
+
+    robot.stop()
+
+def lado():
+    avanzar_pro()
+    wait(100)   # 🔥 pequeña pausa para estabilizar
+    robot.turn(GIRO)
+    wait(300)
+
+# ejecutar
+alinear_inicio()
+
+for i in range(4):
+    lado()
+
+
+
+4
+
+
+from pybricks.hubs import PrimeHub
+from pybricks.pupdevices import Motor
+from pybricks.parameters import Port, Direction
+from pybricks.robotics import DriveBase
+from pybricks.tools import wait
+
+hub = PrimeHub()
+
+wait(2000)
+hub.imu.reset_heading(0)
+
+left_motor = Motor(Port.A)
+right_motor = Motor(Port.B, Direction.COUNTERCLOCKWISE)
+
+wheel_diameter = 56
+axle_track = 120
+
+robot = DriveBase(left_motor, right_motor, wheel_diameter, axle_track)
+
+robot.settings(straight_speed=200, turn_rate=90)
+
+DISTANCIA_TOTAL = 1000
+GIRO = 98  # probablemente tengas que subirlo un poco
+
+def alinear_inicio():
+    while abs(hub.imu.heading()) > 1:
+        if hub.imu.heading() > 0:
+            robot.drive(0, -30)
+        else:
+            robot.drive(0, 30)
+        wait(10)
+    robot.stop()
+
+def avanzar_pro():
+    distancia = 0
+
+    while distancia < DISTANCIA_TOTAL:
+
+        if distancia < 200:
+            velocidad = 120
+        elif distancia < 800:
+            velocidad = 350
+        else:
+            velocidad = 120
+
+        robot.drive(velocidad, 0)
+        wait(10)
+
+        distancia += velocidad * 0.01
+
+    robot.stop()
+
+def lado():
+    avanzar_pro()
+    wait(200)
+    robot.turn(GIRO)
+    wait(400)
+
+alinear_inicio()
+
+for i in range(4):
+    lado()

@@ -36,7 +36,7 @@ La IA propone, el robot dispone. 🎯
 ├── directivas-ia/        ← Prompts y directivas para IAs
 │   └── system-prompts/   ← Prompts de sistema para Claude/GPT
 │
-├── skills/               ← 🧠 Skills de Claude para robótica (11 skills)
+├── skills/               ← 🧠 Skills CASERAS de Claude (11 skills, en español)
 │   ├── README.md         ← Índice + cómo subirlas al skill manager
 │   ├── pybricks-spike-fundamentals/
 │   ├── pybricks-precision-driving/
@@ -49,6 +49,19 @@ La IA propone, el robot dispone. 🎯
 │   ├── robot-sumo/
 │   ├── robotics-best-practices/
 │   └── robotics-control-theory/
+│
+├── skills-pack/          ← 🎒 Skills EXTERNAS importadas (10 skills, en inglés, formato rico)
+│   ├── README.md         ← Origen, contenido y cómo activarlas
+│   ├── pybricks-api-coach/
+│   ├── drivebase-tuner/
+│   ├── sensor-calibration-logger/
+│   ├── line-follower-tuner/
+│   ├── mission-state-machine-builder/
+│   ├── attachment-cycle-optimizer/
+│   ├── competition-debugger/
+│   ├── wro-robomission-strategist/
+│   ├── fll-robot-game-planner/
+│   └── rescue-line-course-planner/
 │
 ├── rutinas-exitosas/     ← Código que FUNCIONÓ bien en pruebas
 │
@@ -72,58 +85,93 @@ La IA propone, el robot dispone. 🎯
 5. Copiá el código a Pybricks, probalo, y pedile ajustes
 6. Cuando funcione, guardalo en tu carpeta y en `rutinas-exitosas/`
 
-## 🧠 Skills de Claude para robótica — el "cerebro" del taller
+## 🧠 Skills de IA — el "cerebro" del taller (21 skills en total)
 
-La carpeta `skills/` contiene **11 skills profesionales para Claude** que cubren
-todo el conocimiento de Pybricks + robótica de competición que vamos acumulando
-en el taller. Cada skill es una unidad de conocimiento que Claude activa
-automáticamente cuando el tema aparece en la conversación.
+El repo tiene **dos colecciones de skills** que enseñan a Claude (y a ChatGPT)
+todo lo necesario para programar robots LEGO Spike Prime con Pybricks a nivel
+de competición. Las dos se complementan:
 
-**Cuando Claude tiene estas skills cargadas, programa robots como un experto
-de WRO, RoboCup y FLL** sin que vos tengas que explicarle desde cero.
+### `skills/` — 11 skills caseras del taller (en español)
 
-### Las 11 skills que tenemos
+Skills creadas específicamente para el taller IITA. Densas, pedagógicas, con
+código completo en español rioplatense. Cubren desde fundamentos hasta
+categorías de competición específicas que el bundle externo no tiene.
 
-| # | Skill | Cubre |
-|---|---|---|
-| 1 | `pybricks-spike-fundamentals` | API base de Pybricks: hub, motores, sensores, estructura típica de programa |
-| 2 | `pybricks-precision-driving` | DriveBase con gyro, calibración de geometría, squaring contra paredes |
-| 3 | `pybricks-line-following` | Seguidores P/PI/PID profesionales con uno o dos sensores, intersecciones, gaps |
-| 4 | `pybricks-odometry-localization` | Tracking de pose (x, y, θ), navegación por waypoints, fusión gyro+encoders |
-| 5 | `wro-robomission-strategy` | Single-run vs multi-run, attachments, recovery, time management para WRO |
-| 6 | `wro-future-engineers` | Auto autónomo Ackermann con OpenCV, parking paralelo, Future Engineers |
-| 7 | `wro-football` | IR ball tracking, striker vs goalkeeper, WRO Football y RCJ Soccer |
-| 8 | `rcj-rescue-line` | RoboCup Rescue Line: gaps, marcadores verdes, rampas, evacuación de víctimas |
-| 9 | `robot-sumo` | Mini-sumo y full-sumo: edge detection, bull rush, dodge, push patterns |
-| 10 | `robotics-best-practices` | Workflow profesional: testing, calibración, debugging, mecánica, pre-competition |
-| 11 | `robotics-control-theory` | PID Ziegler-Nichols, feedforward, filtros (low-pass, complementary, Kalman), state machines |
+| Skill | Cubre |
+|---|---|
+| `pybricks-spike-fundamentals` | API base de Pybricks: hub, motores, sensores, estructura típica |
+| `pybricks-precision-driving` | DriveBase con gyro, calibración, squaring contra paredes |
+| `pybricks-line-following` | P/PI/PID, dos sensores normalizados, intersecciones, gaps |
+| `pybricks-odometry-localization` | Tracking de pose (x, y, θ), navegación por waypoints, fusión gyro+encoders |
+| `wro-robomission-strategy` | Single-run vs multi-run, attachments, recovery, time management |
+| `wro-future-engineers` | Auto autónomo Ackermann con OpenCV, parking paralelo |
+| `wro-football` | IR ball tracking, striker vs goalkeeper, "approach from behind" |
+| `rcj-rescue-line` | Gaps, marcadores verdes, rampas, evacuación de víctimas |
+| `robot-sumo` | Edge detection, bull rush, dodge, push patterns |
+| `robotics-best-practices` | Workflow, testing, calibración, debugging, mecánica, pre-competition |
+| `robotics-control-theory` | PID Ziegler-Nichols, feedforward, filtros, state machines |
 
-**El índice completo y cómo activarlas en el skill manager está en
-[`skills/README.md`](skills/README.md).**
+Índice completo en [`skills/README.md`](skills/README.md).
+
+### `skills-pack/` — 10 skills externas importadas (en inglés)
+
+Bundle externo "LEGO SPIKE Competition Skills Pack" con formato más rico
+(SKILL.md + `references/` + `assets/` + `scripts/` + `agents/openai.yaml`).
+Incluye templates Python copiables, scripts ejecutables y compatibilidad
+nativa con ChatGPT Custom GPTs.
+
+| Skill | Cubre |
+|---|---|
+| `pybricks-api-coach` | Generar/refactorizar/revisar código Pybricks correcto |
+| `drivebase-tuner` | Calibrar `wheel_diameter` y `axle_track` (incluye script) |
+| `sensor-calibration-logger` | Calibrar sensores, analizar logs CSV (incluye script) |
+| `line-follower-tuner` | Tuning de seguidores P/PD con template Python |
+| `mission-state-machine-builder` | State machines con timeouts, retries, fallbacks |
+| `attachment-cycle-optimizer` | Cycles de attachments con homing y reset |
+| `competition-debugger` | Fault tree de "mi robot funciona a veces" |
+| `wro-robomission-strategist` | Ranking de missions, planes safe/aggressive |
+| `fll-robot-game-planner` | Launch-return cycles, asignación de attachments |
+| `rescue-line-course-planner` | Módulos: line tracking, gap recovery, intersections |
+
+Índice completo en [`skills-pack/README.md`](skills-pack/README.md).
+
+### ¿Cómo se complementan las dos colecciones?
+
+**No compiten — se sintetizan.** Cuando tenés las dos cargadas en el skill manager:
+
+- Para una pregunta sobre **calibrar el robot**, Claude puede usar `pybricks-precision-driving` (caseras, explica el porqué) + `drivebase-tuner` (pack, da el script ejecutable).
+- Para **line following**, puede usar `pybricks-line-following` (caseras, código completo) + `line-follower-tuner` (pack, template + checklist).
+- Para **WRO**, puede usar `wro-robomission-strategy` (caseras, foco en código) + `wro-robomission-strategist` (pack, foco en estrategia).
+
+La síntesis de las dos colecciones cubre **mejor que cualquiera de las dos solas**.
 
 ### ¿Cómo usar las skills?
 
-**Opción A — Subirlas al skill manager de Claude (la oficial):**
+**Opción A — Skill manager de Claude:**
 
-1. Comprimir cada carpeta `skills/<nombre>/` en `.zip`.
-2. Ir a claude.ai → Settings → Capabilities → Skills → Upload skill.
-3. Subir los 11 zips uno por uno.
-4. Listo. En cualquier conversación donde menciones "Pybricks", "WRO", "rescue line", "sumo", etc., Claude activa la skill correspondiente automáticamente.
+1. Comprimir cada carpeta `skills/<nombre>/` y `skills-pack/<nombre>/` en `.zip`.
+2. claude.ai → Settings → Capabilities → Skills → Upload skill.
+3. Subir las 21 skills (o las que quieras usar).
+4. En cualquier conversación donde menciones "Pybricks", "WRO", "rescue line", "sumo", etc., Claude activa la(s) skill(s) correspondiente(s) automáticamente.
 
-**Opción B — Pegar el contenido como prompt (workaround rápido):**
+**Opción B — ChatGPT Custom GPT** (solo `skills-pack/` por su formato compatible):
 
-Si no tenés el skill manager, copiá el contenido del `SKILL.md` correspondiente
-al inicio de tu conversación con Claude/ChatGPT. Funciona igual de bien para
-esa sesión.
+1. Crear un Custom GPT nuevo.
+2. Subir los archivos de la skill como Knowledge.
+3. Pegar el SKILL.md como Instructions.
+
+**Opción C — Pegar como prompt** (workaround universal): copiar el SKILL.md
+correspondiente al inicio de cualquier conversación con Claude/ChatGPT/Gemini.
 
 ### ¿Querés mejorar una skill?
 
-Las skills son **documentos vivos**. Cuando descubras un patrón nuevo, una
-técnica de calibración que funciona, o un bug recurrente:
+Las skills son **documentos vivos**:
 
-1. Editá el `SKILL.md` correspondiente.
-2. Commiteá con un mensaje claro de qué agregaste.
-3. Los próximos alumnos (y vos en 6 meses) lo van a agradecer.
+- Las **caseras** (`skills/`) las podés editar libremente cuando descubras
+  algo en el taller.
+- Las del **pack externo** (`skills-pack/`) idealmente NO se modifican
+  para preservar el origen externo. Si querés agregarles algo, mejor crear una
+  skill casera nueva en `skills/` que las complemente.
 
 ## 👥 Equipo
 
@@ -143,6 +191,7 @@ técnica de calibración que funciona, o un bug recurrente:
 - Poné comentarios en el código explicando qué hace
 - Si descubrís un buen prompt para la IA → compartilo en `directivas-ia/`
 - Si descubrís una técnica nueva → mejorá la skill correspondiente en `skills/`
+- No modifiques las skills del `skills-pack/` (son externas) — si querés agregarles algo, creá una skill nueva en `skills/`
 - No borres código de otros
 
 ---

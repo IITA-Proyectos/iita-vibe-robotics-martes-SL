@@ -1,0 +1,3 @@
+interface:
+  display_name: "Attachment Cycle Optimizer"
+  short_description: "design and code reliable attachment cycles for lego spike competition robots using pybricks. use when the user needs motorized arms, lifts, claws, sliders, homing, synchronization with drive motion, or safe reset positions between autonomous runs."

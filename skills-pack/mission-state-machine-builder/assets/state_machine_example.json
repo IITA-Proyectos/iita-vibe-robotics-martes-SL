@@ -1,0 +1,34 @@
+{
+  "states": [
+    {
+      "name": "leave_base",
+      "success": "align_line",
+      "failure": "abort",
+      "timeout_ms": 1200
+    },
+    {
+      "name": "align_line",
+      "success": "deliver_item",
+      "failure": "abort",
+      "timeout_ms": 800
+    },
+    {
+      "name": "deliver_item",
+      "success": "return_home",
+      "failure": "abort",
+      "timeout_ms": 1500
+    },
+    {
+      "name": "return_home",
+      "success": "done",
+      "failure": "abort",
+      "timeout_ms": 1800
+    },
+    {
+      "name": "abort",
+      "success": "done",
+      "failure": "done",
+      "timeout_ms": 500
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+interface:
+  display_name: "Competition Debugger"
+  short_description: "debug inconsistent autonomous runs on lego spike pybricks robots. use when a competition robot works sometimes, misses turns, drifts, loses the line, mis-times an attachment, or behaves differently between practice and match conditions."

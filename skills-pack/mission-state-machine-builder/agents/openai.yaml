@@ -1,0 +1,3 @@
+interface:
+  display_name: "Mission State Machine Builder"
+  short_description: "turn autonomous robot tasks into robust pybricks state machines for lego spike competition robots. use when the user wants to split a run into states, retries, timeouts, fallbacks, or reusable mission subroutines for wro, fll, or similar autonomous events."

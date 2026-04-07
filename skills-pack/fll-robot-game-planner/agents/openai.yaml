@@ -1,0 +1,3 @@
+interface:
+  display_name: "FLL Robot Game Planner"
+  short_description: "plan first lego league robot game runs for lego spike robots using pybricks. use when the user wants to break the robot game into launch runs, prioritize missions, design attachments, or generate reliable code and practice plans for the current or past fll challenge."

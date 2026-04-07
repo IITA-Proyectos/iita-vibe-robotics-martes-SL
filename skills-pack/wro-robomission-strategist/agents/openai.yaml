@@ -1,0 +1,3 @@
+interface:
+  display_name: "WRO RoboMission Strategist"
+  short_description: "plan wro robomission runs for lego spike robots programmed with pybricks. use when the user wants to convert the yearly mission rules into scoring strategy, route order, attachments, risk analysis, run segmentation, or code priorities for autonomous wro attempts."

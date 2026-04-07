@@ -1,0 +1,3 @@
+interface:
+  display_name: "Rescue Line Course Planner"
+  short_description: "adapt lego spike pybricks robots for robocup junior rescue line and advanced precision line courses. use when the user wants to handle gaps, intersections, sharp turns, obstacles, ramps, pickup zones, victim logic, or line-loss recovery in autonomous rescue-line style events."

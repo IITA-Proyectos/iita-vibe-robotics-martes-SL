@@ -1,0 +1,3 @@
+interface:
+  display_name: "Pybricks API Coach"
+  short_description: "generate, refactor, and review pybricks python for lego spike competition robots. use when the user wants correct pybricks code, port mapping, drivebase setup, reusable subroutines, or safe code patterns for fll, wro, robocup junior rescue line, or other autonomous lego spike tasks."

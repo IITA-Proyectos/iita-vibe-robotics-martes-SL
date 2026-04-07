@@ -1,0 +1,3 @@
+interface:
+  display_name: "Drivebase Tuner"
+  short_description: "tune straight driving and turning accuracy for lego spike pybricks drive bases. use when the user wants to measure wheel diameter, axle track, drift, overshoot, drivebase settings, or convert test results into corrected constants for competition robots."

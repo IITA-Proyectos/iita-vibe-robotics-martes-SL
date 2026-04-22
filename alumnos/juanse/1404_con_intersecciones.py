@@ -33,13 +33,13 @@ MAX_DER = 58
 KP = 2.2        
 KD = 9
 
-# Umbrales para la lógica de huecos (Gaps)
-UMBRAL_BLANCO = 40  # Si todos leen mayor a esto, no hay línea
-UMBRAL_NEGRO = 20   # Si alguno lee menor a esto, encontró la línea
+# Umbrales
+UMBRAL_BLANCO = 40  
+UMBRAL_NEGRO = 20   
 
 # =======================================================
 
-print("Seguidor con Búsqueda de Huecos (20cm)")
+print("Seguidor con Cruces (T) y Huecos")
 print("Presiona el botón izquierdo del HUB para arrancar.")
 
 while not hub.buttons.pressed():
@@ -54,19 +54,70 @@ while True:
     ref_izq_bruto = sensor_izquierdo.reflection()
     ref_der_bruto = sensor_derecho.reflection()
     ref_cen_bruto = sensor_central.reflection() 
-    
+
     # =========================================================
-    # LÓGICA DE RECUPERACIÓN Y GAPS (HUECOS)
+    # 1. LÓGICA DE INTERSECCIONES EN "T" O CRUCES (+)
+    # =========================================================
+    # Un cruce en T o de 90° ocurre cuando el sensor CENTRAL ve negro Y, 
+    # AL MISMO TIEMPO, alguno de los laterales (Izquierdo o Derecho) también lo ve.
+    if ref_cen_bruto < UMBRAL_NEGRO and (ref_izq_bruto < UMBRAL_NEGRO or ref_der_bruto < UMBRAL_NEGRO):
+        print("¡Intersección detectada algo cruzada! Acomodándose...")
+        # BEEP 1 (Tono grave): Avisa que vio una cruz o T por primera vez
+        hub.speaker.beep(400, 100) 
+        
+        # A. Retroceder un poco para salir de la barra horizontal de la "T"
+        robot.reset()
+        robot.drive(-60, 0) # 6 cm hacia atrás (como modificaste vos)
+        while robot.distance() > -60:
+            wait(5)
+            
+        # BEEP 2 (Tono medio): Fin de la marcha atrás, arranca el mini-PID para alinearse
+        hub.speaker.beep(600, 100)
+            
+        # B. Volver a avanzar muy lentamente "siguiendo la línea" para obligarse a enderezarse.
+        while True:
+            r_izq = sensor_izquierdo.reflection()
+            r_cen = sensor_central.reflection()
+            r_der = sensor_derecho.reflection()
+            
+            # Si volvemos a tocar la T de frente salimos porque ya estamos rectos
+            if r_cen < UMBRAL_NEGRO and (r_izq < UMBRAL_NEGRO or r_der < UMBRAL_NEGRO):
+                # BEEP 3 (Tono agudo): Se alineó y está tocando de nuevo la T de frente
+                hub.speaker.beep(800, 100) 
+                break
+                
+            # Hacemos un mini PID para seguir la línea lentamente y corregir la postura
+            v_i = (r_izq - MIN_IZQ) / (MAX_IZQ - MIN_IZQ) * 100
+            v_d = (r_der - MIN_DER) / (MAX_DER - MIN_DER) * 100
+            mini_error = v_i - v_d
+            robot.drive(30, mini_error * KP)
+            wait(5)
+            
+        # C. Una vez perfectamente acomodado y de frente a la T, cruzamos con confianza
+        print("Acomodado perfectamente. Cruzando intersección recta...")
+        robot.reset()
+        robot.drive(VELOCIDAD, 0)
+        
+        # Avanzamos unos 6 cm (60 mm) para atravesar firmemente la línea de casi 2 cm
+        while robot.distance() < 60:
+            wait(5)
+            
+        # D. Una vez sorteado el cruce termina y sigue su curso normal
+        # BEEP 4 (Tono más agudo y de éxito): T superada
+        hub.speaker.beep(1000, 150) 
+        error_previo = 0
+        continue
+        
+    # =========================================================
+    # 2. LÓGICA DE RECUPERACIÓN Y GAPS (HUECOS)
     # =========================================================
     if ref_izq_bruto > UMBRAL_BLANCO and ref_der_bruto > UMBRAL_BLANCO and ref_cen_bruto > UMBRAL_BLANCO:
         print("¡Línea Perdida! Iniciando búsqueda (Gap de 20 cm)")
         
-        # Reseteamos los medidores de distancia de los motores a cero
         robot.reset()
         encontrada = False
         
-        # 1. AVANZAR BUSCANDO POR EL GAP A LA MISMA VELOCIDAD
-        robot.drive(VELOCIDAD, 0) # Avanzamos a la velocidad normal del robot
+        robot.drive(VELOCIDAD, 0) 
         
         while robot.distance() < 200:
             if sensor_izquierdo.reflection() < UMBRAL_NEGRO or sensor_derecho.reflection() < UMBRAL_NEGRO or sensor_central.reflection() < UMBRAL_NEGRO:
@@ -75,10 +126,9 @@ while True:
                 break
             wait(5)
             
-        # 2. SI NO LA ENCONTRÓ TRAS 20 CM, RETROCEDER
         if not encontrada:
             print("No se encontró línea al frente. ¡Retrocediendo a la última conocida!")
-            robot.drive(-VELOCIDAD, 0) # Marcha atrás a la velocidad normal
+            robot.drive(-VELOCIDAD, 0) 
             
             while True:
                 if sensor_izquierdo.reflection() < UMBRAL_NEGRO or sensor_derecho.reflection() < UMBRAL_NEGRO or sensor_central.reflection() < UMBRAL_NEGRO:
@@ -86,9 +136,8 @@ while True:
                     break
                 wait(5)
                 
-        # 3. AL ENCONTRARLA, ESTABILIZARSE
         robot.stop()
-        wait(150) # Pausa para matar la inercia
+        wait(150)
         error_previo = 0
         continue
     # =========================================================

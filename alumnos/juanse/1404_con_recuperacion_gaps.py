@@ -39,7 +39,7 @@ UMBRAL_NEGRO = 20   # Si alguno lee menor a esto, encontró la línea
 
 # =======================================================
 
-print("Seguidor con Búsqueda de Huecos (20cm)")
+print("Seguidor con Búsqueda de Huecos (18cm)")
 print("Presiona el botón izquierdo del HUB para arrancar.")
 
 while not hub.buttons.pressed():
@@ -59,7 +59,7 @@ while True:
     # LÓGICA DE RECUPERACIÓN Y GAPS (HUECOS)
     # =========================================================
     if ref_izq_bruto > UMBRAL_BLANCO and ref_der_bruto > UMBRAL_BLANCO and ref_cen_bruto > UMBRAL_BLANCO:
-        print("¡Línea Perdida! Iniciando búsqueda (Gap de 20 cm)")
+        print("¡Línea Perdida! Iniciando búsqueda (Gap de 18 cm)")
         
         # Reseteamos los medidores de distancia de los motores a cero
         robot.reset()
@@ -75,7 +75,7 @@ while True:
                 break
             wait(5)
             
-        # 2. SI NO LA ENCONTRÓ TRAS 20 CM, RETROCEDER
+        # 2. SI NO LA ENCONTRÓ TRAS 18 CM, RETROCEDER
         if not encontrada:
             print("No se encontró línea al frente. ¡Retrocediendo a la última conocida!")
             robot.drive(-VELOCIDAD, 0) # Marcha atrás a la velocidad normal
@@ -116,3 +116,4 @@ while True:
     robot.drive(velocidad_actual, correccion)
     
     error_previo = error
+    

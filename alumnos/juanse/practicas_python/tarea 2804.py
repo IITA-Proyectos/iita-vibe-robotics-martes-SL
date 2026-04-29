@@ -44,10 +44,17 @@ print(numero_entero)
 
 identidad = input("Introduzca su nombre")
 print (identidad)
+
 edad = input("Introduzca su edad")
 print(edad)
+
 cuenta = 100 - int(edad)
-edad_que_tendrá_100 = "En " + str(cuenta) + " tendrás 100 años"
+
+cantidad = " mucho"
+if cuenta < 50:
+    cantidad = " poco"
+  
+edad_que_tendrá_100 = "En " + str(cuenta) + " años" + " tendrás 100 años" + ", ¡felicidades!, te falta" + cantidad
 print(edad_que_tendrá_100)
 
 # (Opcional) Escriba un programa que permita convertir una temperatura

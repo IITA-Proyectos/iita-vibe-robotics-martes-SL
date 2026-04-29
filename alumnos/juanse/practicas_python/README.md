@@ -73,7 +73,7 @@ resta = float(numero_1) - float(numero_2)
 multiplicacion = float(numero_1) * float(numero_2)
 division = float(numero_1) / float(numero_2)
 potencia = float(numero_1) ** float(numero_2)
-# raiz_cuadrada = numero_1  numero_2
+
 
 ---------------------------------------------------------------------------------
 

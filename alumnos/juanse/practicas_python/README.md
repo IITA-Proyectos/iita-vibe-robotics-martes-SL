@@ -74,10 +74,10 @@ multiplicacion = float(numero_1) * float(numero_2)
 division = float(numero_1) / float(numero_2)
 potencia = float(numero_1) ** float(numero_2)
 
-
+print(suma, resta, multiplicacion, division, potencia)
 ---------------------------------------------------------------------------------
 
 # Práctica 2
 
-print(suma, resta, multiplicacion, division, potencia)
+
 

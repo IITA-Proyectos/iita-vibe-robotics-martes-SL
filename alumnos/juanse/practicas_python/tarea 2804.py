@@ -54,7 +54,7 @@ cantidad = " mucho"
 if cuenta < 50:
     cantidad = " poco"
   
-edad_que_tendrá_100 = "En " + str(cuenta) + " años" + " tendrás 100 años" + ", ¡felicidades!, te falta" + cantidad
+edad_que_tendrá_100 = "Hola " + identidad +", en " + str(cuenta) + " años" + " tendrás 100 años" + ", ¡felicidades!, te falta" + cantidad
 print(edad_que_tendrá_100)
 
 # (Opcional) Escriba un programa que permita convertir una temperatura
@@ -79,7 +79,11 @@ division = float(numero_1) / float(numero_2)
 potencia = float(numero_1) ** float(numero_2)
 # raiz_cuadrada = numero_1  numero_2
 
-print(suma, resta, multiplicacion, division, potencia)
+print(" suma: ", suma)
+print(" resta: ", resta)
+print(" multiplicación: ", multiplicacion)
+print(" división: ", division)
+print(" potencia: ", potencia)
 
 
 

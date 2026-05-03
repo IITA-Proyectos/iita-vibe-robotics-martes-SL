@@ -9,6 +9,7 @@
 
 1. [Preparación del Entorno](#preparación-del-entorno)
    - [Instalación de Visual Studio Code](#instalación-de-visual-studio-code)
+   - [Instalación de Python](#instalación-de-python)
    - [Instalación de Antigravity](#instalación-de-antigravity)
    - [Conexión a GitHub](#conexión-a-github)
 2. [Introducción a Python](#introducción-a-python)
@@ -89,6 +90,24 @@ Veamos los pasos para instalarlo:
    - Hacemos clic en el botón de **Instalar**.
 
 ¡Y listo! Con esto ya tenemos nuestro editor principal preparado para entender y ejecutar nuestro código en Python.
+
+---
+
+### Instalación de Python
+
+Para que todo esto funcione, Visual Studio Code necesita tener Python instalado en nuestra computadora, ya que es necesario para ejecutar el código.
+
+![](img/39pythonlogo.png)
+
+Veamos los pasos:
+
+1. **Descargar el instalador:**
+   Nos dirigimos a la página oficial de Python: [https://www.python.org/downloads/](https://www.python.org/downloads/). Allí buscamos el botón que dice **Or get the standalone installer for Python 3.14.4** para instalarlo directamente y hacemos clic en él.
+   
+   ![](img/38downloadpython.png)
+
+2. **Ejecutar el instalador:**
+   Al abrir el archivo, seguimos las instrucciones de instalación. ¡Es muy importante marcar la opción que dice "Add Python to PATH" en la primera pantalla antes de darle a instalar!
 
 ---
 

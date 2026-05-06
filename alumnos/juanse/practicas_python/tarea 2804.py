@@ -48,13 +48,13 @@ print (identidad)
 edad = input("Introduzca su edad")
 print(edad)
 
-cuenta = 100 - int(edad)
+cuenta = (100 - int(edad)) + int(2026)
 
 cantidad = " mucho"
 if cuenta < 50:
     cantidad = " poco"
   
-edad_que_tendrá_100 = "Hola " + identidad +", en " + str(cuenta) + " años" + " tendrás 100 años" + ", ¡felicidades!, te falta" + cantidad
+edad_que_tendrá_100 = "Hola " + identidad +", en el " + str(cuenta) + " tendrás 100 años" + ", ¡felicidades!, te falta" + cantidad
 print(edad_que_tendrá_100)
 
 # (Opcional) Escriba un programa que permita convertir una temperatura

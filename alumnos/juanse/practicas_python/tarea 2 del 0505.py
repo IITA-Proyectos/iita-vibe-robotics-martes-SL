@@ -21,10 +21,10 @@ else:
 
 numero_entero = input("Introduzca un número entero: ")
 
-if int(numero_entero) / 2 == 0:
-    print("Es un número par")
-elif int(numero_entero) / 2 != 0:
-    print("Es un número impar")
+if int(numero_entero) % 2 == 0:
+    print("El número es par")
+else:
+    print("El número es impar")
 
 
 #Solicitar al usuario que ingrese dos números y mostrar cuál de los dos es menor. No considerar el caso en que ambos números son iguales.
@@ -44,14 +44,17 @@ elif primer_numero == segundo_numero:
 
 dia_de_la_semana = input("Ingrese un día de la semana: ")
 
-if str(dia_de_la_semana) == "lunes":
+if dia_de_la_semana == "lunes":
     print("Es el peor día,no lo podes elegir")
-elif str(dia_de_la_semana) == "viernes":
+
+elif dia_de_la_semana == "viernes":
     print("Viernes proviene de la diosa Venus, buena elección")
-elif str(dia_de_la_semana) == "sabado" or "domingo":
+
+elif dia_de_la_semana in ["sabado", "domingo"]:
     print("A descansar, te lo ganaste")
-elif str(dia_de_la_semana) =="martes" or "miércoles" or "jueves":
-    print("Es un día de semana normal")
+
+elif dia_de_la_semana in ["martes", "miércoles", "jueves"]:
+    print("Es un día de la semana normal")
 
 
 #Escriba un programa que pida el año actual y un año cualquiera y que escriba cuántos años han pasado desde ese año o cuántos años faltan para llegar a ese año.

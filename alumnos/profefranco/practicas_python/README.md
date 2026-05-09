@@ -1,11 +1,12 @@
 # Estado de Entregas
 
-| Alumno | Práctica 1 | Práctica 2 |
-| :--- | :---: | :---: |
-| Juanse | ✅ | ❌ |
-| Laureano | ⏳ | ❌ |
-| Máximo | ✅ | ❌ |
-| Octavio | ❌ | ❌ |
+| Alumno | Práctica 1 | Práctica 2 | Práctica 3 |
+| :--- | :---: | :---: | :---: |
+| Diego | ❌ | ❌ | ❌ |
+| Juanse | ✅ | ✅ | ❌ |
+| Laureano | ⏳ | ❌ | ❌ |
+| Máximo | ✅ | ❌ | ❌ |
+| ~~Octavio~~ | ❌ | ❌ | ❌ |
 
 *✅ Entregado | ⏳ Incompleto | ❌ Pendiente*
 
@@ -13,6 +14,7 @@
 
 - [Practica 1](#practica-1)
 - [Practica 2](#practica-2)
+- [Practica 3](#practica-3)
 
 # Practica 1
 
@@ -135,4 +137,45 @@
    ¿En qué año estamos?: 2019
    Escriba un año cualquiera: 2019
    ¡Son el mismo año!
+   ```
+
+# Practica 3
+
+1. **La temperatura**: Pedí una temperatura con `input()`. Mostrá si es “Frío” (menos de 15), “Agradable” (entre 16 y 25) o “Caluroso” (más de 25).
+
+   **Ejemplo de ejecución:**
+   ```text
+   Ingresa la temperatura: 26
+   → Caluroso
+   ```
+
+2. **Puedo entrar?**: Pedí la edad del usuario y si tiene entrada (True/False). Usando `and` mostrá si puede entrar o no a la fiestita (mayores de 12 con entrada). 
+
+   **Ejemplo de ejecución:**
+   ```text
+   Tenés una entrada?: True
+   Qué edad tenés?: 9
+   → No podes entrar.
+   ```
+
+3. **El número secreto**: Guardá un número en una variable. Usando `while`, pedile al usuario que adivine. Avisale también si se quedó corto o si se pasó. Cuando adivine, rompé el bucle. 
+
+   **Ejemplo de ejecución:**
+   ```text
+   Decime un numerito: 25
+   → Te pasaste.
+   Decime un numerito: 9
+   → Te quedaste cortina.
+   ```
+
+4. **Aprendiendo a multiplicar**: Pedile al usuario un número y usa `for` con `range()` para mostrar su tabla del 1 al 10. 
+
+   **Ejemplo de ejecución:**
+   ```text
+   Decime un numerito: 7
+   → 7.
+   → 14.
+   → 21.
+   → 28.
+   → 35
    ```

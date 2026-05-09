@@ -44,6 +44,7 @@
    - [Control de flujo](#control-de-flujo)
    - [Comentarios](#comentarios)
    - [Definición de bloques](#definición-de-bloques)
+   - [Operadores de comparación](#operadores-de-comparación)
    - [Condicionales (if, elif, else)](#condicionales-if-elif-else)
    - [Ciclos (for)](#ciclos-for)
 
@@ -871,6 +872,23 @@ Python nos recomienda 4 espacios en blanco para indentar (o usar la tecla TAB). 
 
 ---
 
+### Operadores de comparación
+
+Para tomar decisiones en nuestro código y controlar el flujo del programa, necesitamos comparar valores. Python nos ofrece **operadores relacionales** que evalúan una condición y devuelven un valor booleano (`True` o `False`) dependiendo de si la condición se cumple o no. Estos son los principales:
+
+| Operador | Descripción | Ejemplo | Resultado |
+|:---:|:---:|:---:|:---:|
+| `==` | Igual a | `5 == 5` | `True` |
+| `!=` | Distinto de | `5 != 3` | `True` |
+| `>` | Mayor que | `5 > 3` | `True` |
+| `<` | Menor que | `5 < 3` | `False` |
+| `>=` | Mayor o igual que | `5 >= 5` | `True` |
+| `<=` | Menor o igual que | `5 <= 3` | `False` |
+
+> **Importante:** Es un error muy común confundir el **operador de asignación** `=` (que usamos para darle valor a una variable) con el **operador de comparación** `==` (que usamos para preguntar si dos valores son iguales). ¡A prestar mucha atención a esto!
+
+---
+
 ### Condicionales (if, elif, else)
 
 ![](img/17condicionales.png)
@@ -909,7 +927,32 @@ else:
 
 ### Ciclos (for)
 
-*(Contenido pendiente - Falta teoría sobre for en los apuntes)*
+La estructura de control repetitiva **for** nos permite ejecutar un bloque de código varias veces. Es ideal cuando sabemos de antemano cuántas veces queremos que se repita una acción, o cuando necesitamos recorrer los elementos de una colección.
+
+En Python, el ciclo `for` se suele usar junto con la función `range()`, que genera una secuencia de números automáticamente.
+
+**Ejemplo básico con `range()`:**
+Veamos cómo imprimir los números del 0 al 4:
+
+```python
+for i in range(5):
+    print(i)
+```
+
+En este caso, la variable `i` (que actúa como nuestro contador) irá tomando los valores generados por `range(5)` en cada repetición: 0, 1, 2, 3 y 4. 
+
+> **Nota:** Recordá que en programación siempre empezamos a contar desde el 0, por eso `range(5)` nos da 5 números, pero terminando en el 4.
+
+También podemos indicarle a `range()` desde dónde empezar, hasta dónde llegar y el tamaño del **paso** (cuánto sumar en cada vuelta):
+
+```python
+# range(inicio, fin, paso)
+for numero in range(2, 11, 2):
+    print(numero)
+```
+El código de arriba imprimirá los números pares desde el 2 hasta el 10. En cada iteración, la variable `numero` se irá actualizando solita.
+
+---
 
 #### Ejercicios Prácticos (para hacer entre todos)
 

@@ -1,14 +1,14 @@
 # 🧠 Skills de Claude para Robótica de Competición
 
-Set de **11 skills** para que Claude (y cualquier IA compatible con el formato Anthropic Skills) pueda asistir profesionalmente en programación de robots LEGO Spike Prime con Pybricks, cubriendo todos los formatos de competición de robótica educativa.
+Set de **15 skills** para que Claude (y cualquier IA compatible con el formato Anthropic Skills) pueda asistir profesionalmente en programación de robots LEGO Spike Prime / EV3 con Pybricks, cubriendo todos los formatos de competición de robótica educativa.
 
 ## ¿Qué es una skill?
 
 Una **skill** es una unidad de conocimiento especializada que se activa automáticamente cuando Claude detecta que la conversación trata sobre el tema. Cada skill tiene un `SKILL.md` con un frontmatter YAML (`name` + `description`) que el matcher usa para decidir si activarla, seguido de contenido markdown denso con APIs, patrones, ejemplos de código, y best practices.
 
-## Las 11 skills
+## Las 15 skills
 
-### Núcleo Pybricks (4)
+### Núcleo Pybricks Spike Prime (4)
 
 | # | Skill | Cubre |
 |---|---|---|
@@ -16,6 +16,14 @@ Una **skill** es una unidad de conocimiento especializada que se activa automát
 | 2 | **pybricks-precision-driving** | DriveBase, gyro-assisted driving, calibración empírica, squaring contra paredes, drift management |
 | 3 | **pybricks-line-following** | Seguidores P/PI/PID, calibración de ColorSensor, dos sensores, intersecciones, gap recovery |
 | 4 | **pybricks-odometry-localization** | Odometría diferencial, dead reckoning, fusión gyro+encoders, kinematics, pose tracking (x, y, θ) |
+
+### Núcleo Pybricks EV3 + Mindsensors (3) — **NUEVO**
+
+| # | Skill | Cubre |
+|---|---|---|
+| 12 | **pybricks-ev3-fundamentals** | API Pybricks específica para EV3 (EV3Brick, ev3devices), diferencias contra Spike, ev3dev, estructura de programa EV3 |
+| 13 | **mindsensors-ev3-sensors** | Sensores Mindsensors I²C en EV3 (LineLeader-V2, AbsoluteIMU, NXTCam5, multiplexers, IRSeeker), I2CDevice raw |
+| 14 | **pybricks-line-array-8-sensors** | Seguidores con array de 8 sensores (LineLeader/QTR-8/LSA), posición ponderada, detección de patrones, recovery |
 
 ### Competiciones WRO (3)
 
@@ -43,6 +51,7 @@ Una **skill** es una unidad de conocimiento especializada que se activa automát
 |---|---|---|
 | 10 | **robotics-best-practices** | Workflow profesional: testing, calibración, debugging, control de versiones, documentación, mecánica |
 | 11 | **robotics-control-theory** | Teoría de control aplicada: PID tuning real (Ziegler-Nichols), feedforward, filtros (low-pass, complementary, Kalman simple), state machines |
+| 15 | **advanced-pid-optimization** — **NUEVO** | PID optimizado nivel competencia: gain scheduling, derivative filtering, D-on-measurement, back-calculation anti-windup, feedforward, métricas ITAE/ISE |
 
 ## Cómo activar las skills en Claude
 
@@ -107,3 +116,4 @@ Estas skills son **documentos vivos**. Cuando un alumno descubre algo en el tall
 | Versión | Fecha | Descripción |
 |---|---|---|
 | 1.0 | 2026-04-07 | Set inicial de 11 skills cubriendo Pybricks, precision driving, line following, odometría, WRO RoboMission/Future Engineers/Football, RCJ Rescue Line, Sumo, best practices y control theory |
+| 1.1 | 2026-05-12 | +4 skills para EV3 y arrays multi-sensor: `pybricks-ev3-fundamentals`, `mindsensors-ev3-sensors`, `pybricks-line-array-8-sensors`, `advanced-pid-optimization` |

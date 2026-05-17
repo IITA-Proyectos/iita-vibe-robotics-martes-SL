@@ -1,12 +1,12 @@
 # Estado de Entregas
 
-| Alumno | Práctica 1 | Práctica 2 | Práctica 3 |
-| :--- | :---: | :---: | :---: |
-| Diego | ❌ | ❌ | ❌ |
-| Juanse | ✅ | ✅ | ❌ |
-| Laureano | ⏳ | ❌ | ❌ |
-| Máximo | ✅ | ❌ | ❌ |
-| ~~Octavio~~ | ❌ | ❌ | ❌ |
+| Alumno | Práctica 1 | Práctica 2 | Práctica 3 | Práctica 4 |
+| :--- | :---: | :---: | :---: | :---: |
+| Diego | ❌ | ❌ | ❌ | ❌ |
+| Juanse | ✅ | ✅ | ❌ | ❌ |
+| Laureano | ⏳ | ❌ | ❌ | ❌ |
+| Máximo | ✅ | ❌ | ❌ | ❌ |
+| ~~Octavio~~ | ❌ | ❌ | ❌ | ❌ |
 
 *✅ Entregado | ⏳ Incompleto | ❌ Pendiente*
 
@@ -15,6 +15,7 @@
 - [Practica 1](#practica-1)
 - [Practica 2](#practica-2)
 - [Practica 3](#practica-3)
+- [Practica 4](#practica-4)
 
 # Practica 1
 
@@ -178,4 +179,58 @@
    → 21.
    → 28.
    → 35
+   ```
+
+# Practica 4
+
+1. **Simulador de Cajero Automático**: Vamos a crear un programa que simule el ingreso y las operaciones de un cajero automático. ¡Este ejercicio requiere pensar bien cómo anidar bucles y condicionales!
+   
+   **Requisitos:**
+   - Define un PIN secreto en una variable (por ejemplo, `pin_secreto = "1234"`).
+   - Define un saldo inicial (por ejemplo, `saldo = 10000`).
+   - Usa un `while` para darle al usuario un máximo de **3 intentos** para ingresar el PIN correcto. Si agota los 3 intentos, mostrá un mensaje que diga "Cuenta bloqueada" y el programa debe terminar.
+   - Si el usuario adivina el PIN, dale la bienvenida y mostrale un menú interactivo usando **otro `while`** que se repita hasta que elija "Salir".
+   - El menú debe tener las siguientes opciones (usa `if/elif/else` para la elección):
+     1. **Retirar dinero:** Pedí el monto a retirar. Si es mayor al saldo, avisa que no hay fondos suficientes. Si es menor o igual, resta el monto del saldo e imprimí el nuevo saldo.
+     2. **Ver últimos movimientos:** Usa un bucle `for` junto con la función `range()` para simular la impresión de 5 movimientos pasados. (Ej: "Imprimiendo comprobante 1...", "Imprimiendo comprobante 2...", etc.).
+     3. **Salir:** Termina el bucle del menú y despídete del usuario.
+
+   **Pistas para resolverlo:**
+   - Para contar los intentos, crea una variable `intentos = 0` y súmale 1 en cada vuelta del primer `while`.
+   - Para que el menú se repita infinitamente hasta que el usuario decida, puedes usar `while True:` y cuando elija la opción "3", ejecutas la palabra clave `break` para romper el ciclo.
+
+   **Ejemplo de ejecución:**
+   ```text
+   --- CAJERO AUTOMÁTICO ---
+   Ingrese su PIN: 1111
+   PIN incorrecto. Intento 1/3
+   Ingrese su PIN: 1234
+   
+   ¡Bienvenido!
+   ¿Qué desea hacer?
+   1. Retirar dinero
+   2. Ver últimos movimientos
+   3. Salir
+   Opción: 1
+   ¿Cuánto dinero desea retirar?: 20000
+   Fondos insuficientes. Su saldo es $10000.
+   
+   ¿Qué desea hacer?
+   1. Retirar dinero
+   2. Ver últimos movimientos
+   3. Salir
+   Opción: 2
+   Imprimiendo comprobante de los últimos 5 movimientos:
+   - Movimiento histórico 1
+   - Movimiento histórico 2
+   - Movimiento histórico 3
+   - Movimiento histórico 4
+   - Movimiento histórico 5
+   
+   ¿Qué desea hacer?
+   1. Retirar dinero
+   2. Ver últimos movimientos
+   3. Salir
+   Opción: 3
+   Gracias por usar el cajero automático. ¡Adiós!
    ```

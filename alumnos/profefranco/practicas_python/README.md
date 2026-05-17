@@ -192,7 +192,7 @@
    - Si el usuario adivina el PIN, dale la bienvenida y mostrale un menú interactivo usando **otro `while`** que se repita hasta que elija "Salir".
    - El menú debe tener las siguientes opciones (usa `if/elif/else` para la elección):
      1. **Retirar dinero:** Pedí el monto a retirar. Si es mayor al saldo, avisa que no hay fondos suficientes. Si es menor o igual, resta el monto del saldo e imprimí el nuevo saldo.
-     2. **Ver últimos movimientos:** Usa un bucle `for` junto con la función `range()` para simular la impresión de 5 movimientos pasados. (Ej: "Imprimiendo comprobante 1...", "Imprimiendo comprobante 2...", etc.).
+     2. **Consultar saldo:** Mostrale al usuario el valor de su saldo actual. (Ej: "Su saldo actual es de $10000").
      3. **Salir:** Termina el bucle del menú y despídete del usuario.
 
    **Pistas para resolverlo:**
@@ -209,7 +209,7 @@
    ¡Bienvenido!
    ¿Qué desea hacer?
    1. Retirar dinero
-   2. Ver últimos movimientos
+   2. Consultar saldo
    3. Salir
    Opción: 1
    ¿Cuánto dinero desea retirar?: 20000
@@ -217,19 +217,14 @@
    
    ¿Qué desea hacer?
    1. Retirar dinero
-   2. Ver últimos movimientos
+   2. Consultar saldo
    3. Salir
    Opción: 2
-   Imprimiendo comprobante de los últimos 5 movimientos:
-   - Movimiento histórico 1
-   - Movimiento histórico 2
-   - Movimiento histórico 3
-   - Movimiento histórico 4
-   - Movimiento histórico 5
+   Su saldo actual es de .
    
    ¿Qué desea hacer?
    1. Retirar dinero
-   2. Ver últimos movimientos
+   2. Consultar saldo
    3. Salir
    Opción: 3
    Gracias por usar el cajero automático. ¡Adiós!

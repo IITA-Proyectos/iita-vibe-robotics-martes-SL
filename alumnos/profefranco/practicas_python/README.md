@@ -5,7 +5,7 @@
 | Diego | ❌ | ❌ | ❌ | ❌ |
 | Juanse | ✅ | ✅ | ❌ | ❌ |
 | Laureano | ⏳ | ❌ | ❌ | ❌ |
-| Máximo | ✅ | ❌ | ❌ | ❌ |
+| Máximo | ✅ | ❌ | ⏳ | ❌ |
 | ~~Octavio~~ | ❌ | ❌ | ❌ | ❌ |
 
 *✅ Entregado | ⏳ Incompleto | ❌ Pendiente*

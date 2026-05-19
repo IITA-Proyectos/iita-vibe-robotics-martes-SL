@@ -40,12 +40,15 @@
    - [Mutabilidad (explicado muy sencillo)](#mutabilidad-explicado-muy-sencillo)
    - [Conversiones implícitas y explícitas](#conversiones-implícitas-y-explícitas)
    - [Función print, type y input](#función-print-type-y-input)
+   - [Operadores aritméticos](#operadores-aritméticos)
 5. [Estructuras de Control](#estructuras-de-control)
    - [Control de flujo](#control-de-flujo)
    - [Comentarios](#comentarios)
    - [Definición de bloques](#definición-de-bloques)
    - [Operadores de comparación](#operadores-de-comparación)
+   - [Operadores lógicos](#operadores-lógicos)
    - [Condicionales (if, elif, else)](#condicionales-if-elif-else)
+   - [Ciclos (while)](#ciclos-while)
    - [Ciclos (for)](#ciclos-for)
 
 ---
@@ -816,6 +819,29 @@ print(nombre)
 
 ---
 
+### Operadores aritméticos
+
+Los operadores aritméticos nos permiten realizar operaciones matemáticas básicas con los distintos tipos numéricos de Python.
+
+| Operador | Descripción | Ejemplo | Resultado |
+|:---:|:---:|:---:|:---:|
+| `+` | Suma | `5 + 3` | `8` |
+| `-` | Resta | `5 - 3` | `2` |
+| `*` | Multiplicación | `5 * 3` | `15` |
+| `/` | División | `5 / 2` | `2.5` |
+| `//` | División entera | `5 // 2` | `2` |
+| `%` | Módulo (Resto) | `5 % 2` | `1` |
+| `**` | Exponenciación | `5 ** 3` | `125` |
+
+```python
+x = 10
+y = 3
+print('Suma:', x + y)
+print('Resto:', x % y)
+```
+
+---
+
 ## Estructuras de Control
 
 En la clase de hoy vamos a ver cómo los programas no siempre se ejecutan en línea recta. Tenemos dos conceptos clave:
@@ -889,6 +915,38 @@ Para tomar decisiones en nuestro código y controlar el flujo del programa, nece
 
 ---
 
+### Operadores lógicos
+
+Cuando necesitamos combinar varias condiciones usamos los **operadores lógicos**: `and`, `or` y `not`.
+
+**`and` (Y)** → Las DOS condiciones deben cumplirse:
+```python
+edad = 20
+tiene_dni = True
+
+if edad >= 18 and tiene_dni:
+    print('Puede votar')
+```
+
+**`or` (O)** → Basta con que UNA se cumpla:
+```python
+es_finde = True
+es_feriado = False
+
+if es_finde or es_feriado:
+    print('No hay clase')
+```
+
+**`not` (NO)** → Invierte el valor de la condición:
+```python
+modo_avion = False
+
+if not modo_avion:
+    print('Podés hacer la llamada')
+```
+
+---
+
 ### Condicionales (if, elif, else)
 
 ![](img/17condicionales.png)
@@ -925,6 +983,31 @@ else:
 
 ---
 
+### Ciclos (while)
+
+La estructura repetitiva **while** ejecuta un bloque de código *mientras* una condición sea verdadera. 
+
+```python
+numero = 1
+while numero <= 5:
+    print(numero)
+    numero += 1
+```
+
+> **Cuidado con el bucle infinito:** Si la condición nunca deja de cumplirse, el programa corre para siempre. Para frenarlo podés usar `CTRL + C` en la consola.
+
+Un uso muy común del `while` es seguir preguntándole al usuario hasta que decida parar:
+
+```python
+respuesta = 'S'
+while respuesta == 'S':
+    print('¡Hola, qué tal!')
+    respuesta = input('¿Querés otro saludo? [S/N]: ')
+print('¡Que tengas un buen día!')
+```
+
+---
+
 ### Ciclos (for)
 
 La estructura de control repetitiva **for** nos permite ejecutar un bloque de código varias veces. Es ideal cuando sabemos de antemano cuántas veces queremos que se repita una acción, o cuando necesitamos recorrer los elementos de una colección.
@@ -951,12 +1034,3 @@ for numero in range(2, 11, 2):
     print(numero)
 ```
 El código de arriba imprimirá los números pares desde el 2 hasta el 10. En cada iteración, la variable `numero` se irá actualizando solita.
-
----
-
-#### Ejercicios Prácticos (para hacer entre todos)
-
-1. **El premio:** Pedir un número de cliente por teclado. Si el número es 1000, imprimir "Ganaste un premio".
-2. **El menor:** Pedir dos números por teclado y mostrar en pantalla cuál es el menor (no hace falta considerar qué pasa si son iguales).
-3. **Tabla de multiplicar:** Usando un ciclo `for`, pedir un número y mostrar su tabla de multiplicar.
-4. **Sumatoria:** Usar un ciclo `for` para sumar todos los números del 100 al 200 y mostrar el resultado final.

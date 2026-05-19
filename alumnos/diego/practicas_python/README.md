@@ -1,4 +1,4 @@
-# Práctica 3
+# Práctica 3 
 # La temperatura
 temp = float(input("Ingrese la temperatura (°C): "))
 

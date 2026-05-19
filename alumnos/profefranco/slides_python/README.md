@@ -5,7 +5,7 @@
   <img src="../clases_python/img/profesor.png" height="35" alt="Profesor">
 </p>
 
-## Índice
+## Índice 
 
 - [Clase 4](#clase-4)
 - [Clase 5](#clase-5)

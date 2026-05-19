@@ -2,13 +2,13 @@
 #  Pedí una temperatura con input(). Mostrá si es “Frío” (menos de 15), “Agradable” (entre 16 y 25) o “Caluroso” (más de 25).
 
 temperatura = input("Ingrese una temperatura: ")
+temperatura = int(temperatura)
 
-if int(temperatura) < int(15):
+if temperatura < 15:
     print("Frio")
-elif int(temperatura) > int(15):
-    if int(temperatura) <= int(25):
-        print("Agradable")
-elif int(temperatura) > int(25):
+elif temperatura > 15 and temperatura < 25:
+    print("Agradable")
+elif temperatura > 25:
     print("Caluroso")
 
 

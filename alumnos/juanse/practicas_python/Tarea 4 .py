@@ -65,6 +65,7 @@ while True:
 
 
             elif codigo == 2:
+                print("Contraseña incorrecta")
                 print("Tu saldo actual es de" + str(saldo_inicial))
                 time.sleep(2)
 

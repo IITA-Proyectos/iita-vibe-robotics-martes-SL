@@ -1,11 +1,11 @@
 # Estado de Entregas
 
-| Alumno | Práctica 1 | Práctica 2 | Práctica 3 | Práctica 4 |
-| :--- | :---: | :---: | :---: | :---: |
-| Diego | ❌ | ❌ | ✅ | ✅ |
-| Juanse | ✅ | ✅ | ✅ | ✅ |
-| Laureano | ✅ | ✅ | ❌ | ❌ |
-| Máximo | ✅ | ❌ | ✅ | ❌ |
+| Alumno | Práctica 1 | Práctica 2 | Práctica 3 | Práctica 4 | Práctica 5 |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| Diego | ❌ | ❌ | ✅ | ✅ | ❌ |
+| Juanse | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Laureano | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Máximo | ✅ | ❌ | ✅ | ❌ | ❌ |
 
 *✅ Entregado | ⏳ Incompleto | ❌ Pendiente*
 
@@ -15,6 +15,7 @@
 - [Practica 2](#practica-2)
 - [Practica 3](#practica-3)
 - [Practica 4](#practica-4)
+- [Practica 5](#practica-5)
 
 # Practica 1
 
@@ -228,3 +229,20 @@
    Opción: 3
    Gracias por usar el cajero automático. ¡Adiós!
    ```
+
+# Practica 5
+
+1. **Nuestro primer inventario**: Crea una lista con 5 materiales que necesitaríamos para armar nuestro robot. Después, imprimí por pantalla el **tercer material** de nuestra lista usando los índices.
+
+2. **El registro de un cuadrado**: Empecemos con una lista vacía `acciones = []`. Usando `.append()` agregá todas las acciones que creas necesarias para que un robot realice un cuadrado de 30cm en el piso. Al terminar imprimí la lista.
+Después de todo eso, usá `.pop()` para eliminar las últimas 2 acciones y luego imprimí la lista de nuevo.
+
+3. **Siendo respetuoso**: Crea una lista con los nombres de todas las personas en el aula. Luego, recorre la lista con el ciclo `for` para imprimir un saludo personalizado para cada uno, como si recién llegaras a la clase.
+
+   **Ejemplo de salida esperada:**
+   ```text
+   Hola Juanse.
+   Hola Diego.
+   ```
+
+4. **Registro de fallos**: Tenés una lista de `alertas = ['Batería baja', 'Sensor desconectado', 'Programación con errores', 'Bluetooth no conectado', 'USB no reconocido']`. Hacé un programa que pregunte al usuario un fallo y use `in` para verificar si está en la lista de alertas.

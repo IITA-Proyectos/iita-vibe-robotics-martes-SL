@@ -3,8 +3,8 @@
 | Alumno | Práctica 1 | Práctica 2 | Práctica 3 | Práctica 4 |
 | :--- | :---: | :---: | :---: | :---: |
 | Diego | ❌ | ❌ | ✅ | ✅ |
-| Juanse | ✅ | ✅ | ✅ | ❌ |
-| Laureano | ⏳ | ❌ | ❌ | ❌ |
+| Juanse | ✅ | ✅ | ✅ | ✅ |
+| Laureano | ✅ | ✅ | ❌ | ❌ |
 | Máximo | ✅ | ❌ | ✅ | ❌ |
 
 *✅ Entregado | ⏳ Incompleto | ❌ Pendiente*

@@ -47,9 +47,13 @@
    - [Definición de bloques](#definición-de-bloques)
    - [Operadores de comparación](#operadores-de-comparación)
    - [Operadores lógicos](#operadores-lógicos)
-   - [Condicionales (if, elif, else)](#condicionales-if-elif-else)
-   - [Ciclos (while)](#ciclos-while)
-   - [Ciclos (for)](#ciclos-for)
+50:    - [Condicionales (if, elif, else)](#condicionales-if-elif-else)
+51:    - [Ciclos (while)](#ciclos-while)
+52:    - [Ciclos (for)](#ciclos-for)
+6. [Estructuras de Datos](#estructuras-de-datos)
+   - [Listas](#listas)
+   - [Tuplas](#tuplas)
+   - [Diccionarios](#diccionarios)
 
 ---
 
@@ -986,6 +990,200 @@ else:
 ### Ciclos (while)
 
 La estructura repetitiva **while** ejecuta un bloque de código *mientras* una condición sea verdadera. 
+```python
+type(9) # <class 'int'>
+velocidad_del_sonido = 343.2
+print(type(velocidad_del_sonido)) # <class 'float'>
+```
+
+**Mostrar información con `print()`**
+La función `print()` permite mostrar texto y variables en la consola. Además de su uso básico, admite algunos parámetros interesantes como `sep` (para cambiar el separador entre elementos) y `end` (para cambiar cómo termina la línea).
+
+```python
+msg1 = '¿Sabes por qué estoy acá?'
+msg2 = 'Porque me apasiona'
+print(msg1, msg2, sep=' | ', end='!!')
+```
+
+**Leer datos desde teclado con `input()`**
+Para solicitar la entrada de datos por teclado al usuario se utiliza la función `input()`. 
+
+```python
+nombre = input('Introduzca su nombre: ')
+print(nombre)
+```
+
+> **Importante:** La función `input()` siempre nos devuelve un objeto de tipo cadena de texto (`str`). Si queremos leer un número, debemos usar una conversión explícita como `int(input('Edad: '))`.
+
+---
+
+### Operadores aritméticos
+
+Los operadores aritméticos nos permiten realizar operaciones matemáticas básicas con los distintos tipos numéricos de Python.
+
+| Operador | Descripción | Ejemplo | Resultado |
+|:---:|:---:|:---:|:---:|
+| `+` | Suma | `5 + 3` | `8` |
+| `-` | Resta | `5 - 3` | `2` |
+| `*` | Multiplicación | `5 * 3` | `15` |
+| `/` | División | `5 / 2` | `2.5` |
+| `//` | División entera | `5 // 2` | `2` |
+| `%` | Módulo (Resto) | `5 % 2` | `1` |
+| `**` | Exponenciación | `5 ** 3` | `125` |
+
+```python
+x = 10
+y = 3
+print('Suma:', x + y)
+print('Resto:', x % y)
+```
+
+---
+
+## Estructuras de Control
+
+En la clase de hoy vamos a ver cómo los programas no siempre se ejecutan en línea recta. Tenemos dos conceptos clave:
+- **Estructuras de datos:** Conjunto o colección de valores organizados en memoria.
+- **Estructuras de control:** Permiten estructurar un programa para hacerlo más fácil de leer, verificar y mantener.
+
+Existen tres tipos de estructuras de control:
+- **Secuencial:** una instrucción sigue a otra (lo que venimos haciendo).
+- **Repetitiva:** repite instrucciones (ciclos).
+- **Selectiva:** toma decisiones lógicas (condicionales).
+
+---
+
+### Control de flujo
+
+Todo programa informático está formado por *instrucciones* que se ejecutan en forma secuencial de arriba hacia abajo, como si estuviésemos leyendo un libro. Este orden constituye el llamado **flujo** del programa. 
+
+Es posible modificar este flujo secuencial para que tome *bifurcaciones* o *repita* ciertas instrucciones. Las sentencias que nos permiten hacer estas modificaciones se engloban en el **control de flujo**.
+
+---
+
+### Comentarios
+
+Los comentarios son anotaciones que podemos incluir en nuestro programa y que nos van a permitir aclarar ciertos aspectos del código. Estas indicaciones son ignoradas por el intérprete de Python, es decir, no se ejecutan.
+
+En Python tenemos dos formas de hacer comentarios:
+- **`#`** → Sirve para comentar una sola línea.
+- **`''' '''`** → Sirve para escribir comentarios de múltiples líneas.
+
+Veamos unos ejemplos:
+
+```python
+# Edad del Universo expresando en días (comentario de una línea)
+edad_del_universo = 13800 * (10 ** 6) * 365
+
+'''
+Este es un comentario
+que ocupa
+varias líneas
+'''
+```
+
+---
+
+### Definición de bloques
+
+A diferencia de otros lenguajes que utilizan llaves para definir los bloques de código, Python quiso evitar estos caracteres por considerarlos innecesarios. 
+
+Es por ello que en Python los bloques de código se definen a través de **espacios en blanco, preferiblemente 4**. En términos técnicos se habla de **tamaño de indentación**.
+
+![](img/18identacion.png)
+
+Python nos recomienda 4 espacios en blanco para indentar (o usar la tecla TAB). Esto es fundamental para que funcionen los condicionales y los ciclos.
+
+---
+
+### Operadores de comparación
+
+Para tomar decisiones en nuestro código y controlar el flujo del programa, necesitamos comparar valores. Python nos ofrece **operadores relacionales** que evalúan una condición y devuelven un valor booleano (`True` o `False`) dependiendo de si la condición se cumple o no. Estos son los principales:
+
+| Operador | Descripción | Ejemplo | Resultado |
+|:---:|:---:|:---:|:---:|
+| `==` | Igual a | `5 == 5` | `True` |
+| `!=` | Distinto de | `5 != 3` | `True` |
+| `>` | Mayor que | `5 > 3` | `True` |
+| `<` | Menor que | `5 < 3` | `False` |
+| `>=` | Mayor o igual que | `5 >= 5` | `True` |
+| `<=` | Menor o igual que | `5 <= 3` | `False` |
+
+> **Importante:** Es un error muy común confundir el **operador de asignación** `=` (que usamos para darle valor a una variable) con el **operador de comparación** `==` (que usamos para preguntar si dos valores son iguales). ¡A prestar mucha atención a esto!
+
+---
+
+### Operadores lógicos
+
+Cuando necesitamos combinar varias condiciones usamos los **operadores lógicos**: `and`, `or` y `not`.
+
+**`and` (Y)** → Las DOS condiciones deben cumplirse:
+```python
+edad = 20
+tiene_dni = True
+
+if edad >= 18 and tiene_dni:
+    print('Puede votar')
+```
+
+**`or` (O)** → Basta con que UNA se cumpla:
+```python
+es_finde = True
+es_feriado = False
+
+if es_finde or es_feriado:
+    print('No hay clase')
+```
+
+**`not` (NO)** → Invierte el valor de la condición:
+```python
+modo_avion = False
+
+if not modo_avion:
+    print('Podés hacer la llamada')
+```
+
+---
+
+### Condicionales (if, elif, else)
+
+![](img/17condicionales.png)
+
+La sentencia condicional (Selectiva) en Python es **if**. Nos permite tomar decisiones lógicas. En su escritura debemos añadir una **expresión de comparación (condición)** terminando con **dos puntos al final** de la línea. 
+
+**Selectiva Simple (if-else)**
+Veamos un ejemplo:
+
+```python
+temperatura = 40
+if temperatura > 35:
+    print('Aviso por alta temperatura')
+else:
+    print('Parámetros normales')
+```
+
+**Selectiva Múltiple (if-elif-else)**
+Podríamos tener múltiples condiciones para evaluar distintos casos. Python nos ofrece la sentencia **elif** para hacer esto mucho más fácil:
+
+![](img/19elif.png)
+
+Veamos cómo se aplica:
+
+```python
+temperatura = 28
+if temperatura < 20:
+    print('Nivel verde')
+elif temperatura < 30:
+    print('Nivel naranja')
+else:
+    print('Nivel rojo')
+```
+
+---
+
+### Ciclos (while)
+
+La estructura repetitiva **while** ejecuta un bloque de código *mientras* una condición sea verdadera. 
 
 ```python
 numero = 1
@@ -1034,3 +1232,137 @@ for numero in range(2, 11, 2):
     print(numero)
 ```
 El código de arriba imprimirá los números pares desde el 2 hasta el 10. En cada iteración, la variable `numero` se irá actualizando solita.
+
+---
+
+## Estructuras de Datos
+
+Hasta ahora lo que aprendimos a hacer es guardar un solo dato en cada variable que creamos. Es como si por cada tornillo que tenemos por casa, los guardariamos a CADA UNO en una cajita individual, seguramente no sea una buena idea. 
+
+Pasemos ese ejemplo a un robot... Imaginá que nuestro robot tiene un solo sensor de luz que guardamos en una variable, hasta ahí todo bien. ¿Pero que pasaría si tenemos un robot con 100 sensores? ¿Nos pondríamos a crear 100 variables `sensor1`, `sensor2`... hasta `sensor100`? Sería una pésima idea. 
+
+Para solucionar este problema, Python nos ofrece las **Estructuras de Datos**, que son como "cajas más grandes" o cajones organizadores donde podemos guardar un montón de valores usando una sola variable.
+
+---
+
+### Listas
+
+Las **listas** son exactamente eso: una caja grande donde podemos guardar muchos datos ordenados. Se crean usando corchetes `[]` y separando cada elemento con una coma.
+
+```python
+# Una lista de números (ej. lecturas de sensores)
+lecturas = [15, 20, 18, 10, 12]
+
+# Una lista de textos (ej. nombres de motores)
+motores = ['motor_izquierdo', 'motor_derecho', 'motor_garra']
+
+# ¡Incluso listas vacías para ir llenándolas después!
+datos_robot = []
+```
+
+**Índices: Contando desde cero**
+Todos los elementos de una lista están ordenados en posiciones llamadas **Índices**. La regla de oro en programación es que **siempre empezamos a contar desde el 0**.
+
+```python
+        #   0         1           2
+piezas = ['Rueda', 'Batería', 'Cables']
+
+print(piezas[0])  # Imprime: Rueda
+print(piezas[2])  # Imprime: Cables
+```
+
+**Agregando y quitando elementos**
+Rara vez nuestras listas se quedan iguales, especialmente en robótica donde los datos cambian todo el tiempo.
+
+- **`.append()`**: Agrega un elemento siempre al **final** de la lista (¡es tu mejor amigo!).
+- **`.pop()`**: Elimina y te devuelve un elemento de la lista. Si no le decís la posición, saca el último por defecto.
+
+```python
+acciones = []
+acciones.append('Avanzar')
+acciones.append('Girar')
+print(acciones)  # ['Avanzar', 'Girar']
+
+ultima = acciones.pop()
+print(ultima)    # 'Girar'
+print(acciones)  # ['Avanzar']
+```
+
+**Listas y el ciclo `for`**
+Las listas y el ciclo `for` son la pareja perfecta. Podés usar `for` para sacar y procesar un elemento a la vez.
+
+```python
+rutina = ['Avanzar 10cm', 'Girar 90 grados', 'Encender LED']
+
+for paso in rutina:
+    print('Ejecutando:', paso)
+```
+
+---
+
+### Tuplas
+
+Imaginá que tenés una lista tan importante que **no querés que nadie la modifique por accidente**. Por ejemplo, las distancias exactas en milímetros donde tiene que frenar tu robot. Si usás una lista normal, podés hacer un `.pop()` sin querer y arruinar la misión. 
+
+Para eso existen las **Tuplas**. Son prácticamente iguales a las listas, pero son **inmutables** (no se pueden modificar, ni agregar cosas con append, ni quitar con pop). Se crean usando paréntesis `()` en lugar de corchetes.
+
+```python
+distancias_frenado = (150, 200)
+
+print(distancias_frenado[0]) # Funciona igual que en las listas: 150
+```
+
+Si intentamos modificarlas, Python nos va a frenar en seco tirando un error:
+
+```python
+colores_rgb = (255, 0, 0)
+colores_rgb[0] = 100 # ¡ERROR! Las tuplas no soportan asignación.
+```
+
+> **Nota:** Son ideales para datos fijos, ocupan menos memoria en la computadora y protegen tu código de cambios indeseados.
+
+---
+
+### Diccionarios
+
+¿Alguna vez usaste un diccionario de verdad para buscar una palabra? Buscás la **Palabra** y encontrás su **Significado**. 
+En Python, los **Diccionarios** funcionan exactamente igual. Son estructuras que guardan parejas de **"Clave : Valor"** (`Key : Value`). En lugar de buscar por un índice numérico (0, 1, 2...), buscamos directamente por la "Clave" (la palabra).
+
+Se crean usando llaves `{}`.
+
+```python
+# Nuestro diccionario de información del robot
+robot_info = {
+    'nombre': 'Wall-E',
+    'bateria': 100,
+    'estado': 'En reposo'
+}
+```
+
+**Obtener un elemento**
+Para saber cuánta batería tiene, en vez de usar un número entre corchetes, usamos el nombre de la clave:
+
+```python
+print(robot_info['bateria'])  # Imprime: 100
+```
+
+> **El truquito de `.get()`**: Si le pedimos al diccionario una clave que no existe (ej: `robot_info['velocidad']`), Python nos tira error y se tranca el programa. Para evitarlo, usamos la función `.get()`. Si la clave no está, simplemente nos devuelve `None` (nada) o un mensaje por defecto, ¡pero el programa sigue corriendo!
+
+```python
+print(robot_info.get('velocidad', 'Dato no encontrado'))
+```
+
+**Modificar o agregar**
+¡Los diccionarios sí son mutables! Podés cambiar los valores o agregar claves nuevas muy fácil.
+
+```python
+# Cambiamos un valor existente
+robot_info['estado'] = 'Avanzando'
+
+# Agregamos una pareja nueva
+robot_info['velocidad'] = 50
+
+print(robot_info)
+```
+
+¡Con Listas, Tuplas y Diccionarios ya tenés todas las herramientas necesarias para manejar muchísima información de los sensores de tus robots!

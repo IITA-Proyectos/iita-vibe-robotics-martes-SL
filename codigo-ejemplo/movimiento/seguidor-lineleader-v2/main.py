@@ -40,18 +40,21 @@ ll = LightSensorArray(Port.S1)
 # ── Variables de Control y Calibración ───────────────────────────
 # Como el sensor está cerca del eje, no tiene "palanca" al girar.
 # Necesitamos un KP más alto y no podemos frenar tanto en las curvas.
-KP = 2.0
+KP = 4.5
 KI = 0.0
-KD = 18.0
+KD = 22.0
 
-BASE_SPEED = 200
-MIN_SPEED = 120
+BASE_SPEED = 130
+MIN_SPEED = 30
 CENTER = 35
+INTERSECTION_THRESHOLD = 20
 
 WHITE = [0]*8
 BLACK = [0]*8
 GREEN_L_MIN, GREEN_L_MAX = 30, 70
 GREEN_R_MIN, GREEN_R_MAX = 30, 70
+T_L_MASK = [False]*8
+T_R_MASK = [False]*8
 
 # ── Funciones de Memoria ─────────────────────────────────────────
 
@@ -60,7 +63,9 @@ def guardar_calibracion():
         "WHITE": WHITE,
         "BLACK": BLACK,
         "GREEN_L": [GREEN_L_MIN, GREEN_L_MAX],
-        "GREEN_R": [GREEN_R_MIN, GREEN_R_MAX]
+        "GREEN_R": [GREEN_R_MIN, GREEN_R_MAX],
+        "T_L_MASK": T_L_MASK,
+        "T_R_MASK": T_R_MASK
     }
     try:
         with open("calibracion.json", "w") as f:
@@ -69,7 +74,7 @@ def guardar_calibracion():
         print("Error guardando:", e)
 
 def cargar_calibracion():
-    global WHITE, BLACK, GREEN_L_MIN, GREEN_L_MAX, GREEN_R_MIN, GREEN_R_MAX
+    global WHITE, BLACK, GREEN_L_MIN, GREEN_L_MAX, GREEN_R_MIN, GREEN_R_MAX, T_L_MASK, T_R_MASK
     try:
         with open("calibracion.json", "r") as f:
             datos = json.load(f)
@@ -78,6 +83,10 @@ def cargar_calibracion():
                 BLACK[i] = datos["BLACK"][i]
             GREEN_L_MIN, GREEN_L_MAX = datos["GREEN_L"][0], datos["GREEN_L"][1]
             GREEN_R_MIN, GREEN_R_MAX = datos["GREEN_R"][0], datos["GREEN_R"][1]
+            if "T_L_MASK" in datos:
+                T_L_MASK = datos["T_L_MASK"]
+            if "T_R_MASK" in datos:
+                T_R_MASK = datos["T_R_MASK"]
         return True
     except:
         return False
@@ -124,6 +133,30 @@ def is_green_left(v):
 def is_green_right(v):
     return GREEN_R_MIN <= v <= GREEN_R_MAX
 
+def matches_mask(cal, mask, threshold_black=35, threshold_white=65):
+    # Si la máscara no está calibrada (todo False), no debe coincidir con nada
+    if not any(mask):
+        return False
+    
+    black_expected = 0
+    black_matched = 0
+    white_expected = 0
+    white_matched = 0
+    
+    for i in range(8):
+        if mask[i]:
+            black_expected += 1
+            if cal[i] < threshold_black:
+                black_matched += 1
+        else:
+            white_expected += 1
+            if cal[i] > threshold_white:
+                white_matched += 1
+                
+    # Exigimos que coincidan casi todos los negros esperados y casi todos los blancos esperados por separado.
+    # Esto evita que una curva (donde el centro es blanco pero un lado es negro) coincida con la T.
+    return (black_matched >= black_expected - 1) and (white_matched >= white_expected - 1)
+
 def detect_green_marker(cal):
     """
     Detecta el patrón de verdes (RoboCup Rescue Line).
@@ -168,6 +201,7 @@ def follow_line():
     last_pos = CENTER
     integral = 0
     turn = 0  # Inicializamos turn para el caso de recovery
+    loss_counter = 0
     
     while True:
         try:
@@ -176,39 +210,81 @@ def follow_line():
             # 2. Normalizamos por software
             cal = normalize_array(raw_vals)
             
-            # Intersección verde (RoboCup)
-            marker = detect_green_marker(cal)
-            if marker:
+            # Intersección negra (los 8 sensores deben leer negro puro)
+            if count_on_line(cal, threshold=INTERSECTION_THRESHOLD) == 8:
                 drive.stop()
-                ev3.speaker.beep(1000, 100)
-                print("Marcador Verde:", marker)
-                
-                # Avanza aprox 1cm para quedar alineado
-                drive.straight(10)
-                
-                if marker == 'RIGHT':
-                    drive.turn(90)
-                elif marker == 'LEFT':
-                    drive.turn(-90)
-                elif marker == 'DOUBLE':
-                    drive.turn(180)
-                
-                # Reiniciamos variables post-giro
+                ev3.speaker.beep(600, 300)
+                drive.straight(40)  # Avanzar un poco para pasar la intersección
                 last_err = 0
                 integral = 0
                 turn = 0
                 continue
+
+            # Intersección en T Izquierda (se ignora y se sigue derecho)
+            if matches_mask(cal, T_L_MASK):
+                drive.stop()
+                ev3.speaker.beep(800, 100)
+                wait(50)
+                ev3.speaker.beep(800, 100)
+                print("T Izquierda detectada - Ignorando")
+                drive.straight(40)  # Avanzar para pasar el desvío
+                last_err = 0
+                integral = 0
+                turn = 0
+                continue
+
+            # Intersección en T Derecha (se ignora y se sigue derecho)
+            if matches_mask(cal, T_R_MASK):
+                drive.stop()
+                ev3.speaker.beep(1000, 100)
+                wait(50)
+                ev3.speaker.beep(1000, 100)
+                print("T Derecha detectada - Ignorando")
+                drive.straight(40)  # Avanzar para pasar el desvío
+                last_err = 0
+                integral = 0
+                turn = 0
+                continue
+            
+            # Intersección verde (RoboCup) - Desactivado temporalmente
+            # marker = detect_green_marker(cal)
+            # if marker:
+            #     drive.stop()
+            #     ev3.speaker.beep(1000, 100)
+            #     print("Marcador Verde:", marker)
+            #     
+            #     # Avanza aprox 1cm para quedar alineado
+            #     drive.straight(10)
+            #     
+            #     if marker == 'RIGHT':
+            #         drive.turn(90)
+            #     elif marker == 'LEFT':
+            #         drive.turn(-90)
+            #     elif marker == 'DOUBLE':
+            #         drive.turn(180)
+            #     
+            #     # Reiniciamos variables post-giro
+            #     last_err = 0
+            #     integral = 0
+            #     turn = 0
+            #     continue
                 
             pos = pos_x10(cal)
             
             if pos is None:
-                # === RECOVERY MODE ===
-                # Si perdemos la línea, retrocedemos (marcha atrás) a 100 mm/s.
-                # Mantener la rotación (turn) del ciclo anterior hace que el robot
-                # "deshaga" la curva exacta por donde se salió.
-                drive.drive(-100, turn)
+                loss_counter += 1
+                if loss_counter > 8:  # ~80ms (8 ciclos de 10ms) de pérdida continua
+                    # === RECOVERY MODE ===
+                    # Si perdemos la línea de verdad, retrocedemos (marcha atrás) a 70 mm/s.
+                    # Invertimos la rotación (-turn) para que el robot desande la curva
+                    # y enderece su ángulo con la línea en lugar de quedar perpendicular.
+                    drive.drive(-70, -turn)
+                # Si es una pérdida momentánea (ruido o inicio de curva rápida),
+                # no cambiamos la velocidad/giro para darle margen a recuperarse solo.
                 wait(10)
                 continue
+            
+            loss_counter = 0
                 
             error = CENTER - pos
             
@@ -284,66 +360,124 @@ def calibracion_manual():
     while Button.CENTER not in ev3.buttons.pressed(): wait(20)
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
 
-    # 3. Calibrar Verde Izquierdo
+    # 3. Calibrar Verde Izquierdo (Desactivado temporalmente)
+    # ev3.screen.clear()
+    # ev3.screen.draw_text(10, 30, "3. VERDE IZQ")
+    # ev3.screen.draw_text(10, 60, "Apretar CENTRO")
+    # while Button.CENTER not in ev3.buttons.pressed():
+    #     wait(20)
+    # 
+    # ev3.screen.draw_text(10, 90, "Midiendo...")
+    # ev3.speaker.beep(600, 100)
+    # 
+    # green_l = []
+    # for _ in range(20):
+    #     cal = normalize_array(ll.raw())
+    #     # Tomamos muestras de los sensores izquierdos (0 y 1)
+    #     green_l.extend([cal[0], cal[1]])
+    #     wait(20)
+    # 
+    # if green_l:
+    #     avg_l = sum(green_l) // len(green_l)
+    #     GREEN_L_MIN = max(0, avg_l - 15)
+    #     GREEN_L_MAX = min(100, avg_l + 15)
+    # 
+    #     ev3.screen.clear()
+    #     ev3.screen.draw_text(0, 10, "V. Izq: " + str(GREEN_L_MIN) + "-" + str(GREEN_L_MAX))
+    #     ev3.screen.draw_text(0, 40, " ".join(str(v) for v in cal[0:4]))
+    #     ev3.screen.draw_text(0, 70, " ".join(str(v) for v in cal[4:8]))
+    #     ev3.screen.draw_text(0, 100, "Click p/seguir")
+    # 
+    # while Button.CENTER in ev3.buttons.pressed(): wait(20)
+    # while Button.CENTER not in ev3.buttons.pressed(): wait(20)
+    # while Button.CENTER in ev3.buttons.pressed(): wait(20)
+    # 
+    # # 4. Calibrar Verde Derecho (Desactivado temporalmente)
+    # ev3.screen.clear()
+    # ev3.screen.draw_text(10, 30, "4. VERDE DER")
+    # ev3.screen.draw_text(10, 60, "Apretar CENTRO")
+    # while Button.CENTER not in ev3.buttons.pressed():
+    #     wait(20)
+    # 
+    # ev3.screen.draw_text(10, 90, "Midiendo...")
+    # ev3.speaker.beep(600, 100)
+    # 
+    # green_r = []
+    # for _ in range(20):
+    #     cal = normalize_array(ll.raw())
+    #     # Tomamos muestras de los sensores derechos (6 y 7)
+    #     green_r.extend([cal[6], cal[7]])
+    #     wait(20)
+    # 
+    # if green_r:
+    #     avg_r = sum(green_r) // len(green_r)
+    #     GREEN_R_MIN = max(0, avg_r - 15)
+    #     GREEN_R_MAX = min(100, avg_r + 15)
+    # 
+    #     ev3.screen.clear()
+    #     ev3.screen.draw_text(0, 10, "V. Der: " + str(GREEN_R_MIN) + "-" + str(GREEN_R_MAX))
+    #     ev3.screen.draw_text(0, 40, " ".join(str(v) for v in cal[0:4]))
+    #     ev3.screen.draw_text(0, 70, " ".join(str(v) for v in cal[4:8]))
+    #     ev3.screen.draw_text(0, 100, "Click p/seguir")
+    # 
+    # while Button.CENTER in ev3.buttons.pressed(): wait(20)
+    # while Button.CENTER not in ev3.buttons.pressed(): wait(20)
+    # while Button.CENTER in ev3.buttons.pressed(): wait(20)
+
+    # 3. Calibrar T Izquierda
     ev3.screen.clear()
-    ev3.screen.draw_text(10, 30, "3. VERDE IZQ")
-    ev3.screen.draw_text(10, 60, "Apretar CENTRO")
+    ev3.screen.draw_text(10, 30, "3. T IZQUIERDA")
+    ev3.screen.draw_text(10, 60, "Colocar sobre T Izq")
+    ev3.screen.draw_text(10, 80, "Apretar CENTRO")
     while Button.CENTER not in ev3.buttons.pressed():
         wait(20)
 
-    ev3.screen.draw_text(10, 90, "Midiendo...")
+    ev3.screen.draw_text(10, 100, "Midiendo...")
     ev3.speaker.beep(600, 100)
-
-    green_l = []
+    samples_tl = [0]*8
     for _ in range(20):
         cal = normalize_array(ll.raw())
-        # Tomamos muestras de los sensores izquierdos (0 y 1)
-        green_l.extend([cal[0], cal[1]])
+        for i in range(8): samples_tl[i] += cal[i]
         wait(20)
+    for i in range(8):
+        avg = samples_tl[i] // 20
+        T_L_MASK[i] = avg < 40
 
-    if green_l:
-        avg_l = sum(green_l) // len(green_l)
-        GREEN_L_MIN = max(0, avg_l - 15)
-        GREEN_L_MAX = min(100, avg_l + 15)
+    ev3.screen.clear()
+    ev3.screen.draw_text(0, 10, "T Izq OK")
+    ev3.screen.draw_text(0, 40, " ".join("1" if b else "0" for b in T_L_MASK[0:4]))
+    ev3.screen.draw_text(0, 70, " ".join("1" if b else "0" for b in T_L_MASK[4:8]))
+    ev3.screen.draw_text(0, 100, "Click p/seguir")
     
-        ev3.screen.clear()
-        ev3.screen.draw_text(0, 10, "V. Izq: " + str(GREEN_L_MIN) + "-" + str(GREEN_L_MAX))
-        ev3.screen.draw_text(0, 40, " ".join(str(v) for v in cal[0:4]))
-        ev3.screen.draw_text(0, 70, " ".join(str(v) for v in cal[4:8]))
-        ev3.screen.draw_text(0, 100, "Click p/seguir")
-
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
     while Button.CENTER not in ev3.buttons.pressed(): wait(20)
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
 
-    # 4. Calibrar Verde Derecho
+    # 4. Calibrar T Derecha
     ev3.screen.clear()
-    ev3.screen.draw_text(10, 30, "4. VERDE DER")
-    ev3.screen.draw_text(10, 60, "Apretar CENTRO")
+    ev3.screen.draw_text(10, 30, "4. T DERECHA")
+    ev3.screen.draw_text(10, 60, "Colocar sobre T Der")
+    ev3.screen.draw_text(10, 80, "Apretar CENTRO")
     while Button.CENTER not in ev3.buttons.pressed():
         wait(20)
 
-    ev3.screen.draw_text(10, 90, "Midiendo...")
+    ev3.screen.draw_text(10, 100, "Midiendo...")
     ev3.speaker.beep(600, 100)
-
-    green_r = []
+    samples_tr = [0]*8
     for _ in range(20):
         cal = normalize_array(ll.raw())
-        # Tomamos muestras de los sensores derechos (6 y 7)
-        green_r.extend([cal[6], cal[7]])
+        for i in range(8): samples_tr[i] += cal[i]
         wait(20)
+    for i in range(8):
+        avg = samples_tr[i] // 20
+        T_R_MASK[i] = avg < 40
 
-    if green_r:
-        avg_r = sum(green_r) // len(green_r)
-        GREEN_R_MIN = max(0, avg_r - 15)
-        GREEN_R_MAX = min(100, avg_r + 15)
+    ev3.screen.clear()
+    ev3.screen.draw_text(0, 10, "T Der OK")
+    ev3.screen.draw_text(0, 40, " ".join("1" if b else "0" for b in T_R_MASK[0:4]))
+    ev3.screen.draw_text(0, 70, " ".join("1" if b else "0" for b in T_R_MASK[4:8]))
+    ev3.screen.draw_text(0, 100, "Click p/seguir")
     
-        ev3.screen.clear()
-        ev3.screen.draw_text(0, 10, "V. Der: " + str(GREEN_R_MIN) + "-" + str(GREEN_R_MAX))
-        ev3.screen.draw_text(0, 40, " ".join(str(v) for v in cal[0:4]))
-        ev3.screen.draw_text(0, 70, " ".join(str(v) for v in cal[4:8]))
-        ev3.screen.draw_text(0, 100, "Click p/seguir")
-
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
     while Button.CENTER not in ev3.buttons.pressed(): wait(20)
     while Button.CENTER in ev3.buttons.pressed(): wait(20)

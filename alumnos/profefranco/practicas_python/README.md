@@ -1,11 +1,11 @@
 # Estado de Entregas
 
-| Alumno | Práctica 1 | Práctica 2 | Práctica 3 | Práctica 4 | Práctica 5 |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| Diego | ❌ | ❌ | ✅ | ✅ | ❌ |
-| Juanse | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Laureano | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Máximo | ✅ | ❌ | ✅ | ❌ | ❌ |
+| Alumno | Práctica 1 | Práctica 2 | Práctica 3 | Práctica 4 | Práctica 5 | Práctica 6 |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| Diego | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ |
+| Juanse | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Laureano | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Máximo | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ |
 
 *✅ Entregado | ⏳ Incompleto | ❌ Pendiente*
 
@@ -16,6 +16,7 @@
 - [Practica 3](#practica-3)
 - [Practica 4](#practica-4)
 - [Practica 5](#practica-5)
+- [Practica 6](#practica-6)
 
 # Practica 1
 
@@ -246,3 +247,26 @@ Después de todo eso, usá `.pop()` para eliminar las últimas 2 acciones y lueg
    ```
 
 4. **Registro de fallos**: Tenés una lista de `alertas = ['Batería baja', 'Sensor desconectado', 'Programación con errores', 'Bluetooth no conectado', 'USB no reconocido']`. Hacé un programa que pregunte al usuario un fallo y use `in` para verificar si está en la lista de alertas.
+
+# Practica 6
+
+1. **Calibrando sensores**: Creá una tupla llamada `calibracion_luz` con dos valores de intensidad de luz (el mínimo de la habitación apagada y el máximo con la linterna prendida, por ejemplo: `(20, 95)`). Intentá cambiar el primer valor usando `calibracion_luz[0] = 30`. ¡Fijate cómo Python te frena al toque para proteger tu calibración!
+
+2. **La lista de Scaloni**: Tenés que crear una tupla y una lista imaginando los convocados al mundial.
+   - En la **tupla** tienen que estar los fijos que son los del cuerpo técnico (Scaloni, Aimar, etc.).
+   - En la **lista**, el usuario debe ingresar con `input()` los 11 jugadores del equipo titular (imaginando un 4-4-2 o la formación que prefieras).
+   Al final, imprimí en la terminal el cuerpo técnico y los jugadores. Bien bonito.
+
+3. **Mi primer diccionario**: Creá un diccionario llamado `mi_robot` con tres claves: `'nombre'`, `'color'` y `'ruedas'`. Poneles los valores que quieras. Después, imprimí solo el nombre del robot usando la clave.
+
+4. **Mantenimiento en boxes**: Usando el diccionario del punto 3, agregale una clave nueva que sea `'bateria'` con el valor `100`. Después, modificalo para que la batería baje a `80`. Imprimí el diccionario completo para ver los cambios.
+
+5. **Tienda LEGO**: Tenemos este inventario de stock guardado en un diccionario simple:
+   ```python
+   inventario = {
+       'spike_hub': 5,
+       'motor_grande': 12,
+       'sensor_color': 8
+   }
+   ```
+   Agregale un par de items más al inventario (por ejemplo, `'sensor_distancia': 10` y `'cable_usb': 15`) y luego, pedile al usuario con `input()` el nombre del componente que desea buscar. Usá `.get()` para buscarlo en el diccionario. Si lo encuentra, imprimí la cantidad disponible en stock. Si no lo encuentra, imprimí un mensaje amigable que le notifique que no se encuentra registrado ese item en el stock.

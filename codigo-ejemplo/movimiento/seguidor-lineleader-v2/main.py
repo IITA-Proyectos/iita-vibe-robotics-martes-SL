@@ -137,7 +137,7 @@ def matches_mask(cal, mask, threshold_black=35, threshold_white=65):
     # Si la máscara no está calibrada (todo False), no debe coincidir con nada
     if not any(mask):
         return False
-    
+        
     black_expected = 0
     black_matched = 0
     white_expected = 0

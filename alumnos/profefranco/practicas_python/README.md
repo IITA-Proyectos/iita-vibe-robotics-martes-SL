@@ -270,3 +270,27 @@ Después de todo eso, usá `.pop()` para eliminar las últimas 2 acciones y lueg
    }
    ```
    Agregale un par de items más al inventario (por ejemplo, `'sensor_distancia': 10` y `'cable_usb': 15`) y luego, pedile al usuario con `input()` el nombre del componente que desea buscar. Usá `.get()` para buscarlo en el diccionario. Si lo encuentra, imprimí la cantidad disponible en stock. Si no lo encuentra, imprimí un mensaje amigable que le notifique que no se encuentra registrado ese item en el stock.
+
+# PRACTICA 7 (EN CLASE)
+
+# Diario El Tribuno se contactó con cada uno de ustedes para que les realicen el
+# programa del fixture del Mundial de este año. 
+
+# Debes realizar un programa para el fixture del Mundial 2022, para que tengas todos
+# los resultados en Google
+
+# Necesitamos un programa que nos ayude a ir siguiendo el Mundial. 
+
+# Los grupos del año 2022 son:
+```python
+grupos_mundial = [
+    ["Catar", "Ecuador", "Senegal", "Países Bajos"],
+    ["Inglaterra", "Irán", "Estados Unidos", "Gales"],
+    ["Argentina", "Arabia Saudita", "México", "Polonia"],
+    ["Francia", "Australia", "Dinamarca", "Túnez"],
+    ["España", "Costa Rica", "Alemania", "Japón"],
+    ["Bélgica", "Canadá", "Marruecos", "Croacia"],
+    ["Brasil", "Serbia", "Suiza", "Camerún"],
+    ["Portugal", "Ghana", "Uruguay", "Corea del Sur"]
+]
+```

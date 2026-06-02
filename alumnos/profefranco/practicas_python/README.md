@@ -282,15 +282,52 @@ Después de todo eso, usá `.pop()` para eliminar las últimas 2 acciones y lueg
 # Necesitamos un programa que nos ayude a ir siguiendo el Mundial. 
 
 # Los grupos del año 2022 son:
-```python
-grupos_mundial = [
-    ["Catar", "Ecuador", "Senegal", "Países Bajos"],
-    ["Inglaterra", "Irán", "Estados Unidos", "Gales"],
-    ["Argentina", "Arabia Saudita", "México", "Polonia"],
-    ["Francia", "Australia", "Dinamarca", "Túnez"],
-    ["España", "Costa Rica", "Alemania", "Japón"],
-    ["Bélgica", "Canadá", "Marruecos", "Croacia"],
-    ["Brasil", "Serbia", "Suiza", "Camerún"],
-    ["Portugal", "Ghana", "Uruguay", "Corea del Sur"]
-]
-```
+
+
+    GrupoA = ["Catar", "Ecuador", "Senegal", "Países Bajos"],
+    GrupoB = ["Inglaterra", "Irán", "Estados Unidos", "Gales"],
+    GrupoC = ["Argentina", "Arabia Saudita", "México", "Polonia"],
+    GrupoD = ["Francia", "Australia", "Dinamarca", "Túnez"],
+    GrupoE = ["España", "Costa Rica", "Alemania", "Japón"],
+    GrupoF = ["Bélgica", "Canadá", "Marruecos", "Croacia"],
+    GrupoG = ["Brasil", "Serbia", "Suiza", "Camerún"],
+    GrupoH = ["Portugal", "Ghana", "Uruguay", "Corea del Sur"]
+
+# La idea es que primero se le muestre al usuario TODOS los grupos del mundial.
+
+# Luego, con un input el usuario debe ingresar cual fue el primero y el segundo de cada grupo.
+
+# Por ejemplo:
+
+# → GrupoA = ["Catar", "Ecuador", "Senegal", "Países Bajos"],
+
+# → Ingrese el indice del primer equipo del grupo A: → Ecuador
+# → Ingrese el indice del segundo equipo del grupo A: → Países Bajos
+
+# Después, en una lista vacia, tienen que añadir o agregar cada equipo que pasa a la
+# siguiente ronda. 
+
+# octavos = ['Ecuador', 'Países Bajos']
+
+# Ejemplo:
+
+# print("Primer partido de octavos")
+# print(octavos[0], "vs", octavos[1])
+
+# cuartos = []
+
+# ganador_partido = input("Ingrese el equipo que ganó:") → Por ejemplo: Ecuador
+
+# cuartos.append(ganador_partido)
+
+# El programa debe repetir esta acción de pedir ganador del partido y guardar
+# a los ganadores de los 8 partidos de octavos en la lista "cuartos".
+
+# Y así hasta llegar a la final
+
+# Que quede bonito
+
+# Suerte
+
+
+

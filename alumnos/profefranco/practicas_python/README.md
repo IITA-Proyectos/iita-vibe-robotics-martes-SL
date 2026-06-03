@@ -272,14 +272,14 @@ Después de todo eso, usá `.pop()` para eliminar las últimas 2 acciones y lueg
    ```
    Agregale un par de items más al inventario (por ejemplo, `'sensor_distancia': 10` y `'cable_usb': 15`) y luego, pedile al usuario con `input()` el nombre del componente que desea buscar. Usá `.get()` para buscarlo en el diccionario. Si lo encuentra, imprimí la cantidad disponible en stock. Si no lo encuentra, imprimí un mensaje amigable que le notifique que no se encuentra registrado ese item en el stock.
 
-# Practica 7: El Fixture del Mundial 2022 🏆 (En Clase)
+# Practica 7: El Fixture del Mundial 2022
 
 El diario **El Tribuno** se contactó con cada uno de ustedes para que realicen un programa del fixture del Mundial de este año.
 Necesitamos un programa interactivo en Python que nos ayude a ir siguiendo el Mundial 2022 y simular los resultados.
 
 ---
 
-### 📋 Consignas y Requisitos
+### Consignas y Requisitos
 
 1. **Mostrar todos los grupos del Mundial:**
    Al comenzar, el programa debe mostrar en pantalla la conformación de los 8 grupos (del A al H).
@@ -333,12 +333,9 @@ Necesitamos un programa interactivo en Python que nos ayude a ir siguiendo el Mu
 
 ---
 
-### 🎨 Criterios de Presentación
+### Criterios de Presentación
 * El programa debe guiar al usuario de forma clara paso a paso en la terminal.
 * Estructura tu código de forma prolija.
-* ¡Que quede bonito y ordenado!
-
-¡Mucho éxito! 🍀
 
 
 

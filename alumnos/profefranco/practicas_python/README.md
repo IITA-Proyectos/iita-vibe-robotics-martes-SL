@@ -1,11 +1,11 @@
 # Estado de Entregas
 
-| Alumno | Práctica 1 | Práctica 2 | Práctica 3 | Práctica 4 | Práctica 5 | Práctica 6 |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| Diego | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ |
-| Juanse | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Laureano | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Máximo | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ |
+| Alumno | Práctica 1 | Práctica 2 | Práctica 3 | Práctica 4 | Práctica 5 | Práctica 6 | Práctica 7 |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| Diego | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Juanse | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Laureano | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Máximo | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
 
 *✅ Entregado | ⏳ Incompleto | ❌ Pendiente*
 
@@ -17,6 +17,7 @@
 - [Practica 4](#practica-4)
 - [Practica 5](#practica-5)
 - [Practica 6](#practica-6)
+- [Practica 7](#practica-7-el-fixture-del-mundial-2022-en-clase)
 
 # Practica 1
 
@@ -271,63 +272,73 @@ Después de todo eso, usá `.pop()` para eliminar las últimas 2 acciones y lueg
    ```
    Agregale un par de items más al inventario (por ejemplo, `'sensor_distancia': 10` y `'cable_usb': 15`) y luego, pedile al usuario con `input()` el nombre del componente que desea buscar. Usá `.get()` para buscarlo en el diccionario. Si lo encuentra, imprimí la cantidad disponible en stock. Si no lo encuentra, imprimí un mensaje amigable que le notifique que no se encuentra registrado ese item en el stock.
 
-# PRACTICA 7 (EN CLASE)
+# Practica 7: El Fixture del Mundial 2022 🏆 (En Clase)
 
-# Diario El Tribuno se contactó con cada uno de ustedes para que les realicen el
-# programa del fixture del Mundial de este año. 
+El diario **El Tribuno** se contactó con cada uno de ustedes para que realicen un programa del fixture del Mundial de este año.
+Necesitamos un programa interactivo en Python que nos ayude a ir siguiendo el Mundial 2022 y simular los resultados.
 
-# Debes realizar un programa para el fixture del Mundial 2022, para que tengas todos
-# los resultados en Google
+---
 
-# Necesitamos un programa que nos ayude a ir siguiendo el Mundial. 
+### 📋 Consignas y Requisitos
 
-# Los grupos del año 2022 son:
+1. **Mostrar todos los grupos del Mundial:**
+   Al comenzar, el programa debe mostrar en pantalla la conformación de los 8 grupos (del A al H).
+   
+2. **Definición de Grupos en el Código:**
+   Debes utilizar las siguientes listas para representar los grupos en tu código:
 
+   ```python
+   grupo_a = ["Catar", "Ecuador", "Senegal", "Países Bajos"]
+   grupo_b = ["Inglaterra", "Irán", "Estados Unidos", "Gales"]
+   grupo_c = ["Argentina", "Arabia Saudita", "México", "Polonia"]
+   grupo_d = ["Francia", "Australia", "Dinamarca", "Túnez"]
+   grupo_e = ["España", "Costa Rica", "Alemania", "Japón"]
+   grupo_f = ["Bélgica", "Canadá", "Marruecos", "Croacia"]
+   grupo_g = ["Brasil", "Serbia", "Suiza", "Camerún"]
+   grupo_h = ["Portugal", "Ghana", "Uruguay", "Corea del Sur"]
+   ```
 
-    GrupoA = ["Catar", "Ecuador", "Senegal", "Países Bajos"],
-    GrupoB = ["Inglaterra", "Irán", "Estados Unidos", "Gales"],
-    GrupoC = ["Argentina", "Arabia Saudita", "México", "Polonia"],
-    GrupoD = ["Francia", "Australia", "Dinamarca", "Túnez"],
-    GrupoE = ["España", "Costa Rica", "Alemania", "Japón"],
-    GrupoF = ["Bélgica", "Canadá", "Marruecos", "Croacia"],
-    GrupoG = ["Brasil", "Serbia", "Suiza", "Camerún"],
-    GrupoH = ["Portugal", "Ghana", "Uruguay", "Corea del Sur"]
+3. **Clasificación a Octavos de Final:**
+   Para cada grupo, el programa debe solicitar al usuario (mediante `input()`) qué equipos clasificaron en **primer** y **segundo** lugar.
+   * *Pista:* Puedes pedir los nombres directamente, o pedir el índice/número del equipo en la lista para evitar errores de ortografía.
+   
+   Todos los clasificados deben ser almacenados en una lista vacía llamada `octavos`.
 
-# La idea es que primero se le muestre al usuario TODOS los grupos del mundial.
+   **Ejemplo de flujo para un grupo:**
+   ```text
+   Grupo A: ["Catar", "Ecuador", "Senegal", "Países Bajos"]
+   Ingrese el primer clasificado del Grupo A: Ecuador
+   Ingrese el segundo clasificado del Grupo A: Países Bajos
+   ```
 
-# Luego, con un input el usuario debe ingresar cual fue el primero y el segundo de cada grupo.
+4. **Simular las fases eliminatorias:**
+   A partir de los clasificados en la lista `octavos`, debes simular los enfrentamientos. Por cada partido, el usuario ingresará el ganador, el cual se agregará a la lista de la siguiente fase (por ejemplo, `cuartos`), y así sucesivamente.
 
-# Por ejemplo:
+   **Ejemplo de partido de Octavos:**
+   ```python
+   # El primer partido de octavos enfrentará a los clasificados
+   print("Primer partido de octavos:")
+   print(octavos[0], "vs", octavos[1])
+   
+   ganador_partido = input("Ingrese el equipo que ganó: ")  # Por ejemplo: Ecuador
+   cuartos.append(ganador_partido)
+   ```
 
-# → GrupoA = ["Catar", "Ecuador", "Senegal", "Países Bajos"],
+5. **El Camino a la Final:**
+   El programa debe repetir esta acción de pedir el ganador del partido y guardar los ganadores de cada fase:
+   - **Octavos de final** (8 partidos) -> Guarda los 8 ganadores en la lista `cuartos`.
+   - **Cuartos de final** (4 partidos) -> Guarda los 4 ganadores en la lista `semis`.
+   - **Semifinales** (2 partidos) -> Guarda los 2 ganadores en la lista `final`.
+   - **Gran Final** (1 partido) -> ¡Consagra al Campeón del Mundo!
 
-# → Ingrese el indice del primer equipo del grupo A: → Ecuador
-# → Ingrese el indice del segundo equipo del grupo A: → Países Bajos
+---
 
-# Después, en una lista vacia, tienen que añadir o agregar cada equipo que pasa a la
-# siguiente ronda. 
+### 🎨 Criterios de Presentación
+* El programa debe guiar al usuario de forma clara paso a paso en la terminal.
+* Estructura tu código de forma prolija.
+* ¡Que quede bonito y ordenado!
 
-# octavos = ['Ecuador', 'Países Bajos']
-
-# Ejemplo:
-
-# print("Primer partido de octavos")
-# print(octavos[0], "vs", octavos[1])
-
-# cuartos = []
-
-# ganador_partido = input("Ingrese el equipo que ganó:") → Por ejemplo: Ecuador
-
-# cuartos.append(ganador_partido)
-
-# El programa debe repetir esta acción de pedir ganador del partido y guardar
-# a los ganadores de los 8 partidos de octavos en la lista "cuartos".
-
-# Y así hasta llegar a la final
-
-# Que quede bonito
-
-# Suerte
+¡Mucho éxito! 🍀
 
 
 

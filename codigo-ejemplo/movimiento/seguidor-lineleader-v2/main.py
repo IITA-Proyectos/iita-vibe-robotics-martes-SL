@@ -1,6 +1,6 @@
 #!/usr/bin/env pybricks-micropython
 from pybricks.hubs import EV3Brick
-from pybricks.ev3devices import Motor
+from pybricks.ev3devices import Motor, ColorSensor
 from pybricks.iodevices import I2CDevice
 from pybricks.parameters import Port, Direction, Button
 from pybricks.robotics import DriveBase
@@ -37,6 +37,9 @@ drive = DriveBase(motor_izq, motor_der, wheel_diameter=DIAMETRO_RUEDA, axle_trac
 # Sensor LSA en el puerto 1 (cerca del eje de las ruedas)
 ll = LightSensorArray(Port.S1)
 
+# Sensor frontal en el puerto 4
+sensor_frontal = ColorSensor(Port.S4)
+
 # ── Variables de Control y Calibración ───────────────────────────
 # Como el sensor está cerca del eje, no tiene "palanca" al girar.
 # Necesitamos un KP más alto y no podemos frenar tanto en las curvas.
@@ -56,6 +59,11 @@ GREEN_R_MIN, GREEN_R_MAX = 30, 70
 T_L_MASK = [False]*8
 T_R_MASK = [False]*8
 
+# Variables del sensor frontal (ColorSensor en puerto S4)
+FRONT_WHITE = 100
+FRONT_BLACK = 0
+FRONT_THRESHOLD = 50
+
 # ── Funciones de Memoria ─────────────────────────────────────────
 
 def guardar_calibracion():
@@ -65,7 +73,9 @@ def guardar_calibracion():
         "GREEN_L": [GREEN_L_MIN, GREEN_L_MAX],
         "GREEN_R": [GREEN_R_MIN, GREEN_R_MAX],
         "T_L_MASK": T_L_MASK,
-        "T_R_MASK": T_R_MASK
+        "T_R_MASK": T_R_MASK,
+        "FRONT_WHITE": FRONT_WHITE,
+        "FRONT_BLACK": FRONT_BLACK
     }
     try:
         with open("calibracion.json", "w") as f:
@@ -75,6 +85,7 @@ def guardar_calibracion():
 
 def cargar_calibracion():
     global WHITE, BLACK, GREEN_L_MIN, GREEN_L_MAX, GREEN_R_MIN, GREEN_R_MAX, T_L_MASK, T_R_MASK
+    global FRONT_WHITE, FRONT_BLACK, FRONT_THRESHOLD
     try:
         with open("calibracion.json", "r") as f:
             datos = json.load(f)
@@ -87,6 +98,11 @@ def cargar_calibracion():
                 T_L_MASK = datos["T_L_MASK"]
             if "T_R_MASK" in datos:
                 T_R_MASK = datos["T_R_MASK"]
+            if "FRONT_WHITE" in datos:
+                FRONT_WHITE = datos["FRONT_WHITE"]
+            if "FRONT_BLACK" in datos:
+                FRONT_BLACK = datos["FRONT_BLACK"]
+            FRONT_THRESHOLD = (FRONT_WHITE + FRONT_BLACK) // 2
         return True
     except:
         return False
@@ -202,9 +218,14 @@ def follow_line():
     integral = 0
     turn = 0  # Inicializamos turn para el caso de recovery
     loss_counter = 0
+    t_cooldown = 0
     
     while True:
         try:
+            # Decrementar cooldown para detección de T
+            if t_cooldown > 0:
+                t_cooldown -= 1
+
             # 1. Leemos raw
             raw_vals = ll.raw()
             # 2. Normalizamos por software
@@ -220,30 +241,52 @@ def follow_line():
                 turn = 0
                 continue
 
-            # Intersección en T Izquierda (se ignora y se sigue derecho)
-            if matches_mask(cal, T_L_MASK):
+            # Intersección en T Izquierda (frena, hace sonido inicial, y verifica parada antes de confirmar)
+            if t_cooldown == 0 and matches_mask(cal, T_L_MASK):
                 drive.stop()
-                ev3.speaker.beep(800, 100)
-                wait(50)
-                ev3.speaker.beep(800, 100)
-                print("T Izquierda detectada - Ignorando")
-                drive.straight(40)  # Avanzar para pasar el desvío
-                last_err = 0
-                integral = 0
-                turn = 0
+                ev3.speaker.beep(500, 80)  # Pitido de alerta de posible T
+                wait(100)  # Espera para estabilizar el robot quieto
+                
+                if sensor_frontal.reflection() < FRONT_THRESHOLD:
+                    # Confirmado: Sí es una T
+                    ev3.speaker.beep(800, 100)
+                    wait(50)
+                    ev3.speaker.beep(800, 100)
+                    print("T Izquierda CONFIRMADA - Siguiendo derecho")
+                    drive.straight(40)  # Avanzar para pasar el desvío
+                    last_err = 0
+                    integral = 0
+                    turn = 0
+                    t_cooldown = 40  # Cooldown de seguridad
+                else:
+                    # Descartado: Es una curva
+                    ev3.speaker.beep(300, 200)  # Sonido grave de descarte (curva)
+                    print("T Izquierda DESCARTADA (Curva) - Siguiendo PID")
+                    t_cooldown = 40  # Cooldown para pasar la curva sin repetir detección
                 continue
 
-            # Intersección en T Derecha (se ignora y se sigue derecho)
-            if matches_mask(cal, T_R_MASK):
+            # Intersección en T Derecha (frena, hace sonido inicial, y verifica parada antes de confirmar)
+            if t_cooldown == 0 and matches_mask(cal, T_R_MASK):
                 drive.stop()
-                ev3.speaker.beep(1000, 100)
-                wait(50)
-                ev3.speaker.beep(1000, 100)
-                print("T Derecha detectada - Ignorando")
-                drive.straight(40)  # Avanzar para pasar el desvío
-                last_err = 0
-                integral = 0
-                turn = 0
+                ev3.speaker.beep(500, 80)  # Pitido de alerta de posible T
+                wait(100)  # Espera para estabilizar el robot quieto
+                
+                if sensor_frontal.reflection() < FRONT_THRESHOLD:
+                    # Confirmado: Sí es una T
+                    ev3.speaker.beep(1000, 100)
+                    wait(50)
+                    ev3.speaker.beep(1000, 100)
+                    print("T Derecha CONFIRMADA - Siguiendo derecho")
+                    drive.straight(40)  # Avanzar para pasar el desvío
+                    last_err = 0
+                    integral = 0
+                    turn = 0
+                    t_cooldown = 40  # Cooldown de seguridad
+                else:
+                    # Descartado: Es una curva
+                    ev3.speaker.beep(300, 200)  # Sonido grave de descarte (curva)
+                    print("T Derecha DESCARTADA (Curva) - Siguiendo PID")
+                    t_cooldown = 40  # Cooldown para pasar la curva sin repetir detección
                 continue
             
             # Intersección verde (RoboCup) - Desactivado temporalmente
@@ -310,11 +353,12 @@ def follow_line():
 
 def calibracion_manual():
     global GREEN_L_MIN, GREEN_L_MAX, GREEN_R_MIN, GREEN_R_MAX
+    global FRONT_WHITE, FRONT_BLACK, FRONT_THRESHOLD
     ev3.speaker.beep()
 
-    # 1. Calibrar Blanco
+    # 1. Calibrar Blanco LSA
     ev3.screen.clear()
-    ev3.screen.draw_text(10, 30, "1. Fondo BLANCO")
+    ev3.screen.draw_text(10, 30, "1. Blanco LSA")
     ev3.screen.draw_text(10, 60, "Apretar CENTRO")
     while Button.CENTER not in ev3.buttons.pressed():
         wait(20)
@@ -336,9 +380,9 @@ def calibracion_manual():
     while Button.CENTER not in ev3.buttons.pressed(): wait(20)
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
 
-    # 2. Calibrar Negro
+    # 2. Calibrar Negro LSA
     ev3.screen.clear()
-    ev3.screen.draw_text(10, 30, "2. Todo NEGRO")
+    ev3.screen.draw_text(10, 30, "2. Negro LSA")
     ev3.screen.draw_text(10, 60, "Apretar CENTRO")
     while Button.CENTER not in ev3.buttons.pressed():
         wait(20)
@@ -360,73 +404,61 @@ def calibracion_manual():
     while Button.CENTER not in ev3.buttons.pressed(): wait(20)
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
 
-    # 3. Calibrar Verde Izquierdo (Desactivado temporalmente)
-    # ev3.screen.clear()
-    # ev3.screen.draw_text(10, 30, "3. VERDE IZQ")
-    # ev3.screen.draw_text(10, 60, "Apretar CENTRO")
-    # while Button.CENTER not in ev3.buttons.pressed():
-    #     wait(20)
-    # 
-    # ev3.screen.draw_text(10, 90, "Midiendo...")
-    # ev3.speaker.beep(600, 100)
-    # 
-    # green_l = []
-    # for _ in range(20):
-    #     cal = normalize_array(ll.raw())
-    #     # Tomamos muestras de los sensores izquierdos (0 y 1)
-    #     green_l.extend([cal[0], cal[1]])
-    #     wait(20)
-    # 
-    # if green_l:
-    #     avg_l = sum(green_l) // len(green_l)
-    #     GREEN_L_MIN = max(0, avg_l - 15)
-    #     GREEN_L_MAX = min(100, avg_l + 15)
-    # 
-    #     ev3.screen.clear()
-    #     ev3.screen.draw_text(0, 10, "V. Izq: " + str(GREEN_L_MIN) + "-" + str(GREEN_L_MAX))
-    #     ev3.screen.draw_text(0, 40, " ".join(str(v) for v in cal[0:4]))
-    #     ev3.screen.draw_text(0, 70, " ".join(str(v) for v in cal[4:8]))
-    #     ev3.screen.draw_text(0, 100, "Click p/seguir")
-    # 
-    # while Button.CENTER in ev3.buttons.pressed(): wait(20)
-    # while Button.CENTER not in ev3.buttons.pressed(): wait(20)
-    # while Button.CENTER in ev3.buttons.pressed(): wait(20)
-    # 
-    # # 4. Calibrar Verde Derecho (Desactivado temporalmente)
-    # ev3.screen.clear()
-    # ev3.screen.draw_text(10, 30, "4. VERDE DER")
-    # ev3.screen.draw_text(10, 60, "Apretar CENTRO")
-    # while Button.CENTER not in ev3.buttons.pressed():
-    #     wait(20)
-    # 
-    # ev3.screen.draw_text(10, 90, "Midiendo...")
-    # ev3.speaker.beep(600, 100)
-    # 
-    # green_r = []
-    # for _ in range(20):
-    #     cal = normalize_array(ll.raw())
-    #     # Tomamos muestras de los sensores derechos (6 y 7)
-    #     green_r.extend([cal[6], cal[7]])
-    #     wait(20)
-    # 
-    # if green_r:
-    #     avg_r = sum(green_r) // len(green_r)
-    #     GREEN_R_MIN = max(0, avg_r - 15)
-    #     GREEN_R_MAX = min(100, avg_r + 15)
-    # 
-    #     ev3.screen.clear()
-    #     ev3.screen.draw_text(0, 10, "V. Der: " + str(GREEN_R_MIN) + "-" + str(GREEN_R_MAX))
-    #     ev3.screen.draw_text(0, 40, " ".join(str(v) for v in cal[0:4]))
-    #     ev3.screen.draw_text(0, 70, " ".join(str(v) for v in cal[4:8]))
-    #     ev3.screen.draw_text(0, 100, "Click p/seguir")
-    # 
-    # while Button.CENTER in ev3.buttons.pressed(): wait(20)
-    # while Button.CENTER not in ev3.buttons.pressed(): wait(20)
-    # while Button.CENTER in ev3.buttons.pressed(): wait(20)
-
-    # 3. Calibrar T Izquierda
+    # 3. Calibrar Blanco Frontal
     ev3.screen.clear()
-    ev3.screen.draw_text(10, 30, "3. T IZQUIERDA")
+    ev3.screen.draw_text(10, 30, "3. Front Blanco")
+    ev3.screen.draw_text(10, 50, "Poner frontal")
+    ev3.screen.draw_text(10, 70, "sobre BLANCO")
+    ev3.screen.draw_text(10, 90, "Apretar CENTRO")
+    while Button.CENTER not in ev3.buttons.pressed():
+        wait(20)
+
+    ev3.screen.draw_text(10, 110, "Midiendo...")
+    ev3.speaker.beep(400, 100)
+    f_white_sum = 0
+    for _ in range(20):
+        f_white_sum += sensor_frontal.reflection()
+        wait(20)
+    FRONT_WHITE = f_white_sum // 20
+
+    ev3.screen.clear()
+    ev3.screen.draw_text(0, 10, "Front Blanco OK")
+    ev3.screen.draw_text(0, 40, "Valor: " + str(FRONT_WHITE))
+    ev3.screen.draw_text(0, 100, "Click p/seguir")
+    while Button.CENTER in ev3.buttons.pressed(): wait(20)
+    while Button.CENTER not in ev3.buttons.pressed(): wait(20)
+    while Button.CENTER in ev3.buttons.pressed(): wait(20)
+
+    # 4. Calibrar Negro Frontal
+    ev3.screen.clear()
+    ev3.screen.draw_text(10, 30, "4. Front Negro")
+    ev3.screen.draw_text(10, 50, "Poner frontal")
+    ev3.screen.draw_text(10, 70, "sobre NEGRO")
+    ev3.screen.draw_text(10, 90, "Apretar CENTRO")
+    while Button.CENTER not in ev3.buttons.pressed():
+        wait(20)
+
+    ev3.screen.draw_text(10, 110, "Midiendo...")
+    ev3.speaker.beep(500, 100)
+    f_black_sum = 0
+    for _ in range(20):
+        f_black_sum += sensor_frontal.reflection()
+        wait(20)
+    FRONT_BLACK = f_black_sum // 20
+    FRONT_THRESHOLD = (FRONT_WHITE + FRONT_BLACK) // 2
+
+    ev3.screen.clear()
+    ev3.screen.draw_text(0, 10, "Front Negro OK")
+    ev3.screen.draw_text(0, 40, "Valor: " + str(FRONT_BLACK))
+    ev3.screen.draw_text(0, 70, "Umbral: " + str(FRONT_THRESHOLD))
+    ev3.screen.draw_text(0, 100, "Click p/seguir")
+    while Button.CENTER in ev3.buttons.pressed(): wait(20)
+    while Button.CENTER not in ev3.buttons.pressed(): wait(20)
+    while Button.CENTER in ev3.buttons.pressed(): wait(20)
+
+    # 5. Calibrar T Izquierda
+    ev3.screen.clear()
+    ev3.screen.draw_text(10, 30, "5. T IZQUIERDA")
     ev3.screen.draw_text(10, 60, "Colocar sobre T Izq")
     ev3.screen.draw_text(10, 80, "Apretar CENTRO")
     while Button.CENTER not in ev3.buttons.pressed():
@@ -453,9 +485,9 @@ def calibracion_manual():
     while Button.CENTER not in ev3.buttons.pressed(): wait(20)
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
 
-    # 4. Calibrar T Derecha
+    # 6. Calibrar T Derecha
     ev3.screen.clear()
-    ev3.screen.draw_text(10, 30, "4. T DERECHA")
+    ev3.screen.draw_text(10, 30, "6. T DERECHA")
     ev3.screen.draw_text(10, 60, "Colocar sobre T Der")
     ev3.screen.draw_text(10, 80, "Apretar CENTRO")
     while Button.CENTER not in ev3.buttons.pressed():

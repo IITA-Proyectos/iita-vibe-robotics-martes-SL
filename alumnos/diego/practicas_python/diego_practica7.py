@@ -1,3 +1,5 @@
+# Pracrtica 7
+
 '''
 Diario El Tribuno se contactó con cada uno de ustedes para que les realicen el
 programa del fixture del Mundial de este año.
@@ -203,4 +205,172 @@ print(clacificadosE[0], 'vs' ,clacificadosE[1])
 
 print("sexto partido de octavos :")
 print(clacificadosF[0], 'vs' ,clacificadosF[1])
+
+print("septimo partido de octavos :")
+print(clacificadosG[0], 'vs' ,clacificadosG[1])
+
+print("octavo partido de octavos :")
+print(clacificadosH[0], 'vs' ,clacificadosH[1])
+
+print('-----------------------------------------------------------')
+
+cuartos = []
+
+indice1 = input("ingrese el indice del ganador del primer partido de octavos :")
+indice1 = int(indice1)
+
+cuartos.append(indice1)
+
+print(cuartos)
+
+print('-----------------------------------------------------------')
+
+cuartos = []
+
+indice2 = input("ingrese el indice del segundo ganador del partido de octavos :")
+indice2 = int(indice2)
+
+cuartos.append(indice2)
+
+print(cuartos)
+
+print('-----------------------------------------------------------')
+
+cuartos = []
+
+indice3 = input("ingrese el indice del tercer ganador del partido de octavos :")
+indice3 = int(indice3)
+
+cuartos.append(indice3)
+
+print(cuartos)
+
+print('-----------------------------------------------------------')
+
+cuartos = []
+
+indice4 = input("ingrese el indice del cuarto ganador del partido de octavos :")
+indice4 = int(indice4)
+
+cuartos.append(indice4)
+
+print(cuartos)
+
+
+print('-----------------------------------------------------------')
+
+cuartos = []
+
+indice5 = input("ingrese el indice del quinto ganador del partido de octavos :")
+indice5 = int(indice5)
+
+cuartos.append(indice5)
+
+
+print(cuartos)
+print('-----------------------------------------------------------')
+
+cuartos = []
+
+indice6 = input("ingrese el indice del sexto ganador del partido de octavos :")
+indice6 = int(indice6)
+
+cuartos.append(indice6)
+
+print(cuartos)
+
+
+print('-----------------------------------------------------------')
+
+cuartos = []
+
+indice7 = input("ingrese el indice del septimo ganador del partido de octavos :")
+indice7 = int(indice7)
+
+cuartos.append(indice7)
+
+print(cuartos)
+
+print('-----------------------------------------------------------')
+
+cuartos = []
+
+indice8 = input("ingrese el indice del octavo ganador del partido de octavos :")
+indice8 = int(indice8)
+
+cuartos.append(indice8)
+
+print(cuartos)
+
+print(cuartos[0],'vs',cuartos[1])
+print(cuartos[2],'vs',cuartos[3])
+print(cuartos[4],'vs',cuartos[5])
+print(cuartos[6],'vs',cuartos[7])
+
+print('-----------------------------------------------------------')
+
+semifinales = []
+
+indice1 = input("ingrese el primer ganador del partido de cuartos :")
+indice1 = int(indice1)
+
+semifinales.append(indice1)
+
+print('-----------------------------------------------------------')
+
+semifinales = []
+
+indice2 = input("ingrese el segundo ganador del partido de cuartos :")
+indice2 = int(indice2)
+
+semifinales.append(indice2)
+
+print('-----------------------------------------------------------')
+
+semifinales = []
+
+indice3 = input("ingrese el tercer ganador del partido de cuartos :")
+indice3 = int(indice3)
+
+semifinales.append(indice3)
+
+print('-----------------------------------------------------------')
+
+semifinales = []
+
+indice4 = input("ingrese el cuarto ganador del partido de cuartos :")
+indice4 = int(indice4)
+
+semifinales.append(indice4)
+
+print(semifinales)
+
+print(cuartos[0],"vs",cuartos[1])
+print(cuartos[2],"vs",cuartos[3])
+
+print('-----------------------------------------------------------')
+
+final = []
+
+indice1 = input("ingrese el primer ganador del partido de semifinales :")
+indice1 = int(indice1)
+
+semifinales.append(indice1)
+
+print('-----------------------------------------------------------')
+
+final = []
+
+indice2 = input("ingrese el segundo ganador del partido de semifinales :")
+indice2 = int(indice2)
+
+semifinales.append(indice2)
+
+print(final)
+
+print(final[0],"vs",final[1])
+
+campeon = input("INGRESE EL INDICE DE CAMPEON :")
+
+print(campeon)
 

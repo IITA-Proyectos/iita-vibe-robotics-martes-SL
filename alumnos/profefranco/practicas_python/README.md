@@ -1,11 +1,11 @@
 # Estado de Entregas
 
-| Alumno | Práctica 1 | Práctica 2 | Práctica 3 | Práctica 4 | Práctica 5 | Práctica 6 | Práctica 7 |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| Diego | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Juanse | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Laureano | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Máximo | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Alumno | Práctica 1 | Práctica 2 | Práctica 3 | Práctica 4 | Práctica 5 | Práctica 6 | Práctica 7 | Práctica 8 |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| Diego | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Juanse | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Laureano | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Máximo | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
 
 *✅ Entregado | ⏳ Incompleto | ❌ Pendiente*
 
@@ -18,6 +18,7 @@
 - [Practica 5](#practica-5)
 - [Practica 6](#practica-6)
 - [Practica 7](#practica-7-el-fixture-del-mundial-2022-en-clase)
+- [Practica 8](#practica-8)
 
 # Practica 1
 
@@ -337,5 +338,55 @@ Necesitamos un programa interactivo en Python que nos ayude a ir siguiendo el Mu
 * El programa debe guiar al usuario de forma clara paso a paso en la terminal.
 * Estructura tu código de forma prolija.
 
+# Practica 8
 
+1. **La bienvenida al Mundial 2022**: Crea una función llamada `mostrar_bienvenida()` que imprima por pantalla un cartel decorativo bien bonito para el inicio de nuestro programa. Invocala en el lugar y momento que corresponda.
+
+   Algo así debe ser el resultado:
+   ```text
+   ======================================
+   ¡BIENVENIDO AL FIXTURE DEL MUNDIAL!
+   ======================================
+   ```
+
+2. **Nuestro nuevo separador**: En nuestro anterior programa seguramente repetimos muchas veces un print con un separador con guiones, pero quizá algunos no tenían la misma cantidad de guiones o a veces nos olvidábamos de imprimirlo. Debes crear una función para imprimir un bonito separador. Luego, invocala donde corresponda.
+
+   **Resultado esperado por consola:**
+   ```text
+   ********** VS **********
+   ```
+
+3. **Dale campeoooooon, dale campeoooon**: Crea una función llamada `festejar_campeón()` que muestre un festejo con emojis y estrellitas cuando se ingresa el campeón final del fixture:
+
+   **Resultado esperado por consola:**
+   ```text
+   🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆
+   🎉 ¡ATENCIÓN! ¡TENEMOS UN NUEVO CAMPEÓN! 🎉
+   ⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐
+   ```
+
+4. **Preparándonos para el futuro**: Escribí una función llamada `mostrar_menu()` que le presente al usuario algunas opciones (por ahora ficticias) disponibles en nuestro programa:
+
+   **Resultado esperado por consola:**
+   ```text
+   --- MENÚ DEL FIXTURE ---
+   1. Ver grupos
+   2. Definir octavos
+   3. Definir cuartos
+   4. Salir
+   ------------------------
+   ```
+
+5. **Buscando el error**: Mirá el programa que escribió alguien despistado para automatizar el reporte de errores de un robot. Él dice que no funciona como lo esperado y JURA QUE NO SE CONFUNDIÓ EN NINGÚN LADO...
+
+   **¿Cuáles son los dos errores que cometió y cómo los arreglamos?**
+
+   ```python
+   def reportar_motores()
+   print("Motores inicializados correctamente")
+   print("Estado: Activos y listos")
+
+   # Llamamos a la función
+   reportar_motores
+   ```
 

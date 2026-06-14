@@ -10,6 +10,7 @@
 - [Clase 4](#clase-4)
 - [Clase 5](#clase-5)
 - [Clase 6](#clase-6)
+- [Clase 8](#clase-8)
 
 ## Clase 4
 
@@ -107,3 +108,31 @@
 ![Diapositiva 27](img/clase6_diapositiva27.png)
 ![Diapositiva 28](img/clase6_diapositiva28.png)
 ![Diapositiva 29](img/clase6_diapositiva29.png)
+
+## Clase 8
+
+![Diapositiva 1](img/clase8_diapositiva01.png)
+![Diapositiva 2](img/clase8_diapositiva02.png)
+![Diapositiva 3](img/clase8_diapositiva03.png)
+![Diapositiva 4](img/clase8_diapositiva04.png)
+![Diapositiva 5](img/clase8_diapositiva05.png)
+![Diapositiva 6](img/clase8_diapositiva06.png)
+![Diapositiva 7](img/clase8_diapositiva07.png)
+![Diapositiva 8](img/clase8_diapositiva08.png)
+![Diapositiva 9](img/clase8_diapositiva09.png)
+![Diapositiva 10](img/clase8_diapositiva10.png)
+![Diapositiva 11](img/clase8_diapositiva11.png)
+![Diapositiva 12](img/clase8_diapositiva12.png)
+![Diapositiva 13](img/clase8_diapositiva13.png)
+![Diapositiva 14](img/clase8_diapositiva14.png)
+![Diapositiva 15](img/clase8_diapositiva15.png)
+![Diapositiva 16](img/clase8_diapositiva16.png)
+![Diapositiva 17](img/clase8_diapositiva17.png)
+![Diapositiva 18](img/clase8_diapositiva18.png)
+![Diapositiva 19](img/clase8_diapositiva19.png)
+![Diapositiva 20](img/clase8_diapositiva20.png)
+![Diapositiva 21](img/clase8_diapositiva21.png)
+![Diapositiva 22](img/clase8_diapositiva22.png)
+![Diapositiva 23](img/clase8_diapositiva23.png)
+![Diapositiva 24](img/clase8_diapositiva24.png)
+

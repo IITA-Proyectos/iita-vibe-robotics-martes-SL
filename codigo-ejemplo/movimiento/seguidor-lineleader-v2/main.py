@@ -47,7 +47,7 @@ KP = 4.5
 KI = 0.0
 KD = 22.0
 
-BASE_SPEED = 130
+BASE_SPEED = 145  # Elevada de 130 a 145 de forma gradual
 MIN_SPEED = 30
 CENTER = 35
 INTERSECTION_THRESHOLD = 20
@@ -63,6 +63,9 @@ T_R_MASK = [False]*8
 FRONT_WHITE = 100
 FRONT_BLACK = 0
 FRONT_THRESHOLD = 50
+
+# Distancia en mm que avanza el robot tras confirmar verde para alinear las ruedas con la intersección
+GREEN_ALIGN_DISTANCE = 20
 
 # ── Funciones de Memoria ─────────────────────────────────────────
 
@@ -219,10 +222,12 @@ def follow_line():
     turn = 0  # Inicializamos turn para el caso de recovery
     loss_counter = 0
     t_cooldown = 0
+    green_debounce_counter = 0
+    last_marker = None
     
     while True:
         try:
-            # Decrementar cooldown para detección de T
+            # Decrementar cooldown para detección de T y verdes
             if t_cooldown > 0:
                 t_cooldown -= 1
 
@@ -239,7 +244,49 @@ def follow_line():
                 last_err = 0
                 integral = 0
                 turn = 0
+                green_debounce_counter = 0
+                last_marker = None
                 continue
+
+            # # Intersección verde (RoboCup)
+            # if t_cooldown == 0:
+            #     marker = detect_green_marker(cal)
+            #     if marker is not None:
+            #         if marker == last_marker:
+            #             green_debounce_counter += 1
+            #         else:
+            #             green_debounce_counter = 1
+            #             last_marker = marker
+            #     else:
+            #         green_debounce_counter = 0
+            #         last_marker = None
+            # 
+            #     if green_debounce_counter >= 5:
+            #         drive.stop()
+            #         ev3.speaker.beep(1000, 150)
+            #         print("Marcador Verde CONFIRMADO:", marker)
+            #         
+            #         # Avanzar para alinear las ruedas con la intersección
+            #         drive.straight(GREEN_ALIGN_DISTANCE)
+            #         
+            #         if marker == 'RIGHT':
+            #             drive.turn(90)
+            #         elif marker == 'LEFT':
+            #             drive.turn(-90)
+            #         elif marker == 'DOUBLE':
+            #             drive.turn(180)
+            #         
+            #         # Reiniciamos variables post-giro
+            #         last_err = 0
+            #         integral = 0
+            #         turn = 0
+            #         green_debounce_counter = 0
+            #         last_marker = None
+            #         t_cooldown = 40  # Cooldown de seguridad para pasar la intersección
+            #         continue
+            # else:
+            #     green_debounce_counter = 0
+            #     last_marker = None
 
             # Intersección en T Izquierda (frena, hace sonido inicial, y verifica parada antes de confirmar)
             if t_cooldown == 0 and matches_mask(cal, T_L_MASK):
@@ -456,9 +503,71 @@ def calibracion_manual():
     while Button.CENTER not in ev3.buttons.pressed(): wait(20)
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
 
-    # 5. Calibrar T Izquierda
+    # # 5. Calibrar Verde Izquierdo
+    # ev3.screen.clear()
+    # ev3.screen.draw_text(10, 30, "5. Verde Izq")
+    # ev3.screen.draw_text(10, 50, "Poner sensores izq")
+    # ev3.screen.draw_text(10, 70, "sobre VERDE")
+    # ev3.screen.draw_text(10, 90, "Apretar CENTRO")
+    # while Button.CENTER not in ev3.buttons.pressed():
+    #     wait(20)
+    # 
+    # ev3.screen.draw_text(10, 110, "Midiendo...")
+    # ev3.speaker.beep(600, 100)
+    # green_l = []
+    # for _ in range(20):
+    #     cal = normalize_array(ll.raw())
+    #     # Tomamos muestras de los sensores izquierdos (0 y 1)
+    #     green_l.extend([cal[0], cal[1]])
+    #     wait(20)
+    # 
+    # if green_l:
+    #     avg_l = sum(green_l) // len(green_l)
+    #     GREEN_L_MIN = max(0, avg_l - 15)
+    #     GREEN_L_MAX = min(100, avg_l + 15)
+    # 
+    # ev3.screen.clear()
+    # ev3.screen.draw_text(0, 10, "Verde Izq OK")
+    # ev3.screen.draw_text(0, 40, "Rango: " + str(GREEN_L_MIN) + "-" + str(GREEN_L_MAX))
+    # ev3.screen.draw_text(0, 100, "Click p/seguir")
+    # while Button.CENTER in ev3.buttons.pressed(): wait(20)
+    # while Button.CENTER not in ev3.buttons.pressed(): wait(20)
+    # while Button.CENTER in ev3.buttons.pressed(): wait(20)
+    # 
+    # # 6. Calibrar Verde Derecho
+    # ev3.screen.clear()
+    # ev3.screen.draw_text(10, 30, "6. Verde Der")
+    # ev3.screen.draw_text(10, 50, "Poner sensores der")
+    # ev3.screen.draw_text(10, 70, "sobre VERDE")
+    # ev3.screen.draw_text(10, 90, "Apretar CENTRO")
+    # while Button.CENTER not in ev3.buttons.pressed():
+    #     wait(20)
+    # 
+    # ev3.screen.draw_text(10, 110, "Midiendo...")
+    # ev3.speaker.beep(600, 100)
+    # green_r = []
+    # for _ in range(20):
+    #     cal = normalize_array(ll.raw())
+    #     # Tomamos muestras de los sensores derechos (6 y 7)
+    #     green_r.extend([cal[6], cal[7]])
+    #     wait(20)
+    # 
+    # if green_r:
+    #     avg_r = sum(green_r) // len(green_r)
+    #     GREEN_R_MIN = max(0, avg_r - 15)
+    #     GREEN_R_MAX = min(100, avg_r + 15)
+    # 
+    # ev3.screen.clear()
+    # ev3.screen.draw_text(0, 10, "Verde Der OK")
+    # ev3.screen.draw_text(0, 40, "Rango: " + str(GREEN_R_MIN) + "-" + str(GREEN_R_MAX))
+    # ev3.screen.draw_text(0, 100, "Click p/seguir")
+    # while Button.CENTER in ev3.buttons.pressed(): wait(20)
+    # while Button.CENTER not in ev3.buttons.pressed(): wait(20)
+    # while Button.CENTER in ev3.buttons.pressed(): wait(20)
+
+    # 7. Calibrar T Izquierda
     ev3.screen.clear()
-    ev3.screen.draw_text(10, 30, "5. T IZQUIERDA")
+    ev3.screen.draw_text(10, 30, "7. T IZQUIERDA")
     ev3.screen.draw_text(10, 60, "Colocar sobre T Izq")
     ev3.screen.draw_text(10, 80, "Apretar CENTRO")
     while Button.CENTER not in ev3.buttons.pressed():
@@ -485,9 +594,9 @@ def calibracion_manual():
     while Button.CENTER not in ev3.buttons.pressed(): wait(20)
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
 
-    # 6. Calibrar T Derecha
+    # 8. Calibrar T Derecha
     ev3.screen.clear()
-    ev3.screen.draw_text(10, 30, "6. T DERECHA")
+    ev3.screen.draw_text(10, 30, "8. T DERECHA")
     ev3.screen.draw_text(10, 60, "Colocar sobre T Der")
     ev3.screen.draw_text(10, 80, "Apretar CENTRO")
     while Button.CENTER not in ev3.buttons.pressed():

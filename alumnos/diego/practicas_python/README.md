@@ -95,7 +95,7 @@ print("tenemos",que_comprar)
 if que_comprar != "bateria" or "cables" or "sensor_color" or "motor_grande " or "spike_hub":
     print("Lo sentimos no tenemos " + que_comprar + ",pero pude venir cuando lo tengamos disponible. ")
 
-# ✅----------------------------------------------------------------------------------------------------------------------------------------------
+# ✅-------------------------------------------------------------------------------
 
 # Pracrtica 7 y 8
 
@@ -359,10 +359,14 @@ cuartos.append(indice8)
 
 print(cuartos)
 
-print(cuartos[0],separador() ,cuartos[1])
-print(cuartos[2],separador() ,cuartos[3])
-print(cuartos[4],separador() ,cuartos[5])
-print(cuartos[6],separador() ,cuartos[7])
+print("primer partido de cuartos :")
+print(cuartos[0], separador() ,cuartos[1])
+print("segundo partido de cuartos :")
+print(cuartos[2], separador() ,cuartos[3])
+print("tercer partido de cuartos :")
+print(cuartos[4], separador() ,cuartos[5])
+print("cuarto partido de cuartos :")
+print(cuartos[6], separador() ,cuartos[7])
 
 print('-----------------------------------------------------------')
 
@@ -396,7 +400,9 @@ semifinales.append(indice4)
 
 print(semifinales)
 
+print("primer partido de semis :")
 print(cuartos[0],separador() ,cuartos[1])
+print("segundo partido de semis :")
 print(cuartos[2],separador() ,cuartos[3])
 
 print('-----------------------------------------------------------')
@@ -417,11 +423,14 @@ semifinales.append(indice2)
 
 print(final)
 
+print("LA GRAN FINAL DE MUNDO :")
 print(final[0],separador() ,final[1])
-
 campeon = input("INGRESE EL INDICE DE CAMPEON :")
+campeon = int(campeon)
 
 festejar_campeon()
+
+print("🎉" , campeon , "🏆")
 
 mostrar_menu()
 
@@ -432,12 +441,4 @@ def reportar_motores():
 
 # Llamamos a la función
 reportar_motores()
-
-
-
-if que_falla in fallos_robot:
-    print("fallo encontrado y arreglalo")
-
-else:
-    print("fallo no encontrado")
 

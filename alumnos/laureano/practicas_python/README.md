@@ -341,3 +341,289 @@ print("-----------------------------------------")
 print("CAMPEON DEL MUNDO 2022")
 print("El campeón es:", campeon)
 
+
+
+---------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+def mostrar_bienvenida():
+    print("======================================")
+    print("¡BIENVENIDO AL FIXTURE DEL MUNDIAL!")
+    print("======================================")
+
+
+def mostrar_separador():
+    print("********** VS **********")
+
+
+def festejar_campeon():
+    print("¡TENEMOS UN NUEVO CAMPEÓN! ")
+
+
+def mostrar_menu():
+    print("--- MENÚ DEL FIXTURE ---")
+    print("1. Ver grupos")
+    print("2. Definir octavos")
+    print("3. Definir cuartos")
+    print("4. Salir"
+
+mostrar_bienvenida()
+mostrar_menu()
+
+GrupoA = ["Catar", "Ecuador", "Senegal", "Países Bajos"]
+GrupoB = ["Inglaterra", "Irán", "Estados Unidos", "Gales"]
+GrupoC = ["Argentina", "Arabia Saudita", "México", "Polonia"]
+GrupoD = ["Francia", "Australia", "Dinamarca", "Túnez"]
+GrupoE = ["España", "Costa Rica", "Alemania", "Japón"]
+GrupoF = ["Bélgica", "Canadá", "Marruecos", "Croacia"]
+GrupoG = ["Brasil", "Serbia", "Suiza", "Camerún"]
+GrupoH = ["Portugal", "Ghana", "Uruguay", "Corea del Sur"]
+
+print("LOS GRUPOS DEL MUNDIAL SON")
+
+print("Grupo A:", GrupoA)
+print("Grupo B:", GrupoB)
+print("Grupo C:", GrupoC)
+print("Grupo D:", GrupoD)
+print("Grupo E:", GrupoE)
+print("Grupo F:", GrupoF)
+print("Grupo G:", GrupoG)
+print("Grupo H:", GrupoH)
+
+octavos = []
+
+# GRUPO A
+
+print("-----------------------------------------")
+print("Ingrese el primer y segundo del Grupo A")
+print(GrupoA)
+
+primerlugar = int(input("Ingrese el primer: "))
+segundolugar = int(input("Ingrese el segundo: "))
+
+octavos.append(GrupoA[primerlugar])
+octavos.append(GrupoA[segundolugar])
+
+# GRUPO B
+
+print("-----------------------------------------")
+print("Ingrese el primer y segundo del Grupo B")
+print(GrupoB)
+
+primerlugar = int(input("Ingrese el primer: "))
+segundolugar = int(input("Ingrese el segundo: "))
+
+octavos.append(GrupoB[primerlugar])
+octavos.append(GrupoB[segundolugar])
+
+# GRUPO C
+
+print("-----------------------------------------")
+print("Ingrese el primer y segundo del Grupo C")
+print(GrupoC)
+
+primerlugar = int(input("Ingrese el primer: "))
+segundolugar = int(input("Ingrese el segundo: "))
+
+octavos.append(GrupoC[primerlugar])
+octavos.append(GrupoC[segundolugar])
+
+# GRUPO D
+
+print("-----------------------------------------")
+print("Ingrese el primer y segundo del Grupo D")
+print(GrupoD)
+
+primerlugar = int(input("Ingrese el primer: "))
+segundolugar = int(input("Ingrese el segundo: "))
+
+octavos.append(GrupoD[primerlugar])
+octavos.append(GrupoD[segundolugar])
+
+# GRUPO E
+
+print("-----------------------------------------")
+print("Ingrese el primer y segundo del Grupo E")
+print(GrupoE)
+
+primerlugar = int(input("Ingrese el primer: "))
+segundolugar = int(input("Ingrese el segundo: "))
+
+octavos.append(GrupoE[primerlugar])
+octavos.append(GrupoE[segundolugar])
+
+# GRUPO F
+
+print("-----------------------------------------")
+print("Ingrese el primer y segundo del Grupo F")
+print(GrupoF)
+
+primerlugar = int(input("Ingrese el primer: "))
+segundolugar = int(input("Ingrese el segundo: "))
+
+octavos.append(GrupoF[primerlugar])
+octavos.append(GrupoF[segundolugar])
+
+# GRUPO G
+
+print("-----------------------------------------")
+print("Ingrese el primer y segundo del Grupo G")
+print(GrupoG)
+
+primerlugar = int(input("Ingrese el primer: "))
+segundolugar = int(input("Ingrese el segundo: "))
+
+octavos.append(GrupoG[primerlugar])
+octavos.append(GrupoG[segundolugar])
+
+# GRUPO H
+
+print("-----------------------------------------")
+print("Ingrese el primer y segundo del Grupo H")
+print(GrupoH)
+
+primerlugar = int(input("Ingrese el primer: "))
+segundolugar = int(input("Ingrese el segundo: "))
+
+octavos.append(GrupoH[primerlugar])
+octavos.append(GrupoH[segundolugar])
+
+print("-----------------------------------------")
+print("CLASIFICADOS A OCTAVOS")
+print(octavos)
+
+# OCTAVOS
+
+cuartos = []
+
+print("-----------------------------------------")
+print("OCTAVOS DE FINAL")
+
+print(octavos[0])
+mostrar_separador()
+print(octavos[1])
+ganador = input("Ganador: ")
+cuartos.append(ganador)
+
+print(octavos[2])
+mostrar_separador()
+print(octavos[3])
+ganador = input("Ganador: ")
+cuartos.append(ganador)
+
+print(octavos[4])
+mostrar_separador()
+print(octavos[5])
+ganador = input("Ganador: ")
+cuartos.append(ganador)
+
+print(octavos[6])
+mostrar_separador()
+print(octavos[7])
+ganador = input("Ganador: ")
+cuartos.append(ganador)
+
+print(octavos[8])
+mostrar_separador()
+print(octavos[9])
+ganador = input("Ganador: ")
+cuartos.append(ganador)
+
+print(octavos[10])
+mostrar_separador()
+print(octavos[11])
+ganador = input("Ganador: ")
+cuartos.append(ganador)
+
+print(octavos[12])
+mostrar_separador()
+print(octavos[13])
+ganador = input("Ganador: ")
+cuartos.append(ganador)
+
+print(octavos[14])
+mostrar_separador()
+print(octavos[15])
+ganador = input("Ganador: ")
+cuartos.append(ganador)
+
+print("-----------------------------------------")
+print("CLASIFICADOS A CUARTOS")
+print(cuartos)
+
+# CUARTOS 
+
+semifinal = []
+
+print("-----------------------------------------")
+print("CUARTOS DE FINAL")
+
+print(cuartos[0])
+mostrar_separador()
+print(cuartos[1])
+ganador = input("Ganador: ")
+semifinal.append(ganador)
+
+print(cuartos[2])
+mostrar_separador()
+print(cuartos[3])
+ganador = input("Ganador: ")
+semifinal.append(ganador)
+
+print(cuartos[4])
+mostrar_separador()
+print(cuartos[5])
+ganador = input("Ganador: ")
+semifinal.append(ganador)
+
+print(cuartos[6])
+mostrar_separador()
+print(cuartos[7])
+ganador = input("Ganador: ")
+semifinal.append(ganador)
+
+print("-----------------------------------------")
+print("CLASIFICADOS A SEMIFINAL")
+print(semifinal)
+
+# SEMIFINALES
+
+final = []
+
+print("-----------------------------------------")
+print("SEMIFINAL")
+
+print(semifinal[0])
+mostrar_separador()
+print(semifinal[1])
+ganador = input("Ganador: ")
+final.append(ganador)
+
+print(semifinal[2])
+mostrar_separador()
+print(semifinal[3])
+ganador = input("Ganador: ")
+final.append(ganador)
+
+print("-----------------------------------------")
+print("FINALISTAS")
+print(final)
+
+# FINAL
+
+print("-----------------------------------------")
+print("GRAN FINAL")
+
+print(final[0])
+mostrar_separador()
+print(final[1])
+
+campeon = input("Ingrese el campeón del mundo: ")
+
+festejar_campeon()
+
+print("-----------------------------------------")
+print("CAMPEÓN DEL MUNDO 2022")
+print("El campeón es:", campeon)
+

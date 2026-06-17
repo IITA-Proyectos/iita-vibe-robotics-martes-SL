@@ -19,12 +19,16 @@ He creado un archivo llamado `deploy.bat` en esta misma carpeta. Cuando quieras 
 
 ## Opción B: Comandos Manuales Paso a Paso
 
+ping ev3dev.local
+
 Si prefieres ingresar los comandos manualmente uno por uno en la terminal:
 
 ### Paso 1: Subir el archivo `main.py`
 Envía tu código desde la PC al robot con el comando:
 ```powershell
 scp main.py robot@ev3dev.local:/home/robot/tests_clase/
+
+scp C:\Users\ativa\OneDrive\Documentos\IITA\VC\iita-vibe-robotics-martes-SL\codigo-ejemplo\movimiento\seguidor-lineleader-v2\main.py  robot@ev3dev.local:/home/robot/tests_clase/
 ```
 *(Contraseña: `maker`)*
 

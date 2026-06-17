@@ -46,6 +46,11 @@
 ---
 
 ## 3. Plan para la Próxima Clase
-1. Validar la calibración de verdes (Pasos 5 y 6) en pista con diferentes intensidades de luz.
-2. Evaluar el comportamiento físico de los giros de 90° y 180° en `seguidor_verdes.py` con el avance de 82 mm.
-3. Volver a subir paulatinamente la velocidad base si la estabilidad se mantiene óptima.
+
+> [!WARNING]
+> **Problema Detectado en Pruebas Físicas:** El detector de verde presenta falsos positivos detectando "verde" en zonas donde no lo hay (especialmente en la transición o borde degradado entre blanco y negro). 
+
+1. **Resolver Falsos Verdes:** Corregir el filtro HSV en `seguidor_verdes.py`. Es probable que debamos ajustar la tolerancia del Hue y establecer un umbral más estricto de saturación y valor/brillo (ej. ignorar colores con baja saturación que se producen en los degradados del negro al blanco, o calibrar un rango específico para la transición blanco/negro).
+2. **Validar Calibración de Verdes:** Probar la calibración manual en pista bajo distintas luces.
+3. **Evaluar Giros de 90° y 180°:** Medir el avance físico de 82 mm para que los giros queden exactamente en el centro del cruce.
+4. **Velocidad:** Subir la velocidad base paulatinamente una vez corregidos los verdes.

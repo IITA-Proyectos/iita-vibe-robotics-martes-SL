@@ -1,11 +1,11 @@
 # Estado de Entregas
 
-| Alumno | Práctica 1 | Práctica 2 | Práctica 3 | Práctica 4 | Práctica 5 | Práctica 6 | Práctica 7 | Práctica 8 |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| Diego | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Juanse | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Laureano | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Máximo | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Alumno | Práctica 1 | Práctica 2 | Práctica 3 | Práctica 4 | Práctica 5 | Práctica 6 | Práctica 7 | Práctica 8 | Práctica 9 |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| Diego | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Juanse | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Laureano | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Máximo | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 
 *✅ Entregado | ⏳ Incompleto | ❌ Pendiente*
 
@@ -19,6 +19,7 @@
 - [Practica 6](#practica-6)
 - [Practica 7](#practica-7-el-fixture-del-mundial-2022-en-clase)
 - [Practica 8](#practica-8)
+- [Practica 9](#practica-9)
 
 # Practica 1
 
@@ -381,12 +382,67 @@ Necesitamos un programa interactivo en Python que nos ayude a ir siguiendo el Mu
 
    **¿Cuáles son los dos errores que cometió y cómo los arreglamos?**
 
-   ```python
-   def reportar_motores()
-   print("Motores inicializados correctamente")
-   print("Estado: Activos y listos")
+    ```python
+    def reportar_motores()
+    print("Motores inicializados correctamente")
+    print("Estado: Activos y listos")
 
-   # Llamamos a la función
-   reportar_motores
+    # Llamamos a la función
+    reportar_motores
+    ```
+
+# Practica 9
+
+1. **Creando un menú interactivo**: Vamos a inventar nuestro primer menú interactivo por consola usando:
+   * `os` para limpiar la pantalla
+   * `time` para agregar pausas
+
+   La idea es que el programa quede funcionando constantemente hasta que el usuario decida salir.
+
+   **La salida debería ser algo así:**
+   ```text
+   Bienvenido!
+   1 - Elegir opción 1
+   2 - Elegir opción 2
+   3 - Elegir opción 3
+   Ingrese el número de la opción que desea elegir: 
    ```
 
+2. **Abriendo sobres de figuritas**: Ahora simulemos la apertura de un paquete de 3 figuritas. Usaremos 3 librerías ahora:
+   * `random` para elegir figuritas al azar
+   * `time` para agregar suspenso
+   * `os` para limpiar la pantalla
+
+   Tenemos que simular la apertura del paquete, que nos de 3 figuritas al azar y nos las muestre una por una con suspenso.
+
+   Para la lista de jugadores, usá la siguiente lista predefinida:
+   ```python
+   jugadores = [ "Geronimo Rulli", "Juan Musso", "Emiliano Martinez", "Marcos Senesi", "Nicolas Tagliafico", "Gonzalo Montiel", 
+                "Lisandro Martinez", "Cristian Romero", "Nicolas Otamendi", "Facundo Medina", "Nahuel Molina", "Leandro Paredes", 
+                "Rodrigo De Paul", "Valentin Barco", "Giovani Lo Celso", "Exequiel Palacios", "Alexis Mac Allister", 
+                "Enzo Fernandez", "Julian Alvarez", "Lionel Messi", "Nicolas Gonzalez", "Thiago Almada", "Giuliano Simeone", 
+                "Nicolas Paz", "Jose Manuel Lopez", "Lautaro Martinez" ]
+   ```
+
+   **La salida nos debería quedar algo así, o más linda:**
+   ```text
+   Primera figurita...
+   -> Nicolas Paz
+   Segunda figurita...
+   -> Nicolas Otamendi
+   Tercera figurita...
+   -> Lionel Messi
+   Eso es todo...
+   ```
+
+3. **¿Salió Messi?**: Como desafío extra, podemos añadirle emoción a nuestro programa si es que nos sale Messi:
+   * **Mensaje esperado si toca Messi:**
+     ```text
+     🔥 ¡Te salió Messi!
+     ```
+
+4. **¿Solo 1 paquete?**: Como desafío extra, le añadamos más emoción. Usando algún `while`, abramos varios paquetes a la vez.
+
+5. **¿Y si sale alguna repetida?**: Pensá cómo podés hacer para que el programa te avise si es que te salió algún jugador repetido.
+
+   * **Pista:** Quizá debas crear una lista con los jugadores que te vayan tocando.

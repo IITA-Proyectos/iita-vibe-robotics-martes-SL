@@ -33,3 +33,6 @@ Tu carpeta `alumnos/tunombre/` + `rutinas-exitosas/`
 
 ### 6. Compartí tus prompts
 Si encontrás una buena forma de pedirle algo → `directivas-ia/`
+
+### 7. Herramientas y scripts de automatización de la IA
+Cualquier script de automatización o herramienta utilitaria creada por o para la IA debe ir en `alumnos/profefranco/tests_del_profe/herramientas_ia/` para poder ser reutilizado fácilmente.

@@ -6,6 +6,7 @@ Prompts y directivas que le damos a las IAs para que escriban buen código.
 |---------|----------|
 | `system-prompts/pybricks-expert.md` | Prompt experto para Pybricks + Spike |
 | `tips.md` | Consejos generales para vibe coding |
+| `alumnos/profefranco/tests_del_profe/herramientas_ia/` | Directorio de herramientas y scripts automatizados de la IA |
 
 ## ¿Cómo contribuir?
 

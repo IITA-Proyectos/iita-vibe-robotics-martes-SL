@@ -442,3 +442,42 @@ def reportar_motores():
 # Llamamos a la función
 reportar_motores()
 
+print("-------------------------------------------------------------")
+
+# Practica 9
+
+import time
+import os
+
+time.sleep(2)
+
+def mostrar_menu():
+    print("------- MENU® ------- ")
+    print("1- Opcion 1")
+    print("2- Opcion 2")
+    print("3- Opcion 3")
+    print("4- Salir")
+
+mostrar_menu()
+while True:
+    time.sleep(0.5)
+
+    numero_seleccionado = input ("selecciona el numero de la opcion :")
+    numero_seleccionado = int(numero_seleccionado)
+    time.sleep(3)
+    if numero_seleccionado  == 1:
+        print("Elegiste la opcion 1")
+
+    if numero_seleccionado  == 2:
+         print("Elegiste la opcion 2")
+
+    if numero_seleccionado == 3:
+        print("Elegiste la opcion 3")
+
+    if numero_seleccionado  == 4:
+        print("Adios!!!")
+        time.sleep(0.10)
+        os.system('cls')
+        break
+
+

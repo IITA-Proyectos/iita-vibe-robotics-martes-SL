@@ -59,9 +59,15 @@ BLACK = [0]*8
 T_L_MASK = [False]*8
 T_R_MASK = [False]*8
 
-# Valores de calibración por defecto para Verde (HSV)
-GREEN_L_H, GREEN_L_S, GREEN_L_V = 140, 50, 30
-GREEN_R_H, GREEN_R_S, GREEN_R_V = 140, 50, 30
+# Valores de calibración por defecto para Verde, Negro y Blanco (HSV)
+GREEN_L_H, GREEN_L_S, GREEN_L_V = 145, 70, 17
+GREEN_R_H, GREEN_R_S, GREEN_R_V = 130, 70, 17
+
+BLACK_L_H, BLACK_L_S, BLACK_L_V = 99, 74, 38
+BLACK_R_H, BLACK_R_S, BLACK_R_V = 87, 84, 27
+
+WHITE_L_H, WHITE_L_S, WHITE_L_V = 192, 30, 81
+WHITE_R_H, WHITE_R_S, WHITE_R_V = 173, 21, 71
 
 # ── Funciones de Memoria ─────────────────────────────────────────
 
@@ -72,7 +78,11 @@ def guardar_calibracion():
         "T_L_MASK": T_L_MASK,
         "T_R_MASK": T_R_MASK,
         "GREEN_L_HSV": [GREEN_L_H, GREEN_L_S, GREEN_L_V],
-        "GREEN_R_HSV": [GREEN_R_H, GREEN_R_S, GREEN_R_V]
+        "GREEN_R_HSV": [GREEN_R_H, GREEN_R_S, GREEN_R_V],
+        "BLACK_L_HSV": [BLACK_L_H, BLACK_L_S, BLACK_L_V],
+        "BLACK_R_HSV": [BLACK_R_H, BLACK_R_S, BLACK_R_V],
+        "WHITE_L_HSV": [WHITE_L_H, WHITE_L_S, WHITE_L_V],
+        "WHITE_R_HSV": [WHITE_R_H, WHITE_R_S, WHITE_R_V]
     }
     try:
         with open("calibracion_verdes.json", "w") as f:
@@ -83,6 +93,8 @@ def guardar_calibracion():
 def cargar_calibracion():
     global WHITE, BLACK, T_L_MASK, T_R_MASK
     global GREEN_L_H, GREEN_L_S, GREEN_L_V, GREEN_R_H, GREEN_R_S, GREEN_R_V
+    global BLACK_L_H, BLACK_L_S, BLACK_L_V, BLACK_R_H, BLACK_R_S, BLACK_R_V
+    global WHITE_L_H, WHITE_L_S, WHITE_L_V, WHITE_R_H, WHITE_R_S, WHITE_R_V
     try:
         with open("calibracion_verdes.json", "r") as f:
             datos = json.load(f)
@@ -97,6 +109,14 @@ def cargar_calibracion():
                 GREEN_L_H, GREEN_L_S, GREEN_L_V = datos["GREEN_L_HSV"]
             if "GREEN_R_HSV" in datos:
                 GREEN_R_H, GREEN_R_S, GREEN_R_V = datos["GREEN_R_HSV"]
+            if "BLACK_L_HSV" in datos:
+                BLACK_L_H, BLACK_L_S, BLACK_L_V = datos["BLACK_L_HSV"]
+            if "BLACK_R_HSV" in datos:
+                BLACK_R_H, BLACK_R_S, BLACK_R_V = datos["BLACK_R_HSV"]
+            if "WHITE_L_HSV" in datos:
+                WHITE_L_H, WHITE_L_S, WHITE_L_V = datos["WHITE_L_HSV"]
+            if "WHITE_R_HSV" in datos:
+                WHITE_R_H, WHITE_R_S, WHITE_R_V = datos["WHITE_R_HSV"]
         return True
     except:
         return False
@@ -127,13 +147,42 @@ def rgb_to_hsv(r, g, b):
     
     return int(h), int(s), int(v)
 
-def es_color_verde(h, s, v, target_h, target_s, target_v):
-    """Evalúa si un color HSV entra en el rango del verde calibrado con cierta tolerancia."""
-    diff_h = abs(h - target_h)
-    if diff_h > 180:
-        diff_h = 360 - diff_h
-    # Tolerancia: Hue +- 25, Saturation y Value mínimo respecto al objetivo
-    return diff_h <= 25 and s >= max(20, target_s - 25) and v >= max(10, target_v - 25)
+def es_color_verde(h, s, v, target_g, target_b, target_w, sens_verde=1.3):
+    """Evalúa si el color clasifica como VERDE utilizando distancia euclidiana ponderada."""
+    gh, gs, gv = target_g
+    bh, bs, bv = target_b
+    wh, ws, wv = target_w
+    
+    def diff_hue(h1, h2):
+        d = abs(h1 - h2)
+        return 360 - d if d > 180 else d
+
+    # Distancia al Negro
+    d_black_h = diff_hue(h, bh)
+    if s < 22:
+        dist_black = (s - bs)**2 + (v - bv)**2
+    else:
+        dist_black = d_black_h**2 + (s - bs)**2 + (v - bv)**2
+
+    # Distancia al Blanco
+    d_white_h = diff_hue(h, wh)
+    if s < 22:
+        dist_white = (s - ws)**2 + (v - wv)**2
+    else:
+        dist_white = d_white_h**2 + (s - ws)**2 + (v - wv)**2
+
+    # Distancia al Verde (penalizado si la saturación es muy baja)
+    d_green_h = diff_hue(h, gh)
+    if s < 22:
+        dist_green = ((s - gs)**2 + (v - gv)**2) + 50000
+    else:
+        dist_green = d_green_h**2 + (s - gs)**2 + (v - gv)**2
+        
+    # Ponderación del verde (sens_verde > 1.0 hace que sea más estricto)
+    dist_green = dist_green * sens_verde
+    
+    # El verde gana si su distancia es menor que la del negro y la del blanco
+    return dist_green < dist_black and dist_green < dist_white
 
 def normalize_array(raw_8):
     """Convierte los valores raw usando los promedios de WHITE y BLACK a 0-100."""
@@ -229,8 +278,14 @@ def follow_line():
                 h_r, s_r, v_r = rgb_to_hsv(r_r, g_r, b_r)
                 
                 # Evaluar verdes con respecto a los targets calibrados
-                green_l = es_color_verde(h_l, s_l, v_l, GREEN_L_H, GREEN_L_S, GREEN_L_V)
-                green_r = es_color_verde(h_r, s_r, v_r, GREEN_R_H, GREEN_R_S, GREEN_R_V)
+                green_l = es_color_verde(h_l, s_l, v_l, 
+                                         (GREEN_L_H, GREEN_L_S, GREEN_L_V), 
+                                         (BLACK_L_H, BLACK_L_S, BLACK_L_V), 
+                                         (WHITE_L_H, WHITE_L_S, WHITE_L_V))
+                green_r = es_color_verde(h_r, s_r, v_r, 
+                                         (GREEN_R_H, GREEN_R_S, GREEN_R_V), 
+                                         (BLACK_R_H, BLACK_R_S, BLACK_R_V), 
+                                         (WHITE_R_H, WHITE_R_S, WHITE_R_V))
                 
                 if green_l or green_r:
                     drive.stop()
@@ -243,12 +298,18 @@ def follow_line():
                     for _ in range(5):
                         rl, gl, bl = color_izq.rgb()
                         hl, sl, vl = rgb_to_hsv(rl, gl, bl)
-                        if es_color_verde(hl, sl, vl, GREEN_L_H, GREEN_L_S, GREEN_L_V):
+                        if es_color_verde(hl, sl, vl, 
+                                          (GREEN_L_H, GREEN_L_S, GREEN_L_V), 
+                                          (BLACK_L_H, BLACK_L_S, BLACK_L_V), 
+                                          (WHITE_L_H, WHITE_L_S, WHITE_L_V)):
                             confirm_l = True
                         
                         rr, gr, br = color_der.rgb()
                         hr, sr, vr = rgb_to_hsv(rr, gr, br)
-                        if es_color_verde(hr, sr, vr, GREEN_R_H, GREEN_R_S, GREEN_R_V):
+                        if es_color_verde(hr, sr, vr, 
+                                          (GREEN_R_H, GREEN_R_S, GREEN_R_V), 
+                                          (BLACK_R_H, BLACK_R_S, BLACK_R_V), 
+                                          (WHITE_R_H, WHITE_R_S, WHITE_R_V)):
                             confirm_r = True
                         wait(10)
                     
@@ -376,28 +437,52 @@ def follow_line():
 def calibracion_manual():
     global T_L_MASK, T_R_MASK
     global GREEN_L_H, GREEN_L_S, GREEN_L_V, GREEN_R_H, GREEN_R_S, GREEN_R_V
+    global BLACK_L_H, BLACK_L_S, BLACK_L_V, BLACK_R_H, BLACK_R_S, BLACK_R_V
+    global WHITE_L_H, WHITE_L_S, WHITE_L_V, WHITE_R_H, WHITE_R_S, WHITE_R_V
     ev3.speaker.beep()
 
-    # 1. Calibrar Blanco LSA
+    # 1. Calibrar Blanco General (LSA + Sensores Color)
     ev3.screen.clear()
-    ev3.screen.draw_text(10, 30, "1. Blanco LSA")
-    ev3.screen.draw_text(10, 60, "Apretar CENTRO")
+    ev3.screen.draw_text(0, 5, "1. Blanco Gral")
+    ev3.screen.draw_text(0, 30, "Apretar CENTRO")
     while Button.CENTER not in ev3.buttons.pressed():
         wait(20)
 
-    ev3.screen.draw_text(10, 90, "Midiendo...")
+    ev3.screen.draw_text(0, 55, "Midiendo...")
     ev3.speaker.beep(400, 100)
+    h_l_sum, s_l_sum, v_l_sum = 0, 0, 0
+    h_r_sum, s_r_sum, v_r_sum = 0, 0, 0
     for _ in range(20):
         raw = ll.raw()
         for i in range(8): WHITE[i] += raw[i]
+        
+        rl, gl, bl = color_izq.rgb()
+        hl, sl, vl = rgb_to_hsv(rl, gl, bl)
+        h_l_sum += hl
+        s_l_sum += sl
+        v_l_sum += vl
+        
+        rr, gr, br = color_der.rgb()
+        hr, sr, vr = rgb_to_hsv(rr, gr, br)
+        h_r_sum += hr
+        s_r_sum += sr
+        v_r_sum += vr
         wait(20)
+        
     for i in range(8): WHITE[i] = WHITE[i] // 20
+    WHITE_L_H = h_l_sum // 20
+    WHITE_L_S = s_l_sum // 20
+    WHITE_L_V = v_l_sum // 20
+    WHITE_R_H = h_r_sum // 20
+    WHITE_R_S = s_r_sum // 20
+    WHITE_R_V = v_r_sum // 20
 
     ev3.screen.clear()
-    ev3.screen.draw_text(0, 10, "Blanco OK")
-    ev3.screen.draw_text(0, 40, " ".join(str(v) for v in WHITE[0:4]))
-    ev3.screen.draw_text(0, 70, " ".join(str(v) for v in WHITE[4:8]))
-    ev3.screen.draw_text(0, 100, "Click p/seguir")
+    ev3.screen.draw_text(0, 5, "Blanco OK")
+    ev3.screen.draw_text(0, 30, "LSA: " + " ".join(str(v) for v in WHITE[0:4]))
+    ev3.screen.draw_text(0, 55, "I: {}, {}, {}".format(WHITE_L_H, WHITE_L_S, WHITE_L_V))
+    ev3.screen.draw_text(0, 80, "D: {}, {}, {}".format(WHITE_R_H, WHITE_R_S, WHITE_R_V))
+    ev3.screen.draw_text(0, 105, "Click p/seguir")
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
     while Button.CENTER not in ev3.buttons.pressed(): wait(20)
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
@@ -426,9 +511,51 @@ def calibracion_manual():
     while Button.CENTER not in ev3.buttons.pressed(): wait(20)
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
 
-    # 3. Calibrar T Izquierda
+    # 3. Calibrar Negro Color (S2 y S4)
     ev3.screen.clear()
-    ev3.screen.draw_text(10, 30, "3. T IZQUIERDA")
+    ev3.screen.draw_text(10, 30, "3. Negro S2/S4")
+    ev3.screen.draw_text(10, 50, "Poner S2/S4 s/NEGRO")
+    ev3.screen.draw_text(10, 70, "Apretar CENTRO")
+    while Button.CENTER not in ev3.buttons.pressed():
+        wait(20)
+
+    ev3.screen.draw_text(10, 90, "Midiendo...")
+    ev3.speaker.beep(500, 100)
+    h_l_sum, s_l_sum, v_l_sum = 0, 0, 0
+    h_r_sum, s_r_sum, v_r_sum = 0, 0, 0
+    for _ in range(20):
+        rl, gl, bl = color_izq.rgb()
+        hl, sl, vl = rgb_to_hsv(rl, gl, bl)
+        h_l_sum += hl
+        s_l_sum += sl
+        v_l_sum += vl
+        
+        rr, gr, br = color_der.rgb()
+        hr, sr, vr = rgb_to_hsv(rr, gr, br)
+        h_r_sum += hr
+        s_r_sum += sr
+        v_r_sum += vr
+        wait(20)
+        
+    BLACK_L_H = h_l_sum // 20
+    BLACK_L_S = s_l_sum // 20
+    BLACK_L_V = v_l_sum // 20
+    BLACK_R_H = h_r_sum // 20
+    BLACK_R_S = s_r_sum // 20
+    BLACK_R_V = v_r_sum // 20
+
+    ev3.screen.clear()
+    ev3.screen.draw_text(0, 10, "Negro Color OK")
+    ev3.screen.draw_text(0, 40, "I: {}, {}, {}".format(BLACK_L_H, BLACK_L_S, BLACK_L_V))
+    ev3.screen.draw_text(0, 70, "D: {}, {}, {}".format(BLACK_R_H, BLACK_R_S, BLACK_R_V))
+    ev3.screen.draw_text(0, 100, "Click p/seguir")
+    while Button.CENTER in ev3.buttons.pressed(): wait(20)
+    while Button.CENTER not in ev3.buttons.pressed(): wait(20)
+    while Button.CENTER in ev3.buttons.pressed(): wait(20)
+
+    # 4. Calibrar T Izquierda
+    ev3.screen.clear()
+    ev3.screen.draw_text(10, 30, "4. T IZQUIERDA")
     ev3.screen.draw_text(10, 60, "Colocar sobre T Izq")
     ev3.screen.draw_text(10, 80, "Apretar CENTRO")
     while Button.CENTER not in ev3.buttons.pressed():
@@ -454,9 +581,9 @@ def calibracion_manual():
     while Button.CENTER not in ev3.buttons.pressed(): wait(20)
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
 
-    # 4. Calibrar T Derecha
+    # 5. Calibrar T Derecha
     ev3.screen.clear()
-    ev3.screen.draw_text(10, 30, "4. T DERECHA")
+    ev3.screen.draw_text(10, 30, "5. T DERECHA")
     ev3.screen.draw_text(10, 60, "Colocar sobre T Der")
     ev3.screen.draw_text(10, 80, "Apretar CENTRO")
     while Button.CENTER not in ev3.buttons.pressed():
@@ -482,9 +609,9 @@ def calibracion_manual():
     while Button.CENTER not in ev3.buttons.pressed(): wait(20)
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
 
-    # 5. Calibrar Verde Izquierdo (Sensor Color Puerto 2)
+    # 6. Calibrar Verde Izquierdo (Sensor Color Puerto 2)
     ev3.screen.clear()
-    ev3.screen.draw_text(10, 30, "5. Verde Izq (S2)")
+    ev3.screen.draw_text(10, 30, "6. Verde Izq (S2)")
     ev3.screen.draw_text(10, 50, "Poner sensor IZQ")
     ev3.screen.draw_text(10, 70, "sobre VERDE")
     ev3.screen.draw_text(10, 90, "Apretar CENTRO")
@@ -507,15 +634,15 @@ def calibracion_manual():
 
     ev3.screen.clear()
     ev3.screen.draw_text(0, 10, "Verde Izq OK")
-    ev3.screen.draw_text(0, 40, "H:{} S:{} V:{}".format(GREEN_L_H, GREEN_L_S, GREEN_L_V))
+    ev3.screen.draw_text(0, 40, "HSV: {}, {}, {}".format(GREEN_L_H, GREEN_L_S, GREEN_L_V))
     ev3.screen.draw_text(0, 100, "Click p/seguir")
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
     while Button.CENTER not in ev3.buttons.pressed(): wait(20)
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
 
-    # 6. Calibrar Verde Derecho (Sensor Color Puerto 4)
+    # 7. Calibrar Verde Derecho (Sensor Color Puerto 4)
     ev3.screen.clear()
-    ev3.screen.draw_text(10, 30, "6. Verde Der (S4)")
+    ev3.screen.draw_text(10, 30, "7. Verde Der (S4)")
     ev3.screen.draw_text(10, 50, "Poner sensor DER")
     ev3.screen.draw_text(10, 70, "sobre VERDE")
     ev3.screen.draw_text(10, 90, "Apretar CENTRO")
@@ -538,7 +665,7 @@ def calibracion_manual():
 
     ev3.screen.clear()
     ev3.screen.draw_text(0, 10, "Verde Der OK")
-    ev3.screen.draw_text(0, 40, "H:{} S:{} V:{}".format(GREEN_R_H, GREEN_R_S, GREEN_R_V))
+    ev3.screen.draw_text(0, 40, "HSV: {}, {}, {}".format(GREEN_R_H, GREEN_R_S, GREEN_R_V))
     ev3.screen.draw_text(0, 100, "Click p/seguir")
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
     while Button.CENTER not in ev3.buttons.pressed(): wait(20)

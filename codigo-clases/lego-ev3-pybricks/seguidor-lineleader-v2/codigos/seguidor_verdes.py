@@ -37,7 +37,7 @@ drive = DriveBase(motor_izq, motor_der, wheel_diameter=DIAMETRO_RUEDA, axle_trac
 ll = LightSensorArray(Port.S1)
 
 # Sensores de Color Frontales
-# S2: Izquierdo, S4: Derecho (Colocados a 57mm del LSA, que está a 25mm del eje -> 82mm total)
+# S2: Izquierdo, S4: Derecho (Colocados a 85mm del eje de las ruedas)
 color_izq = ColorSensor(Port.S2)
 color_der = ColorSensor(Port.S4)
 
@@ -51,8 +51,9 @@ MIN_SPEED = 15
 CENTER = 35
 INTERSECTION_THRESHOLD = 20
 
-# Distancia de alineación: sensores de color al eje de las ruedas (57mm + 25mm = 82mm)
-GREEN_ALIGN_DISTANCE = 82
+# Distancia de alineación: sensores al eje (46mm) + verde (25mm) + ancho de línea (17mm) = 88mm
+GREEN_ALIGN_DISTANCE = 88
+PEEK_GREEN_DIST = 15  # Avance corto para comprobar si hay intersección antes del verde (en mm)
 
 WHITE = [0]*8
 BLACK = [0]*8
@@ -288,9 +289,28 @@ def follow_line():
                                          (WHITE_R_H, WHITE_R_S, WHITE_R_V))
                 
                 if green_l or green_r:
+                    # 1. Parar de inmediato y esperar un momento para inspección visual
                     drive.stop()
                     ev3.speaker.beep(700, 50)  # Tono rápido de detección inicial
-                    wait(100)  # Estabilizar rebotes físicos
+                    wait(400)  # Pausa visual inicial de 400ms
+                    
+                    # 2. Hacer el avance corto PEEK_GREEN_DIST (15 mm)
+                    drive.straight(PEEK_GREEN_DIST)
+                    drive.stop()
+                    
+                    # 3. Esperar otro momento quieto para inspección visual del avance
+                    wait(400)  # Pausa visual secundaria de 400ms
+                    
+                    # Comprobamos si el LSA detectó intersección en este nuevo punto
+                    cal_test = normalize_array(ll.raw())
+                    es_cruz = sum(1 for v in cal_test if v < INTERSECTION_THRESHOLD) >= 7
+                    es_t_l = matches_mask(cal_test, T_L_MASK)
+                    es_t_r = matches_mask(cal_test, T_R_MASK)
+                    
+                    if es_cruz or es_t_l or es_t_r:
+                        print("\n[VERDE] Ignorado: intersección primero detectada por LSA.")
+                        t_cooldown = 40  # Cooldown para pasar la intersección sin re-detectar verde
+                        continue
                     
                     # Confirmar con 5 muestras rápidas
                     confirm_l = False
@@ -316,8 +336,8 @@ def follow_line():
                     if confirm_l or confirm_r:
                         ev3.speaker.beep(1200, 150)  # Confirmación sonora
                         
-                        # Avanzar la distancia exacta para alinear el eje de las ruedas con la intersección
-                        drive.straight(GREEN_ALIGN_DISTANCE)
+                        # Avanzar la distancia restante para alinear el eje de las ruedas con la intersección
+                        drive.straight(GREEN_ALIGN_DISTANCE - PEEK_GREEN_DIST)
                         wait(50)
                         
                         # Decidir acción de giro

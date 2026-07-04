@@ -12,6 +12,7 @@
 - [Clase 6](#clase-6)
 - [Clase 8](#clase-8)
 - [Clase 9](#clase-9)
+- [Clase 10](#clase-10)
 
 ## Clase 4
 
@@ -168,3 +169,18 @@
 ![Diapositiva 27](img/clase9_diapositiva27.png)
 ![Diapositiva 28](img/clase9_diapositiva28.png)
 
+## Clase 10
+
+![Diapositiva 1](img/clase10_diapositiva01.png)
+![Diapositiva 2](img/clase10_diapositiva02.png)
+![Diapositiva 3](img/clase10_diapositiva03.png)
+![Diapositiva 4](img/clase10_diapositiva04.png)
+![Diapositiva 5](img/clase10_diapositiva05.png)
+![Diapositiva 6](img/clase10_diapositiva06.png)
+![Diapositiva 7](img/clase10_diapositiva07.png)
+![Diapositiva 8](img/clase10_diapositiva08.png)
+![Diapositiva 9](img/clase10_diapositiva09.png)
+![Diapositiva 10](img/clase10_diapositiva10.png)
+![Diapositiva 11](img/clase10_diapositiva11.png)
+![Diapositiva 12](img/clase10_diapositiva12.png)
+![Diapositiva 13](img/clase10_diapositiva13.png)

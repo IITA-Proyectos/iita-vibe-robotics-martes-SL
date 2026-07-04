@@ -1,11 +1,11 @@
 # Estado de Entregas
 
-| Alumno | Práctica 1 | Práctica 2 | Práctica 3 | Práctica 4 | Práctica 5 | Práctica 6 | Práctica 7 | Práctica 8 | Práctica 9 |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| Diego | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Juanse | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Laureano | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Máximo | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Alumno | Práctica 1 | Práctica 2 | Práctica 3 | Práctica 4 | Práctica 5 | Práctica 6 | Práctica 7 | Práctica 8 | Práctica 9 | Práctica 10 |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| Diego | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Juanse | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Laureano | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Máximo | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 
 *✅ Entregado | ⏳ Incompleto | ❌ Pendiente*
 
@@ -20,6 +20,7 @@
 - [Practica 7](#practica-7-el-fixture-del-mundial-2022-en-clase)
 - [Practica 8](#practica-8)
 - [Practica 9](#practica-9)
+- [Practica 10](#practica-10)
 
 # Practica 1
 
@@ -446,3 +447,53 @@ Necesitamos un programa interactivo en Python que nos ayude a ir siguiendo el Mu
 5. **¿Y si sale alguna repetida?**: Pensá cómo podés hacer para que el programa te avise si es que te salió algún jugador repetido.
 
    * **Pista:** Quizá debas crear una lista con los jugadores que te vayan tocando.
+
+# Practica 10
+
+1. **Número positivo o negativo**: Pedile un número al usuario e indicá:
+   - **Positivo** si es mayor a 0
+   - **Negativo** si es menor a 0
+   - **Es cero** si vale 0
+
+2. **¿Está jubilado señor?**: Sos el guardia de seguridad de la puerta de PAMI. Tenés que preguntarle al usuario si ya tiene la edad suficiente para jubilarse:
+   - **Si es una doñita**: Se jubila siendo mayor de 60 años.
+   - **Si es un señor**: Se jubila siendo mayor que 65 años.
+
+3. **Siendo Mark Zuckerberg**: Te contrataron de Facebook en los principios de los 2000 y te pidieron hacer el login/inicio de sesión. Pedile al usuario por consola que ingrese un **usuario** y **contraseña**. Si las credenciales son correctas mostrá por consola `"Bienvenido"`, sino un mensaje diciéndole que sus datos son incorrectos.
+
+4. **¿Pitágoras? ¿Quién es ese?**: Hagamos una calculadora. Pedile dos números al usuario y por consola tenés que mostrar el resultado de:
+   - La suma
+   - La resta
+   - La multiplicación
+   - La división
+
+5. **Piedra, papel o tijera...**: Sabiendo usar la librería de la aleatorización (`random`) hagamos un juego. El usuario debe elegir su opción y la computadora también elige una opción al azar. Mostrar ambas elecciones y decirle si ganó, perdió o empató.
+   
+   * **Pista:**
+     ```python
+     import random
+     
+     opciones = ["piedra", "papel", "tijera"]
+     pc = random.choice(opciones)
+     ```
+
+6. **Respetando los rangos...**: Pedile un número al usuario. Si el número que elige el usuario está dentro del rango del 10 al 20 mostrá por consola:
+   - `"Está entre 10 y 20."`
+   - Sino: `"Está fuera del rango."`
+
+7. **El pulpo Paul**: Este pulpo fue muy popular en la Copa del Mundo Sudáfrica 2010 por predecir resultados.
+   Pedile al usuario que ingrese el partido que desea predecir de las eliminatorias y mostrá por consola al ganador:
+   - `"El ganador del partido será: Paraguay"`
+
+8. **Dados 1v1**: Hagamos otro juego, pero ahora para dos jugadores. Cada uno va a tirar un dado y el que saque un número más alto gana. El jugador que gane 3 rondas gana.
+   
+   * **Pistas y detalles:**
+     - Para tirar un dado al azar:
+       ```python
+       import random
+       dado = random.randint(1, 6)
+       ```
+     - Para que la consola espere a que los jugadores estén listos y se vea más limpio, podés usar un `input()` vacío:
+       ```python
+       input("Presioná ENTER para continuar...")
+       ```

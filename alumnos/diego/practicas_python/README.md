@@ -480,4 +480,191 @@ while True:
         os.system('cls')
         break
 
+# Practica 10
+
+import random
+import time
+import sys
+
+# Calculadora
+
+numero = float(input("Escribe un número :"))
+numero = int(numero)
+
+if numero > 0:
+    print("Tu número es positivo")
+elif numero < 0:
+    print("Tu número es negativo")
+else:
+    print("Tu número es 0")
+
+# Jubilación
+
+edad_hombre = 65
+edad_mujer = 60
+
+genero = input("Hola, escriba si es hombre(H) o mujer(M) :")
+genero = str(genero)
+
+if genero == "H":
+    edad = input("Cuantos años tiene señor :")
+    edad = int(edad)
+    if edad >= 65:
+        print("Sí se puede jubilar señor")
+    else :
+        print("Aún no se puede jubilar señor")
+
+if genero == "M":
+    edad = input("Cuantos años tiene señora :")
+    edad = int(edad)
+    if edad >= 60:
+        print("Sí se puede jubilar señora")
+    else :
+        print("Aún no se puede jubilar señora")
+
+# Login/iniciar seccion FACEBOOK
+
+usuario = "HolaSoyDiego123"
+contraseña = "river2026"
+
+nombre_usuario = input("Ingrese su nombre se usuario :")
+poner_contraseña = input("Ingrese su contraseña :")
+nombre_usuario = str(nombre_usuario)
+poner_contraseña = str(poner_contraseña)
+
+if nombre_usuario == "HolaSoyDiego123" and contraseña == "river2026":
+    print(" ✅BIENVENIDO A FACEBOOK✅ ")
+else :
+    print("Intenta de nuevo, los datos son incorrectos❌")
+
+# Calculadora
+
+num1 = float(input("Ingrese el primer numero :"))
+num2 = float(input("Ingrese el segundo numero :"))
+num1 = int(num1)
+num2 = int(num2)
+
+def mostrar_resultados():
+    print(num1 + num2)
+    print(num1 - num2)
+    print(num1 * num2)
+    print(num1 / num2)
+
+mostrar_resultados()
+
+# Piedra, papel o tijera
+
+opciones = ["piedra", "papel", "tijera","piedra", "papel", "tijera"]
+pc = random.choice(opciones)
+
+time.sleep(2)
+
+jugador = input("piedra, papel, tijera :")
+jugador = str(jugador)
+
+def barra_progreso(pasos):
+    print("la pc a elegido, es hora de la VERDAD:")
+    for i in range(pasos + 1):
+        porcentaje = (i / pasos) * 100
+        bloques = '■' * (i // 2)
+        espacios = ' ' * ((pasos - i) // 2)
+        sys.stdout.write(f"\r[{bloques}{espacios}] {porcentaje:.0f}%")
+        sys.stdout.flush()
+        time.sleep(0.1)
+    print("\n¡RESULTADO!")
+
+barra_progreso(40)
+
+
+if jugador == "piedra" or jugador == "papel" or  jugador == "tijera":
+    print(pc,"💻" , "-",jugador, "😎")
+
+# Respetando los rangos
+
+numero_rango = input("Ingresá un número: ")
+numero_rango = int(numero_rango)
+
+if 10 <= numero_rango <= 20:
+    print("Está entre 10 y 20.")
+else:
+    print("Está fuera del rango.")
+
+# Pulpo Paul
+
+print("🐙EL PULPO PAUL 2026⚽")
+time.sleep(1)
+print("")
+print("Elige un partido del 1-8")
+time.sleep(3)
+print("")
+
+print("1. Francia vs Paraguay")
+print("2. Brasil vs Noruega")
+print("3. México vs Inglaterra")
+print("4. España vs Portugal")
+print("5. Estados Unidos vs Bélgica")
+print("6. Argentina vs Egipto")
+print("7. Suiza vs Colombia")
+print("8. Marruecos vs Canadá")
+
+opcion = input("Elegí el número de partido (1-8): ")
+opcion = int(opcion)
+
+if opcion == 1:
+    ganador = random.choice(["Francia", "Paraguay"])
+elif opcion == 2:
+    ganador = random.choice(["Brasil", "Noruega"])
+elif opcion == 3:
+    ganador = random.choice(["México", "Inglaterra"])
+elif opcion == 4:
+    ganador = random.choice(["España", "Portugal"])
+elif opcion == 5:
+    ganador = random.choice(["Estados Unidos", "Bélgica"])
+elif opcion == 6:
+    ganador = random.choice(["Argentina", "Egipto"])
+elif opcion == 7:
+    ganador = random.choice(["Suiza", "Colombia"])
+elif opcion == 8:
+    ganador = random.choice(["Marruecos", "Canadá"])
+else:
+    ganador = "Error"
+
+if ganador != "Error":
+    print("El ganador del partido será: " , ganador)
+else:
+    print("No existe este partido, tal ves sea del mundial 2030")
+
+# Juego de los dados
+
+jugador_1 = 0
+jugador_2 = 0
+
+print("JUEGO DE LOS DADOS 🎲")
+
+while jugador_1 < 3 and jugador_2 < 3:
+    input("Jugador 1, dale al ENTER para tirar...")
+    dado1 = random.randint(1, 6)
+    print("Sacaste un:", dado1)
+
+    input("Jugador 2, tu turno, dale al ENTER...")
+    dado2 = random.randint(1, 6)
+    print("Sacaste un:", dado2)
+
+    if dado1 > dado2:
+        print("¡Punto para el jugador 1! 💀")
+        jugador_1 = jugador_1 + 1
+    elif dado2 > dado1:
+        print("¡Punto para el jugador 2! 🤖")
+        jugador_2 = jugador_2 + 1
+    else:
+        print("Empate, no suma nadie. 😶")
+
+    print("Marcador: Jugador 1 :", jugador_1 , " vs Jugador 2 :", jugador_2 )
+
+print("=== FIN DEL JUEGO ===")
+if jugador_1 == 3:
+    print("¡Ganó el Jugador 1!🎉")
+else:
+    print("¡Ganó el Jugador 2!🎉")
+
 

@@ -46,14 +46,14 @@ def esta_jubilado ():
     if edad >= 60 and HoM == "mujer":
         print("Ya puedes jubilarte.")
 
-    elif edad >= 65 and HoM == "varón" or "varon":
+    elif edad >= 65 and HoM == "varón":
         print("Señor " + nombre + ", ya puede jubilarse.")
 
     elif edad < 60 and HoM == "mujer":
         print("Lo siento, " + nombre + ", usted aún no puede jubilarse. Gracias por comunicarte con PAMI.")
         print("Para jubilarse le quedan " + str(edad_faltante_M) + " años.")
 
-    elif edad < 60 and HoM == "varón" or "varon":
+    elif edad < 65 and HoM == "varón":
         print("Lo siento, " + nombre + ", usted aún no puede jubilarse. Gracias por comunicarte con PAMI.")
         print("Para jubilarse le quedan " + str(edad_faltante_H) + " años.")
 
@@ -130,8 +130,8 @@ opciones = ["piedra", "papel", "tijera"]
 print("PIEDRA💎 PAPEL🎫 TIJERA⚔")
 time.sleep(1)
 
-contador_homo = 1
-contador_pc = 1
+contador_homo = 0
+contador_pc = 0
 
 os.system("cls")
 print("Pensando...")

@@ -148,7 +148,7 @@ def rgb_to_hsv(r, g, b):
     
     return int(h), int(s), int(v)
 
-def es_color_verde(h, s, v, target_g, target_b, target_w, sens_verde=1.3):
+def es_color_verde(h, s, v, target_g, target_b, target_w, sens_verde=1.1):
     """Evalúa si el color clasifica como VERDE utilizando distancia euclidiana ponderada."""
     gh, gs, gv = target_g
     bh, bs, bv = target_b
@@ -243,13 +243,16 @@ def follow_line():
     integral = 0
     turn = 0
     loss_counter = 0
-    t_cooldown = 0
+    t_cooldown_green = 0
+    t_cooldown_t = 0
     viz_counter = 0
     
     while True:
         try:
-            if t_cooldown > 0:
-                t_cooldown -= 1
+            if t_cooldown_green > 0:
+                t_cooldown_green -= 1
+            if t_cooldown_t > 0:
+                t_cooldown_t -= 1
 
             # 1. Leemos raw y normalizamos
             raw_vals = ll.raw()
@@ -266,11 +269,12 @@ def follow_line():
                 last_err = 0
                 integral = 0
                 turn = 0
-                t_cooldown = 40
+                t_cooldown_green = 40
+                t_cooldown_t = 40
                 continue
 
             # --- DETECCION DE MARCADORES VERDES ---
-            if t_cooldown == 0:
+            if t_cooldown_green == 0:
                 # Lectura de sensores de color
                 r_l, g_l, b_l = color_izq.rgb()
                 h_l, s_l, v_l = rgb_to_hsv(r_l, g_l, b_l)
@@ -292,14 +296,14 @@ def follow_line():
                     # 1. Parar de inmediato y esperar un momento para inspección visual
                     drive.stop()
                     ev3.speaker.beep(700, 50)  # Tono rápido de detección inicial
-                    wait(400)  # Pausa visual inicial de 400ms
+                    wait(50)  # Pausa visual inicial de 50ms
                     
                     # 2. Hacer el avance corto PEEK_GREEN_DIST (15 mm)
                     drive.straight(PEEK_GREEN_DIST)
                     drive.stop()
                     
                     # 3. Esperar otro momento quieto para inspección visual del avance
-                    wait(400)  # Pausa visual secundaria de 400ms
+                    wait(50)  # Pausa visual secundaria de 50ms
                     
                     # Comprobamos si el LSA detectó intersección en este nuevo punto
                     cal_test = normalize_array(ll.raw())
@@ -309,7 +313,8 @@ def follow_line():
                     
                     if es_cruz or es_t_l or es_t_r:
                         print("\n[VERDE] Ignorado: intersección primero detectada por LSA.")
-                        t_cooldown = 40  # Cooldown para pasar la intersección sin re-detectar verde
+                        t_cooldown_green = 40  # Cooldown para pasar la intersección sin re-detectar verde
+                        t_cooldown_t = 40
                         continue
                     
                     # Confirmar con 5 muestras rápidas
@@ -355,11 +360,12 @@ def follow_line():
                         last_err = 0
                         integral = 0
                         turn = 0
-                        t_cooldown = 50
+                        t_cooldown_green = 5
+                        t_cooldown_t = 50
                         continue
             
             # --- DETECCION DE INTERSECCIONES T/L (Brake & Peek) ---
-            if t_cooldown == 0:
+            if t_cooldown_t == 0:
                 match_l = matches_mask(cal, T_L_MASK)
                 match_r = matches_mask(cal, T_R_MASK)
                 
@@ -387,14 +393,14 @@ def follow_line():
                         
                         # Avanzamos un poco más para superar completamente la bifurcación
                         drive.straight(15)
-                        t_cooldown = 40
+                        t_cooldown_t = 40
                     else:
                         # Si el centro se volvió blanco, es una curva (de cualquier ángulo)
                         # Retrocedemos los 25 mm para volver al inicio y resolver con PID
                         ev3.speaker.beep(300, 200)  # Sonido grave
                         print("\nCurva detectada - Retrocediendo 25 mm para resolver con PID")
                         drive.straight(-25)
-                        t_cooldown = 60  # Cooldown extendido para completar el giro
+                        t_cooldown_t = 60  # Cooldown extendido para completar el giro
                     
                     # Reiniciamos variables después de la evaluación
                     last_err = 0
@@ -413,14 +419,14 @@ def follow_line():
                     else:
                         info_str = "[ PERDIDO ]"
                 else:
-                    info_str = "Pos: {} CD: {}".format(pos, t_cooldown)
+                    info_str = "Pos: {} CD_G:{} CD_T:{}".format(pos, t_cooldown_green, t_cooldown_t)
                 
                 # Terminal PC
                 print("\rLSA: [{}] {}   ".format(viz, info_str), end="")
                 
                 # Pantalla EV3
                 ev3.screen.clear()
-                ev3.screen.draw_text(10, 20, "VERDES M: CD:" + str(t_cooldown))
+                ev3.screen.draw_text(10, 20, "G:{} T:{}".format(t_cooldown_green, t_cooldown_t))
                 ev3.screen.draw_text(10, 50, "[" + viz + "]")
                 ev3.screen.draw_text(10, 80, info_str)
             
@@ -445,7 +451,10 @@ def follow_line():
             last_pos = pos
             
             turn = KP * error + KI * integral + KD * deriv
-            drive.drive(adaptive_speed(error), turn)
+            speed = adaptive_speed(error)
+            if t_cooldown_green > 0 or t_cooldown_t > 0:
+                speed = speed // 2
+            drive.drive(speed, turn)
             
         except OSError:
             pass

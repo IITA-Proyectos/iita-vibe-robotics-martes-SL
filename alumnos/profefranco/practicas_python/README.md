@@ -1,11 +1,11 @@
 # Estado de Entregas
 
-| Alumno | Práctica 1 | Práctica 2 | Práctica 3 | Práctica 4 | Práctica 5 | Práctica 6 | Práctica 7 | Práctica 8 | Práctica 9 | Práctica 10 |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| Diego | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Juanse | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Laureano | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Máximo | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Alumno | Práctica 1 | Práctica 2 | Práctica 3 | Práctica 4 | Práctica 5 | Práctica 6 | Práctica 7 | Práctica 8 | Práctica 9 | Práctica 10 | Práctica 11 |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| Diego | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Juanse | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Laureano | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Máximo | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 
 *✅ Entregado | ⏳ Incompleto | ❌ Pendiente*
 
@@ -21,6 +21,7 @@
 - [Practica 8](#practica-8)
 - [Practica 9](#practica-9)
 - [Practica 10](#practica-10)
+- [Practica 11](#practica-11-variables-globales-locales-y-funciones)
 
 # Practica 1
 
@@ -497,3 +498,29 @@ Necesitamos un programa interactivo en Python que nos ayude a ir siguiendo el Mu
        ```python
        input("Presioná ENTER para continuar...")
        ```
+
+# Practica 11: Variables Globales, Locales y Funciones
+
+En esta práctica trabajaremos con el ámbito (alcance) de las variables (locales vs. globales) y la creación de funciones que devuelven valores con `return`.
+
+1. **¿Dónde estudio?**  
+   Crea una variable global llamada `escuela` con el nombre de tu institución educativa. Luego, crea una función que acceda a esta variable global y la muestre en pantalla dentro de un mensaje amigable.
+
+2. **Materia secreta**  
+   Crea una función y declara dentro de ella una variable local llamada `materia`. Intenta imprimir dicha variable fuera de la función (en el flujo principal del programa) y observa qué sucede. Deja un comentario en tu código explicando el comportamiento observado.
+
+3. **¡Cuidado con las vidas!**  
+   Crea una variable global llamada `vidas` inicializada en `5`. Luego, define una función llamada `perder_vida()` que reste 1 al valor de `vidas` utilizando la palabra clave `global`. Llama a la función y muestra por pantalla el valor de la variable antes y después de la llamada.
+
+4. **El saludo cordial**  
+   Crea una función `obtener_saludo()` que devuelva el texto `"Hola Mundo"` utilizando la instrucción `return`. Llama a la función, guarda su resultado en una variable y muéstralo por pantalla.
+
+5. **Suma con retorno**  
+   Crea una función que devuelva el resultado de la operación `25 + 15`. Llama a la función y muestra su resultado directamente en la pantalla.
+
+6. **¿Quién es la mascota?**  
+   Crea una función que devuelva el nombre de una mascota (por ejemplo, `"Firulais"`). Guarda el resultado de la función en una variable externa e imprímelo en pantalla con el formato:  
+   `Mi mascota se llama: Firulais`
+
+7. **¿Mayor o menor?**  
+   Crea una función llamada `obtener_edad()` que retorne un número entero que represente una edad. En el programa principal, guarda el valor retornado por esta función en una variable y, utilizando una estructura condicional `if/else`, muestra si esa edad corresponde a un mayor de edad (18 años o más) o a un menor de edad.

@@ -667,4 +667,72 @@ if jugador_1 == 3:
 else:
     print("¡Ganó el Jugador 2!🎉")
 
+# Practica 11
+
+# Donde estudio
+escuela = "IITA"
+
+def usar_variable():
+    print("Estudio en", escuela)
+
+usar_variable()
+
+# Materia secreta
+
+def materia_secreta():
+    materia = "programacion"
+    materia = str(materia)
+
+print(materia)
+
+# ESTO PASO
+# Cuando arranca el programa muestra un error en la ultima linea diciendo NameError: name 'materia' is not defined.
+
+# OJO con las vidas
+
+vidas = 5
+
+def perder_vidas():
+    global vidas
+    vidas =- 1
+
+perder_vidas()
+
+# Saludo cordial
+
+def obtener_saludo():
+    saludo = "Hola mundo"
+    return saludo
+
+saludar = obtener_saludo
+print(saludar)
+
+# Suma con retorno
+
+def operacion_resultado():
+    print(25 + 15)
+
+operacion_resultado()
+
+# Quien es la mascota
+
+def nombre_mascota():
+    print("Pacho")
+
+variable_externa = nombre_mascota
+print(variable_externa)
+
+# Mayor o menor
+
+def obtener_edad():
+    edad = 23
+    edad = int(edad)
+
+edad_obtenida = obtener_edad
+
+if edad_obtenida <= 18:
+    print("Eres mayor de edad")
+else :
+    print("Eres menor de edad")
+
 

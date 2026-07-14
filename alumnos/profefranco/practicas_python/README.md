@@ -2,10 +2,10 @@
 
 | Alumno | Práctica 1 | Práctica 2 | Práctica 3 | Práctica 4 | Práctica 5 | Práctica 6 | Práctica 7 | Práctica 8 | Práctica 9 | Práctica 10 | Práctica 11 |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| Diego | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Diego | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
 | Juanse | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Laureano | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Máximo | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Máximo | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
 
 *✅ Entregado | ⏳ Incompleto | ❌ Pendiente*
 
@@ -507,13 +507,13 @@ En esta práctica trabajaremos con el ámbito (alcance) de las variables (locale
    Crea una variable global llamada `escuela` con el nombre de tu institución educativa. Luego, crea una función que acceda a esta variable global y la muestre en pantalla dentro de un mensaje amigable.
 
 2. **Materia secreta**  
-   Crea una función y declara dentro de ella una variable local llamada `materia`. Intenta imprimir dicha variable fuera de la función (en el flujo principal del programa) y observa qué sucede. Deja un comentario en tu código explicando el comportamiento observado.
+   Crea una función y declara dentro de ella una variable local llamada `materia`. Intenta imprimir dicha variable fuera de la función (en el flujo principal del programa) y observa qué sucede. 
 
 3. **¡Cuidado con las vidas!**  
    Crea una variable global llamada `vidas` inicializada en `5`. Luego, define una función llamada `perder_vida()` que reste 1 al valor de `vidas` utilizando la palabra clave `global`. Llama a la función y muestra por pantalla el valor de la variable antes y después de la llamada.
 
 4. **El saludo cordial**  
-   Crea una función `obtener_saludo()` que devuelva el texto `"Hola Mundo"` utilizando la instrucción `return`. Llama a la función, guarda su resultado en una variable y muéstralo por pantalla.
+   Crea una función `obtener_saludo()` que devuelva el texto `"Hola Mundo"` utilizando la instrucción `return`. Muéstralo por pantalla.
 
 5. **Suma con retorno**  
    Crea una función que devuelva el resultado de la operación `25 + 15`. Llama a la función y muestra su resultado directamente en la pantalla.

@@ -1,1 +1,12 @@
-{"WHITE_L_HSV": [180, 29, 99], "WHITE_R_HSV": [136, 5, 61], "BLACK": [2, 2, 2, 3, 2, 0, 3, 3], "T_R_MASK": [false, false, false, true, true, true, true, true], "GREEN_L_HSV": [184, 69, 12], "T_L_MASK": [true, true, true, true, true, false, false, false], "WHITE": [100, 100, 100, 100, 100, 100, 100, 100], "GREEN_R_HSV": [169, 66, 21], "BLACK_R_HSV": [105, 57, 7], "BLACK_L_HSV": [151, 33, 6]}
+{
+  "WHITE": [100, 100, 100, 100, 100, 100, 100, 100],
+  "BLACK": [2, 2, 2, 3, 2, 0, 3, 3],
+  "T_L_MASK": [true, true, true, true, true, false, false, false],
+  "T_R_MASK": [false, false, false, true, true, true, true, true],
+  "GREEN_L_HSV": [145, 70, 25],
+  "GREEN_R_HSV": [130, 70, 25],
+  "BLACK_L_HSV": [99, 74, 38],
+  "BLACK_R_HSV": [87, 84, 27],
+  "WHITE_L_HSV": [192, 30, 81],
+  "WHITE_R_HSV": [173, 21, 71]
+}

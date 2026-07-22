@@ -61,8 +61,8 @@ T_L_MASK = [False]*8
 T_R_MASK = [False]*8
 
 # Valores de calibración por defecto para Verde, Negro y Blanco (HSV)
-GREEN_L_H, GREEN_L_S, GREEN_L_V = 145, 70, 17
-GREEN_R_H, GREEN_R_S, GREEN_R_V = 130, 70, 17
+GREEN_L_H, GREEN_L_S, GREEN_L_V = 145, 70, 25
+GREEN_R_H, GREEN_R_S, GREEN_R_V = 130, 70, 25
 
 BLACK_L_H, BLACK_L_S, BLACK_L_V = 99, 74, 38
 BLACK_R_H, BLACK_R_S, BLACK_R_V = 87, 84, 27

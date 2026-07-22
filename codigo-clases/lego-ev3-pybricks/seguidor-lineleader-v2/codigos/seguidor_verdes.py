@@ -70,7 +70,7 @@ BLACK_R_H, BLACK_R_S, BLACK_R_V = 87, 84, 27
 WHITE_L_H, WHITE_L_S, WHITE_L_V = 192, 30, 81
 WHITE_R_H, WHITE_R_S, WHITE_R_V = 173, 21, 71
 
-# ── Funciones de Memoria ─────────────────────────────────────────
+# ── Funciones de Memoria y Aprendizaje ───────────────────────────
 
 def guardar_calibracion():
     datos = {
@@ -90,6 +90,27 @@ def guardar_calibracion():
             json.dump(datos, f)
     except Exception as e:
         print("Error guardando:", e)
+
+def registrar_experiencia(sensor_nombre, hsv_medido, hsv_nuevo):
+    """Registra en experiencia_pista.json el aprendizaje progresivo del verde en pista."""
+    registro = {
+        "sensor": sensor_nombre,
+        "hsv_medido": hsv_medido,
+        "hsv_nuevo_promedio": hsv_nuevo
+    }
+    historial = []
+    try:
+        with open("experiencia_pista.json", "r") as f:
+            historial = json.load(f)
+    except:
+        historial = []
+        
+    historial.append(registro)
+    try:
+        with open("experiencia_pista.json", "w") as f:
+            json.dump(historial, f)
+    except Exception as e:
+        print("Error guardando experiencia:", e)
 
 def cargar_calibracion():
     global WHITE, BLACK, T_L_MASK, T_R_MASK
@@ -235,9 +256,115 @@ def matches_mask(cal, mask, threshold_black=35, threshold_white=65):
                 
     return (black_matched >= black_expected - 1) and (white_matched >= white_expected - 1)
 
+# ── Funciones de Interfaz Gráfica (Pantalla EV3 178x128 px) ───────
+
+def dibujar_pantalla_evento(tipo):
+    """Dibuja en la pantalla del EV3 (178x128 px) gráficos descriptivos según el evento detectado en pista."""
+    ev3.screen.clear()
+    # Marco exterior de pantalla
+    ev3.screen.draw_box(1, 1, 176, 126)
+    
+    if tipo == "VERDE_IZQ":
+        ev3.screen.draw_text(15, 8, "[ VERDE IZQ 90° ]")
+        # Letra V grande a la derecha
+        ev3.screen.draw_text(145, 50, "V")
+        # Flecha apuntando a la izquierda (gruesa)
+        ev3.screen.draw_line(135, 65, 40, 65)
+        ev3.screen.draw_line(135, 66, 40, 66)
+        ev3.screen.draw_line(135, 67, 40, 67)
+        # Cabeza de flecha
+        ev3.screen.draw_line(40, 66, 75, 35)
+        ev3.screen.draw_line(40, 66, 75, 97)
+        ev3.screen.draw_line(41, 66, 76, 35)
+        ev3.screen.draw_line(41, 66, 76, 97)
+
+    elif tipo == "VERDE_DER":
+        ev3.screen.draw_text(15, 8, "[ VERDE DER 90° ]")
+        # Letra V grande a la izquierda
+        ev3.screen.draw_text(15, 50, "V")
+        # Flecha apuntando a la derecha (gruesa)
+        ev3.screen.draw_line(40, 65, 135, 65)
+        ev3.screen.draw_line(40, 66, 135, 66)
+        ev3.screen.draw_line(40, 67, 135, 67)
+        # Cabeza de flecha
+        ev3.screen.draw_line(135, 66, 100, 35)
+        ev3.screen.draw_line(135, 66, 100, 97)
+        ev3.screen.draw_line(134, 66, 99, 35)
+        ev3.screen.draw_line(134, 66, 99, 97)
+
+    elif tipo == "VERDE_DOBLE":
+        ev3.screen.draw_text(10, 8, "[ DOBLE VERDE 180° ]")
+        ev3.screen.draw_text(70, 75, "V V")
+        # Retorno en U (U-Turn)
+        ev3.screen.draw_line(55, 110, 55, 55)
+        ev3.screen.draw_line(56, 110, 56, 55)
+        ev3.screen.draw_line(55, 55, 120, 55)
+        ev3.screen.draw_line(55, 54, 120, 54)
+        ev3.screen.draw_line(120, 55, 120, 110)
+        ev3.screen.draw_line(121, 55, 121, 110)
+        # Cabeza de flecha hacia abajo
+        ev3.screen.draw_line(120, 110, 100, 90)
+        ev3.screen.draw_line(120, 110, 140, 90)
+        ev3.screen.draw_line(120, 109, 100, 89)
+        ev3.screen.draw_line(120, 109, 140, 89)
+
+    elif tipo == "CRUZ":
+        ev3.screen.draw_text(25, 8, "[ CRUZ NEGRA + ]")
+        # Cruz grande (+)
+        ev3.screen.draw_line(89, 30, 89, 105)
+        ev3.screen.draw_line(90, 30, 90, 105)
+        ev3.screen.draw_line(91, 30, 91, 105)
+        ev3.screen.draw_line(50, 67, 128, 67)
+        ev3.screen.draw_line(50, 68, 128, 68)
+        ev3.screen.draw_line(50, 69, 128, 69)
+
+    elif tipo == "T_IZQ":
+        ev3.screen.draw_text(25, 8, "[ T IZQUIERDA ]")
+        # Diagrama T con bifurcación a la izquierda
+        ev3.screen.draw_line(115, 30, 115, 105)
+        ev3.screen.draw_line(116, 30, 116, 105)
+        ev3.screen.draw_line(117, 30, 117, 105)
+        ev3.screen.draw_line(45, 67, 115, 67)
+        ev3.screen.draw_line(45, 68, 115, 68)
+        ev3.screen.draw_line(45, 69, 115, 69)
+
+    elif tipo == "T_DER":
+        ev3.screen.draw_text(25, 8, "[ T DERECHA ]")
+        # Diagrama T con bifurcación a la derecha
+        ev3.screen.draw_line(60, 30, 60, 105)
+        ev3.screen.draw_line(61, 30, 61, 105)
+        ev3.screen.draw_line(62, 30, 62, 105)
+        ev3.screen.draw_line(60, 67, 130, 67)
+        ev3.screen.draw_line(60, 68, 130, 68)
+        ev3.screen.draw_line(60, 69, 130, 69)
+
+    elif tipo == "CURVA_DESCARTE":
+        ev3.screen.draw_text(15, 8, "[ CURVA DE 90° ]")
+        ev3.screen.draw_text(20, 50, "Retrocediendo 25mm")
+        ev3.screen.draw_text(25, 80, "Resolviendo PID")
+
+    elif tipo == "RECOVERY":
+        ev3.screen.draw_text(25, 8, "[ ! PERDIDO ! ]")
+        ev3.screen.draw_box(65, 30, 112, 105)
+        ev3.screen.draw_text(84, 45, "!")
+        ev3.screen.draw_text(84, 80, ".")
+
+    elif tipo == "PAUSA":
+        ev3.screen.draw_text(45, 8, "[ PAUSA ]")
+        ev3.screen.draw_box(30, 30, 148, 85)
+        # Símbolo de Pausa || (barras gruesas)
+        ev3.screen.draw_line(75, 40, 75, 75)
+        ev3.screen.draw_line(76, 40, 76, 75)
+        ev3.screen.draw_line(77, 40, 77, 75)
+        ev3.screen.draw_line(100, 40, 100, 75)
+        ev3.screen.draw_line(101, 40, 101, 75)
+        ev3.screen.draw_line(102, 40, 102, 75)
+        ev3.screen.draw_text(15, 95, "CENTRO p/Continuar")
+
 # ── Algoritmo Principal ──────────────────────────────────────────
 
-def follow_line():
+def follow_line(confirmar_verdes=False):
+    global GREEN_L_H, GREEN_L_S, GREEN_L_V, GREEN_R_H, GREEN_R_S, GREEN_R_V
     last_err = 0
     last_pos = CENTER
     integral = 0
@@ -249,6 +376,31 @@ def follow_line():
     
     while True:
         try:
+            # --- BOTÓN DE PAUSA (IZQ o DER) ---
+            botones_presionados = ev3.buttons.pressed()
+            if Button.LEFT in botones_presionados or Button.RIGHT in botones_presionados:
+                drive.stop()
+                ev3.speaker.beep(400, 150)
+                dibujar_pantalla_evento("PAUSA")
+                
+                # Esperar a que se suelte el botón IZQ / DER
+                while Button.LEFT in ev3.buttons.pressed() or Button.RIGHT in ev3.buttons.pressed():
+                    wait(20)
+                
+                # Esperar a que apreten CENTRO para salir de la pausa
+                while Button.CENTER not in ev3.buttons.pressed():
+                    wait(20)
+                    
+                # Esperar a que se suelte el botón CENTRO
+                while Button.CENTER in ev3.buttons.pressed():
+                    wait(20)
+                    
+                ev3.speaker.beep(800, 200)
+                last_err = 0
+                integral = 0
+                turn = 0
+                continue
+
             if t_cooldown_green > 0:
                 t_cooldown_green -= 1
             if t_cooldown_t > 0:
@@ -264,6 +416,7 @@ def follow_line():
             # --- DETECCION DE INTERSECCION EN CRUZ (Doble negro) ---
             if sum(1 for v in cal if v < INTERSECTION_THRESHOLD) == 8:
                 drive.stop()
+                dibujar_pantalla_evento("CRUZ")
                 ev3.speaker.beep(600, 300)
                 drive.straight(40)  # Avanzar un poco para pasar la intersección
                 last_err = 0
@@ -293,76 +446,100 @@ def follow_line():
                                          (WHITE_R_H, WHITE_R_S, WHITE_R_V))
                 
                 if green_l or green_r:
-                    # 1. Parar de inmediato y esperar un momento para inspección visual
+                    # 1. Parar de inmediato sobre el verde
                     drive.stop()
-                    ev3.speaker.beep(700, 50)  # Tono rápido de detección inicial
-                    wait(50)  # Pausa visual inicial de 50ms
+                    det_l = green_l
+                    det_r = green_r
                     
-                    # 2. Hacer el avance corto PEEK_GREEN_DIST (15 mm)
-                    drive.straight(PEEK_GREEN_DIST)
-                    drive.stop()
-                    
-                    # 3. Esperar otro momento quieto para inspección visual del avance
-                    wait(50)  # Pausa visual secundaria de 50ms
-                    
-                    # Comprobamos si el LSA detectó intersección en este nuevo punto
-                    cal_test = normalize_array(ll.raw())
-                    es_cruz = sum(1 for v in cal_test if v < INTERSECTION_THRESHOLD) >= 7
-                    es_t_l = matches_mask(cal_test, T_L_MASK)
-                    es_t_r = matches_mask(cal_test, T_R_MASK)
-                    
-                    if es_cruz or es_t_l or es_t_r:
-                        print("\n[VERDE] Ignorado: intersección primero detectada por LSA.")
-                        t_cooldown_green = 40  # Cooldown para pasar la intersección sin re-detectar verde
-                        t_cooldown_t = 40
-                        continue
-                    
-                    # Confirmar con 5 muestras rápidas
-                    confirm_l = False
-                    confirm_r = False
-                    for _ in range(5):
-                        rl, gl, bl = color_izq.rgb()
-                        hl, sl, vl = rgb_to_hsv(rl, gl, bl)
-                        if es_color_verde(hl, sl, vl, 
-                                          (GREEN_L_H, GREEN_L_S, GREEN_L_V), 
-                                          (BLACK_L_H, BLACK_L_S, BLACK_L_V), 
-                                          (WHITE_L_H, WHITE_L_S, WHITE_L_V)):
-                            confirm_l = True
+                    # 2. Si estamos en Modo Recolección de Datos -> Pedir confirmación manual, actualizar 70/30 y registrar historial
+                    if confirmar_verdes:
+                        hl_m, sl_m, vl_m = h_l, s_l, v_l
+                        hr_m, sr_m, vr_m = h_r, s_r, v_r
                         
-                        rr, gr, br = color_der.rgb()
-                        hr, sr, vr = rgb_to_hsv(rr, gr, br)
-                        if es_color_verde(hr, sr, vr, 
-                                          (GREEN_R_H, GREEN_R_S, GREEN_R_V), 
-                                          (BLACK_R_H, BLACK_R_S, BLACK_R_V), 
-                                          (WHITE_R_H, WHITE_R_S, WHITE_R_V)):
-                            confirm_r = True
-                        wait(10)
-                    
-                    if confirm_l or confirm_r:
-                        ev3.speaker.beep(1200, 150)  # Confirmación sonora
+                        ev3.screen.clear()
+                        ev3.screen.draw_box(1, 1, 176, 126)
+                        ev3.screen.draw_text(15, 8, "¿Es VERDE REAL?")
+                        if det_l and det_r:
+                            ev3.screen.draw_text(15, 30, "DOBLE VERDE")
+                            ev3.screen.draw_text(10, 52, "I:{},{},{}".format(hl_m, sl_m, vl_m))
+                            ev3.screen.draw_text(10, 72, "D:{},{},{}".format(hr_m, sr_m, vr_m))
+                        elif det_l:
+                            ev3.screen.draw_text(15, 30, "VERDE IZQ (S2)")
+                            ev3.screen.draw_text(10, 60, "HSV:{},{},{}".format(hl_m, sl_m, vl_m))
+                        elif det_r:
+                            ev3.screen.draw_text(15, 30, "VERDE DER (S4)")
+                            ev3.screen.draw_text(10, 60, "HSV:{},{},{}".format(hr_m, sr_m, vr_m))
                         
-                        # Avanzar la distancia restante para alinear el eje de las ruedas con la intersección
-                        drive.straight(GREEN_ALIGN_DISTANCE - PEEK_GREEN_DIST)
-                        wait(50)
+                        ev3.screen.draw_text(10, 100, "IZQ: SI    DER: NO")
+                        ev3.speaker.beep(1000, 200)
                         
-                        # Decidir acción de giro
-                        if confirm_l and confirm_r:
-                            print("\n[VERDE] DOBLE VERDE -> Giro de 180°")
-                            drive.turn(180)
-                        elif confirm_l:
-                            print("\n[VERDE] VERDE IZQ -> Giro de 90° Izquierda")
-                            drive.turn(90)
-                        elif confirm_r:
-                            print("\n[VERDE] VERDE DER -> Giro de 90° Derecha")
-                            drive.turn(-90)
+                        es_verde_real = None
+                        while True:
+                            b_pressed = ev3.buttons.pressed()
+                            if Button.LEFT in b_pressed:
+                                es_verde_real = True
+                                break
+                            elif Button.RIGHT in b_pressed:
+                                es_verde_real = False
+                                break
+                            wait(20)
                             
-                        # Limpiar variables post-giro
-                        last_err = 0
-                        integral = 0
-                        turn = 0
-                        t_cooldown_green = 5
-                        t_cooldown_t = 50
-                        continue
+                        while any(ev3.buttons.pressed()):
+                            wait(20)
+                            
+                        if not es_verde_real:
+                            ev3.speaker.beep(300, 200)
+                            ev3.screen.clear()
+                            ev3.screen.draw_text(10, 50, "DESCARTADO")
+                            wait(500)
+                            t_cooldown_green = 40
+                            continue
+
+                        # Actualizar promedio 70/30, registrar historial y guardar calibración SOLO en Modo Recolección
+                        if det_l:
+                            GREEN_L_H = int(0.70 * GREEN_L_H + 0.30 * hl_m)
+                            GREEN_L_S = int(0.70 * GREEN_L_S + 0.30 * sl_m)
+                            GREEN_L_V = int(0.70 * GREEN_L_V + 0.30 * vl_m)
+                            registrar_experiencia("IZQ", [hl_m, sl_m, vl_m], [GREEN_L_H, GREEN_L_S, GREEN_L_V])
+                            
+                        if det_r:
+                            GREEN_R_H = int(0.70 * GREEN_R_H + 0.30 * hr_m)
+                            GREEN_R_S = int(0.70 * GREEN_R_S + 0.30 * sr_m)
+                            GREEN_R_V = int(0.70 * GREEN_R_V + 0.30 * vr_m)
+                            registrar_experiencia("DER", [hr_m, sr_m, vr_m], [GREEN_R_H, GREEN_R_S, GREEN_R_V])
+                            
+                        guardar_calibracion()
+                        
+                        ev3.speaker.beep(1200, 150)
+                        ev3.screen.clear()
+                        ev3.screen.draw_text(10, 40, "Guardado OK!")
+                        wait(400)
+                    
+                    # 3. Avanzar la distancia de alineación (88 mm) para colocar ruedas en intersección y girar
+                    drive.straight(GREEN_ALIGN_DISTANCE)
+                    wait(50)
+                    
+                    # Decidir acción de giro
+                    if det_l and det_r:
+                        print("\n[VERDE] DOBLE VERDE -> Giro de 180°")
+                        dibujar_pantalla_evento("VERDE_DOBLE")
+                        drive.turn(180)
+                    elif det_l:
+                        print("\n[VERDE] VERDE IZQ -> Giro de 90° Izquierda")
+                        dibujar_pantalla_evento("VERDE_IZQ")
+                        drive.turn(90)
+                    elif det_r:
+                        print("\n[VERDE] VERDE DER -> Giro de 90° Derecha")
+                        dibujar_pantalla_evento("VERDE_DER")
+                        drive.turn(-90)
+                        
+                    # Limpiar variables post-giro
+                    last_err = 0
+                    integral = 0
+                    turn = 0
+                    t_cooldown_green = 5
+                    t_cooldown_t = 50
+                    continue
             
             # --- DETECCION DE INTERSECCIONES T/L (Brake & Peek) ---
             if t_cooldown_t == 0:
@@ -388,8 +565,10 @@ def follow_line():
                         ev3.speaker.beep(800, 100)
                         if match_l:
                             print("\nT Izquierda CONFIRMADA - Siguiendo derecho")
+                            dibujar_pantalla_evento("T_IZQ")
                         else:
                             print("\nT Derecha CONFIRMADA - Siguiendo derecho")
+                            dibujar_pantalla_evento("T_DER")
                         
                         # Avanzamos un poco más para superar completamente la bifurcación
                         drive.straight(15)
@@ -399,6 +578,7 @@ def follow_line():
                         # Retrocedemos los 25 mm para volver al inicio y resolver con PID
                         ev3.speaker.beep(300, 200)  # Sonido grave
                         print("\nCurva detectada - Retrocediendo 25 mm para resolver con PID")
+                        dibujar_pantalla_evento("CURVA_DESCARTE")
                         drive.straight(-25)
                         t_cooldown_t = 60  # Cooldown extendido para completar el giro
                     
@@ -424,24 +604,25 @@ def follow_line():
                 # Terminal PC
                 print("\rLSA: [{}] {}   ".format(viz, info_str), end="")
                 
-                # Pantalla EV3
-                ev3.screen.clear()
-                ev3.screen.draw_text(10, 20, "G:{} T:{}".format(t_cooldown_green, t_cooldown_t))
-                ev3.screen.draw_text(10, 50, "[" + viz + "]")
-                ev3.screen.draw_text(10, 80, info_str)
+                # Pantalla EV3 (Solo actualiza si no hay cooldowns activos de gráficos especiales)
+                if t_cooldown_green == 0 and t_cooldown_t == 0:
+                    ev3.screen.clear()
+                    ev3.screen.draw_text(10, 20, "G:{} T:{}".format(t_cooldown_green, t_cooldown_t))
+                    ev3.screen.draw_text(10, 50, "[" + viz + "]")
+                    ev3.screen.draw_text(10, 80, info_str)
             
             # --- PID SEGÚN LA LÍNEA ---
             if pos is None:
                 loss_counter += 1
                 if loss_counter > 8:
                     # Recovery
+                    dibujar_pantalla_evento("RECOVERY")
                     drive.drive(-70, -turn)
                 wait(10)
                 continue
             
             loss_counter = 0
             error = CENTER - pos
-            
             integral += error
             if integral > 1000: integral = 1000
             elif integral < -1000: integral = -1000
@@ -463,68 +644,41 @@ def follow_line():
 
 # ── Flujo de Calibración ─────────────────────────────────────────
 
-def calibracion_manual():
-    global T_L_MASK, T_R_MASK
-    global GREEN_L_H, GREEN_L_S, GREEN_L_V, GREEN_R_H, GREEN_R_S, GREEN_R_V
-    global BLACK_L_H, BLACK_L_S, BLACK_L_V, BLACK_R_H, BLACK_R_S, BLACK_R_V
-    global WHITE_L_H, WHITE_L_S, WHITE_L_V, WHITE_R_H, WHITE_R_S, WHITE_R_V
-    ev3.speaker.beep()
-
-    # 1. Calibrar Blanco General (LSA + Sensores Color)
+def calibrar_lsa():
+    global WHITE, BLACK, T_L_MASK, T_R_MASK
+    # 1. Blanco LSA
     ev3.screen.clear()
-    ev3.screen.draw_text(0, 5, "1. Blanco Gral")
-    ev3.screen.draw_text(0, 30, "Apretar CENTRO")
-    while Button.CENTER not in ev3.buttons.pressed():
-        wait(20)
-
-    ev3.screen.draw_text(0, 55, "Midiendo...")
+    ev3.screen.draw_text(0, 5, "[ LSA ] 1. Blanco")
+    ev3.screen.draw_text(0, 35, "LSA sobre BLANCO")
+    ev3.screen.draw_text(0, 65, "Apretar CENTRO")
+    while Button.CENTER not in ev3.buttons.pressed(): wait(20)
+    ev3.screen.draw_text(0, 95, "Midiendo...")
     ev3.speaker.beep(400, 100)
-    h_l_sum, s_l_sum, v_l_sum = 0, 0, 0
-    h_r_sum, s_r_sum, v_r_sum = 0, 0, 0
+    WHITE = [0]*8
     for _ in range(20):
         raw = ll.raw()
         for i in range(8): WHITE[i] += raw[i]
-        
-        rl, gl, bl = color_izq.rgb()
-        hl, sl, vl = rgb_to_hsv(rl, gl, bl)
-        h_l_sum += hl
-        s_l_sum += sl
-        v_l_sum += vl
-        
-        rr, gr, br = color_der.rgb()
-        hr, sr, vr = rgb_to_hsv(rr, gr, br)
-        h_r_sum += hr
-        s_r_sum += sr
-        v_r_sum += vr
         wait(20)
-        
     for i in range(8): WHITE[i] = WHITE[i] // 20
-    WHITE_L_H = h_l_sum // 20
-    WHITE_L_S = s_l_sum // 20
-    WHITE_L_V = v_l_sum // 20
-    WHITE_R_H = h_r_sum // 20
-    WHITE_R_S = s_r_sum // 20
-    WHITE_R_V = v_r_sum // 20
 
     ev3.screen.clear()
-    ev3.screen.draw_text(0, 5, "Blanco OK")
-    ev3.screen.draw_text(0, 30, "LSA: " + " ".join(str(v) for v in WHITE[0:4]))
-    ev3.screen.draw_text(0, 55, "I: {}, {}, {}".format(WHITE_L_H, WHITE_L_S, WHITE_L_V))
-    ev3.screen.draw_text(0, 80, "D: {}, {}, {}".format(WHITE_R_H, WHITE_R_S, WHITE_R_V))
-    ev3.screen.draw_text(0, 105, "Click p/seguir")
+    ev3.screen.draw_text(0, 5, "Blanco LSA OK")
+    ev3.screen.draw_text(0, 35, " ".join(str(v) for v in WHITE[0:4]))
+    ev3.screen.draw_text(0, 65, " ".join(str(v) for v in WHITE[4:8]))
+    ev3.screen.draw_text(0, 100, "Click p/seguir")
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
     while Button.CENTER not in ev3.buttons.pressed(): wait(20)
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
 
-    # 2. Calibrar Negro LSA
+    # 2. Negro LSA
     ev3.screen.clear()
-    ev3.screen.draw_text(10, 30, "2. Negro LSA")
-    ev3.screen.draw_text(10, 60, "Apretar CENTRO")
-    while Button.CENTER not in ev3.buttons.pressed():
-        wait(20)
-
-    ev3.screen.draw_text(10, 90, "Midiendo...")
+    ev3.screen.draw_text(0, 5, "[ LSA ] 2. Negro")
+    ev3.screen.draw_text(0, 35, "LSA sobre NEGRO")
+    ev3.screen.draw_text(0, 65, "Apretar CENTRO")
+    while Button.CENTER not in ev3.buttons.pressed(): wait(20)
+    ev3.screen.draw_text(0, 95, "Midiendo...")
     ev3.speaker.beep(500, 100)
+    BLACK = [0]*8
     for _ in range(20):
         raw = ll.raw()
         for i in range(8): BLACK[i] += raw[i]
@@ -532,65 +686,21 @@ def calibracion_manual():
     for i in range(8): BLACK[i] = BLACK[i] // 20
 
     ev3.screen.clear()
-    ev3.screen.draw_text(0, 10, "Negro OK")
-    ev3.screen.draw_text(0, 40, " ".join(str(v) for v in BLACK[0:4]))
-    ev3.screen.draw_text(0, 70, " ".join(str(v) for v in BLACK[4:8]))
+    ev3.screen.draw_text(0, 5, "Negro LSA OK")
+    ev3.screen.draw_text(0, 35, " ".join(str(v) for v in BLACK[0:4]))
+    ev3.screen.draw_text(0, 65, " ".join(str(v) for v in BLACK[4:8]))
     ev3.screen.draw_text(0, 100, "Click p/seguir")
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
     while Button.CENTER not in ev3.buttons.pressed(): wait(20)
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
 
-    # 3. Calibrar Negro Color (S2 y S4)
+    # 3. T Izquierda
     ev3.screen.clear()
-    ev3.screen.draw_text(10, 30, "3. Negro S2/S4")
-    ev3.screen.draw_text(10, 50, "Poner S2/S4 s/NEGRO")
-    ev3.screen.draw_text(10, 70, "Apretar CENTRO")
-    while Button.CENTER not in ev3.buttons.pressed():
-        wait(20)
-
-    ev3.screen.draw_text(10, 90, "Midiendo...")
-    ev3.speaker.beep(500, 100)
-    h_l_sum, s_l_sum, v_l_sum = 0, 0, 0
-    h_r_sum, s_r_sum, v_r_sum = 0, 0, 0
-    for _ in range(20):
-        rl, gl, bl = color_izq.rgb()
-        hl, sl, vl = rgb_to_hsv(rl, gl, bl)
-        h_l_sum += hl
-        s_l_sum += sl
-        v_l_sum += vl
-        
-        rr, gr, br = color_der.rgb()
-        hr, sr, vr = rgb_to_hsv(rr, gr, br)
-        h_r_sum += hr
-        s_r_sum += sr
-        v_r_sum += vr
-        wait(20)
-        
-    BLACK_L_H = h_l_sum // 20
-    BLACK_L_S = s_l_sum // 20
-    BLACK_L_V = v_l_sum // 20
-    BLACK_R_H = h_r_sum // 20
-    BLACK_R_S = s_r_sum // 20
-    BLACK_R_V = v_r_sum // 20
-
-    ev3.screen.clear()
-    ev3.screen.draw_text(0, 10, "Negro Color OK")
-    ev3.screen.draw_text(0, 40, "I: {}, {}, {}".format(BLACK_L_H, BLACK_L_S, BLACK_L_V))
-    ev3.screen.draw_text(0, 70, "D: {}, {}, {}".format(BLACK_R_H, BLACK_R_S, BLACK_R_V))
-    ev3.screen.draw_text(0, 100, "Click p/seguir")
-    while Button.CENTER in ev3.buttons.pressed(): wait(20)
+    ev3.screen.draw_text(0, 5, "[ LSA ] 3. T Izq")
+    ev3.screen.draw_text(0, 35, "Colocar sobre T Izq")
+    ev3.screen.draw_text(0, 65, "Apretar CENTRO")
     while Button.CENTER not in ev3.buttons.pressed(): wait(20)
-    while Button.CENTER in ev3.buttons.pressed(): wait(20)
-
-    # 4. Calibrar T Izquierda
-    ev3.screen.clear()
-    ev3.screen.draw_text(10, 30, "4. T IZQUIERDA")
-    ev3.screen.draw_text(10, 60, "Colocar sobre T Izq")
-    ev3.screen.draw_text(10, 80, "Apretar CENTRO")
-    while Button.CENTER not in ev3.buttons.pressed():
-        wait(20)
-
-    ev3.screen.draw_text(10, 100, "Midiendo...")
+    ev3.screen.draw_text(0, 95, "Midiendo...")
     ev3.speaker.beep(600, 100)
     samples_tl = [0]*8
     for _ in range(20):
@@ -602,23 +712,21 @@ def calibracion_manual():
         T_L_MASK[i] = avg < 40
 
     ev3.screen.clear()
-    ev3.screen.draw_text(0, 10, "T Izq OK")
-    ev3.screen.draw_text(0, 40, " ".join("1" if b else "0" for b in T_L_MASK[0:4]))
-    ev3.screen.draw_text(0, 70, " ".join("1" if b else "0" for b in T_L_MASK[4:8]))
+    ev3.screen.draw_text(0, 5, "T Izq OK")
+    ev3.screen.draw_text(0, 35, " ".join("1" if b else "0" for b in T_L_MASK[0:4]))
+    ev3.screen.draw_text(0, 65, " ".join("1" if b else "0" for b in T_L_MASK[4:8]))
     ev3.screen.draw_text(0, 100, "Click p/seguir")
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
     while Button.CENTER not in ev3.buttons.pressed(): wait(20)
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
 
-    # 5. Calibrar T Derecha
+    # 4. T Derecha
     ev3.screen.clear()
-    ev3.screen.draw_text(10, 30, "5. T DERECHA")
-    ev3.screen.draw_text(10, 60, "Colocar sobre T Der")
-    ev3.screen.draw_text(10, 80, "Apretar CENTRO")
-    while Button.CENTER not in ev3.buttons.pressed():
-        wait(20)
-
-    ev3.screen.draw_text(10, 100, "Midiendo...")
+    ev3.screen.draw_text(0, 5, "[ LSA ] 4. T Der")
+    ev3.screen.draw_text(0, 35, "Colocar sobre T Der")
+    ev3.screen.draw_text(0, 65, "Apretar CENTRO")
+    while Button.CENTER not in ev3.buttons.pressed(): wait(20)
+    ev3.screen.draw_text(0, 95, "Midiendo...")
     ev3.speaker.beep(600, 100)
     samples_tr = [0]*8
     for _ in range(20):
@@ -630,75 +738,141 @@ def calibracion_manual():
         T_R_MASK[i] = avg < 40
 
     ev3.screen.clear()
-    ev3.screen.draw_text(0, 10, "T Der OK")
-    ev3.screen.draw_text(0, 40, " ".join("1" if b else "0" for b in T_R_MASK[0:4]))
-    ev3.screen.draw_text(0, 70, " ".join("1" if b else "0" for b in T_R_MASK[4:8]))
+    ev3.screen.draw_text(0, 5, "T Der OK")
+    ev3.screen.draw_text(0, 35, " ".join("1" if b else "0" for b in T_R_MASK[0:4]))
+    ev3.screen.draw_text(0, 65, " ".join("1" if b else "0" for b in T_R_MASK[4:8]))
     ev3.screen.draw_text(0, 100, "Click p/seguir")
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
     while Button.CENTER not in ev3.buttons.pressed(): wait(20)
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
 
-    # 6. Calibrar Verde Izquierdo (Sensor Color Puerto 2)
-    ev3.screen.clear()
-    ev3.screen.draw_text(10, 30, "6. Verde Izq (S2)")
-    ev3.screen.draw_text(10, 50, "Poner sensor IZQ")
-    ev3.screen.draw_text(10, 70, "sobre VERDE")
-    ev3.screen.draw_text(10, 90, "Apretar CENTRO")
-    while Button.CENTER not in ev3.buttons.pressed():
-        wait(20)
+def calibrar_colores_frontales():
+    global GREEN_L_H, GREEN_L_S, GREEN_L_V, GREEN_R_H, GREEN_R_S, GREEN_R_V
+    global BLACK_L_H, BLACK_L_S, BLACK_L_V, BLACK_R_H, BLACK_R_S, BLACK_R_V
+    global WHITE_L_H, WHITE_L_S, WHITE_L_V, WHITE_R_H, WHITE_R_S, WHITE_R_V
 
-    ev3.screen.draw_text(10, 110, "Midiendo...")
+    # 1. Blanco Color (S2/S4)
+    ev3.screen.clear()
+    ev3.screen.draw_text(0, 5, "[ COLOR ] 1. Blanco")
+    ev3.screen.draw_text(0, 35, "S2/S4 sobre BLANCO")
+    ev3.screen.draw_text(0, 65, "Apretar CENTRO")
+    while Button.CENTER not in ev3.buttons.pressed(): wait(20)
+    ev3.screen.draw_text(0, 95, "Midiendo...")
+    ev3.speaker.beep(400, 100)
+    h_l_sum, s_l_sum, v_l_sum = 0, 0, 0
+    h_r_sum, s_r_sum, v_r_sum = 0, 0, 0
+    for _ in range(20):
+        rl, gl, bl = color_izq.rgb()
+        hl, sl, vl = rgb_to_hsv(rl, gl, bl)
+        h_l_sum += hl; s_l_sum += sl; v_l_sum += vl
+        
+        rr, gr, br = color_der.rgb()
+        hr, sr, vr = rgb_to_hsv(rr, gr, br)
+        h_r_sum += hr; s_r_sum += sr; v_r_sum += vr
+        wait(20)
+    WHITE_L_H, WHITE_L_S, WHITE_L_V = h_l_sum//20, s_l_sum//20, v_l_sum//20
+    WHITE_R_H, WHITE_R_S, WHITE_R_V = h_r_sum//20, s_r_sum//20, v_r_sum//20
+
+    ev3.screen.clear()
+    ev3.screen.draw_text(0, 5, "Blanco Color OK")
+    ev3.screen.draw_text(0, 35, "I: {}, {}, {}".format(WHITE_L_H, WHITE_L_S, WHITE_L_V))
+    ev3.screen.draw_text(0, 65, "D: {}, {}, {}".format(WHITE_R_H, WHITE_R_S, WHITE_R_V))
+    ev3.screen.draw_text(0, 100, "Click p/seguir")
+    while Button.CENTER in ev3.buttons.pressed(): wait(20)
+    while Button.CENTER not in ev3.buttons.pressed(): wait(20)
+    while Button.CENTER in ev3.buttons.pressed(): wait(20)
+
+    # 2. Negro Color (S2/S4)
+    ev3.screen.clear()
+    ev3.screen.draw_text(0, 5, "[ COLOR ] 2. Negro")
+    ev3.screen.draw_text(0, 35, "S2/S4 sobre NEGRO")
+    ev3.screen.draw_text(0, 65, "Apretar CENTRO")
+    while Button.CENTER not in ev3.buttons.pressed(): wait(20)
+    ev3.screen.draw_text(0, 95, "Midiendo...")
+    ev3.speaker.beep(500, 100)
+    h_l_sum, s_l_sum, v_l_sum = 0, 0, 0
+    h_r_sum, s_r_sum, v_r_sum = 0, 0, 0
+    for _ in range(20):
+        rl, gl, bl = color_izq.rgb()
+        hl, sl, vl = rgb_to_hsv(rl, gl, bl)
+        h_l_sum += hl; s_l_sum += sl; v_l_sum += vl
+        
+        rr, gr, br = color_der.rgb()
+        hr, sr, vr = rgb_to_hsv(rr, gr, br)
+        h_r_sum += hr; s_r_sum += sr; v_r_sum += vr
+        wait(20)
+    BLACK_L_H, BLACK_L_S, BLACK_L_V = h_l_sum//20, s_l_sum//20, v_l_sum//20
+    BLACK_R_H, BLACK_R_S, BLACK_R_V = h_r_sum//20, s_r_sum//20, v_r_sum//20
+
+    ev3.screen.clear()
+    ev3.screen.draw_text(0, 5, "Negro Color OK")
+    ev3.screen.draw_text(0, 35, "I: {}, {}, {}".format(BLACK_L_H, BLACK_L_S, BLACK_L_V))
+    ev3.screen.draw_text(0, 65, "D: {}, {}, {}".format(BLACK_R_H, BLACK_R_S, BLACK_R_V))
+    ev3.screen.draw_text(0, 100, "Click p/seguir")
+    while Button.CENTER in ev3.buttons.pressed(): wait(20)
+    while Button.CENTER not in ev3.buttons.pressed(): wait(20)
+    while Button.CENTER in ev3.buttons.pressed(): wait(20)
+
+    # 3. Verde Izquierdo (S2)
+    ev3.screen.clear()
+    ev3.screen.draw_text(0, 5, "[ COLOR ] 3. Verde Izq")
+    ev3.screen.draw_text(0, 35, "Sensor IZQ sobre VERDE")
+    ev3.screen.draw_text(0, 65, "Apretar CENTRO")
+    while Button.CENTER not in ev3.buttons.pressed(): wait(20)
+    ev3.screen.draw_text(0, 95, "Midiendo...")
     ev3.speaker.beep(600, 100)
     h_sum, s_sum, v_sum = 0, 0, 0
     for _ in range(20):
         r, g, b = color_izq.rgb()
         h, s, v = rgb_to_hsv(r, g, b)
-        h_sum += h
-        s_sum += s
-        v_sum += v
+        h_sum += h; s_sum += s; v_sum += v
         wait(20)
-    GREEN_L_H = h_sum // 20
-    GREEN_L_S = s_sum // 20
-    GREEN_L_V = v_sum // 20
+    GREEN_L_H, GREEN_L_S, GREEN_L_V = h_sum//20, s_sum//20, v_sum//20
 
     ev3.screen.clear()
-    ev3.screen.draw_text(0, 10, "Verde Izq OK")
-    ev3.screen.draw_text(0, 40, "HSV: {}, {}, {}".format(GREEN_L_H, GREEN_L_S, GREEN_L_V))
+    ev3.screen.draw_text(0, 5, "Verde Izq OK")
+    ev3.screen.draw_text(0, 35, "HSV: {}, {}, {}".format(GREEN_L_H, GREEN_L_S, GREEN_L_V))
     ev3.screen.draw_text(0, 100, "Click p/seguir")
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
     while Button.CENTER not in ev3.buttons.pressed(): wait(20)
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
 
-    # 7. Calibrar Verde Derecho (Sensor Color Puerto 4)
+    # 4. Verde Derecho (S4)
     ev3.screen.clear()
-    ev3.screen.draw_text(10, 30, "7. Verde Der (S4)")
-    ev3.screen.draw_text(10, 50, "Poner sensor DER")
-    ev3.screen.draw_text(10, 70, "sobre VERDE")
-    ev3.screen.draw_text(10, 90, "Apretar CENTRO")
-    while Button.CENTER not in ev3.buttons.pressed():
-        wait(20)
-
-    ev3.screen.draw_text(10, 110, "Midiendo...")
+    ev3.screen.draw_text(0, 5, "[ COLOR ] 4. Verde Der")
+    ev3.screen.draw_text(0, 35, "Sensor DER sobre VERDE")
+    ev3.screen.draw_text(0, 65, "Apretar CENTRO")
+    while Button.CENTER not in ev3.buttons.pressed(): wait(20)
+    ev3.screen.draw_text(0, 95, "Midiendo...")
     ev3.speaker.beep(600, 100)
     h_sum, s_sum, v_sum = 0, 0, 0
     for _ in range(20):
         r, g, b = color_der.rgb()
         h, s, v = rgb_to_hsv(r, g, b)
-        h_sum += h
-        s_sum += s
-        v_sum += v
+        h_sum += h; s_sum += s; v_sum += v
         wait(20)
-    GREEN_R_H = h_sum // 20
-    GREEN_R_S = s_sum // 20
-    GREEN_R_V = v_sum // 20
+    GREEN_R_H, GREEN_R_S, GREEN_R_V = h_sum//20, s_sum//20, v_sum//20
 
     ev3.screen.clear()
-    ev3.screen.draw_text(0, 10, "Verde Der OK")
-    ev3.screen.draw_text(0, 40, "HSV: {}, {}, {}".format(GREEN_R_H, GREEN_R_S, GREEN_R_V))
+    ev3.screen.draw_text(0, 5, "Verde Der OK")
+    ev3.screen.draw_text(0, 35, "HSV: {}, {}, {}".format(GREEN_R_H, GREEN_R_S, GREEN_R_V))
     ev3.screen.draw_text(0, 100, "Click p/seguir")
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
     while Button.CENTER not in ev3.buttons.pressed(): wait(20)
     while Button.CENTER in ev3.buttons.pressed(): wait(20)
+
+def calibracion_manual(modo="COMPLETA"):
+    ev3.speaker.beep()
+    # Cargar valores previos para no sobreescribir con ceros los sensores que no se calibran
+    cargar_calibracion()
+    
+    if modo == "COMPLETA":
+        calibrar_lsa()
+        calibrar_colores_frontales()
+    elif modo == "LSA":
+        calibrar_lsa()
+    elif modo == "COLOR":
+        calibrar_colores_frontales()
 
     guardar_calibracion()
     ev3.screen.clear()
@@ -706,24 +880,35 @@ def calibracion_manual():
     ev3.speaker.beep(1000, 200)
     wait(1000)
 
-# --- MENÚ DE INICIO ---
+# --- MENÚ DE INICIO DE CALIBRACIÓN ---
 ev3.screen.clear()
-ev3.screen.draw_text(0, 10, "INICIO (VERDES)")
-ev3.screen.draw_text(0, 40, "ARRIBA: Memoria")
-ev3.screen.draw_text(0, 70, "ABAJO: Calibrar")
+ev3.screen.draw_text(0, 5, "=== CALIBRACION ===")
+ev3.screen.draw_text(0, 30, "ARRIBA : Memoria")
+ev3.screen.draw_text(0, 55, "ABAJO  : Todo (7 pasos)")
+ev3.screen.draw_text(0, 80, "IZQ    : Solo LSA (Piso)")
+ev3.screen.draw_text(0, 105, "DER    : Solo Color (S2/S4)")
 
-usar_guardada = False
+opcion = None
 while True:
     botones = ev3.buttons.pressed()
     if Button.UP in botones:
-        usar_guardada = True
+        opcion = "MEMORIA"
         break
     elif Button.DOWN in botones:
-        usar_guardada = False
+        opcion = "TODO"
+        break
+    elif Button.LEFT in botones:
+        opcion = "LSA"
+        break
+    elif Button.RIGHT in botones:
+        opcion = "COLOR"
         break
     wait(20)
 
-if usar_guardada:
+while any(ev3.buttons.pressed()):
+    wait(20)
+
+if opcion == "MEMORIA":
     if cargar_calibracion():
         ev3.screen.clear()
         ev3.screen.draw_text(0, 40, "Memoria OK!")
@@ -736,30 +921,44 @@ if usar_guardada:
         ev3.speaker.beep(200, 500)
         wait(2000)
         calibracion_manual()
-else:
-    calibracion_manual()
+elif opcion == "TODO":
+    calibracion_manual("COMPLETA")
+elif opcion == "LSA":
+    calibracion_manual("LSA")
+elif opcion == "COLOR":
+    calibracion_manual("COLOR")
 
 # 3. Espera inicio con debug
 ev3.screen.clear()
-ev3.screen.draw_text(10, 20, "Listo! A la linea")
-ev3.screen.draw_text(10, 50, "Apretar CENTRO")
+ev3.screen.draw_text(0, 5, "=== LISTO A PISTA ===")
+ev3.screen.draw_text(0, 30, "CENTRO : Modo Normal")
+ev3.screen.draw_text(0, 55, "OTRO   : Recolectar (Data)")
 
-while Button.CENTER not in ev3.buttons.pressed():
+confirmar_verdes = False
+while True:
+    botones = ev3.buttons.pressed()
+    if Button.CENTER in botones:
+        confirmar_verdes = False
+        break
+    elif any(b for b in botones if b != Button.CENTER):
+        confirmar_verdes = True
+        break
+        
     try:
         cal = normalize_array(ll.raw())
         pos = pos_x10(cal)
-        ev3.screen.draw_text(10, 80, "Posicion: " + str(pos) + "   ")
+        ev3.screen.draw_text(0, 85, "Posicion: " + str(pos) + "   ")
     except OSError:
-        ev3.screen.draw_text(10, 80, "Error I2C...       ")
+        ev3.screen.draw_text(0, 85, "Error I2C...       ")
     wait(50)
 
-while Button.CENTER in ev3.buttons.pressed():
+while any(ev3.buttons.pressed()):
     wait(20)
 
 ev3.speaker.beep(800, 300)
 
 # 4. Seguir línea
-follow_line()
+follow_line(confirmar_verdes=confirmar_verdes)
 
 ev3.screen.clear()
 ev3.screen.draw_text(10, 50, "LISTO")

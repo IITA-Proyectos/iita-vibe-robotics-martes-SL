@@ -8,7 +8,12 @@ para que sepa los puertos, ruedas, y motores correctos.
 
 | Robot | Archivo | Descripción |
 |-------|---------|-------------|
-| Base 2WD | `spike-2wd-basico.py` | 2 motores grandes, ruedas medianas 56mm, puertos E/F |
+| Base 2WD | `spike-2wd-basico.py` | LEGO Spike Prime. 2 motores grandes, ruedas medianas 56mm, puertos E/F |
+| ⚽ Fútbol 2025 | `teensy-zircon-soccer-2025.md` | **NO es LEGO.** Teensy 4.1 + Zircon + OpenMV, C++, 3 motores omni |
+
+> Los archivos `.py` son robots LEGO para Pybricks. El `.md` de fútbol describe un robot de otra
+> familia: se programa en C++ y se carga por USB. Para ese usá también la directiva
+> [`../directivas-ia/system-prompts/soccer-teensy-zircon.md`](../directivas-ia/system-prompts/soccer-teensy-zircon.md).
 
 ## ¿Cómo agregar un robot nuevo?
 

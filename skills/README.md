@@ -1,4 +1,27 @@
-# 🧠 Skills de Claude para Robótica de Competición
+# 🧠 Skills
+
+## ⚽ Skills del robot de fútbol (Teensy + Zircon + OpenMV) — NO son LEGO
+
+Estas cinco son para los robots del track [`futbol-roboliga2026/`](../futbol-roboliga2026/).
+**No sirven para Spike Prime, y las de Pybricks no sirven para estos robots.** Están escritas
+contra el código real del Nacional 2025: cada número lleva su `archivo:línea`.
+
+| Skill | Cubre |
+|---|---|
+| [`omni-3-ruedas-teensy`](omni-3-ruedas-teensy/) | Cómo se mueve un robot de 3 ruedas omni: descomposición vx/vy/ω, convenciones de signo, `analogWrite` + INA/INB, el cableado distinto de cada robot, piso de PWM, yaw parásito |
+| [`bno055-rumbo-teensy`](bno055-rumbo-teensy/) | El giroscopio: rumbo absoluto vs relativo, `initialYaw`, wrap-around a ±180, calibración, y el árbol de diagnóstico de las 3 fallas conocidas |
+| [`openmv-h7-vision-y-enlace-serie`](openmv-h7-vision-y-enlace-serie/) | La cámara: umbrales LAB, recalibrar bajo luz nueva, homografía, y el contrato de 9 bytes con el Teensy |
+| [`firmware-teensy-maquina-de-estados`](firmware-teensy-maquina-de-estados/) | El salto de Pybricks a Arduino: por qué `delay()` está prohibido, el patrón `millis()`, FSM con `enum` + `switch`, código muerto, y los 3 errores clásicos con el ejemplo real de este robot |
+| [`pruebas-en-banco-robot-real`](pruebas-en-banco-robot-real/) | La disciplina: por qué "compila" no prueba nada, un cambio por vez, reproducir el bug ANTES de arreglarlo, criterios de aceptación y bitácora |
+
+> Están destiladas de las skills del equipo que fue a Incheon, pero **filtradas**: todo lo que
+> depende de hardware que estos robots no tienen (ToF, odometría, cámaras N6, 3 placas) se
+> descartó o quedó marcado como "no lo tenemos". Cada una pasó por un verificador independiente
+> que chequeó cita por cita contra el código real.
+
+---
+
+## 🧱 Skills del taller (LEGO Spike Prime / EV3 + Pybricks) de Claude para Robótica de Competición
 
 Set de **15 skills** para que Claude (y cualquier IA compatible con el formato Anthropic Skills) pueda asistir profesionalmente en programación de robots LEGO Spike Prime / EV3 con Pybricks, cubriendo todos los formatos de competición de robótica educativa.
 

@@ -1,64 +1,81 @@
 /* =====================================================================
-   DIAGNOSTICO DE MOTORES — ¿por que avanzar() mueve la rueda equivocada?
+   DIAGNOSTICO DE MOTORES v2 — los 3 motores en los DOS sentidos
    IITA Salta — taller de los martes — Roboliga 2026 — 2026-07-28
    =====================================================================
 
-   EL SINTOMA
-   Con el ARQUERO compilado como ROBOT1, avanzar() del codigo 2025 deberia
-   mover la rueda IZQUIERDA y la DERECHA, y dejar la TRASERA libre. En banco
-   se vio moverse la IZQUIERDA y la TRASERA.
+   DE DONDE VIENE ESTO (banco, Gustavo, 2026-07-28)
 
-   LA SOSPECHA
-   avanzar() (arquero.ino:151-155) deja la trasera asi:
-        analogWrite(PWM3, 0);  digitalWrite(INA3, 1);  digitalWrite(INB3, 0);
-   O sea: PWM en cero, PERO las dos patas de direccion puestas como "adelante".
-   Si en la placa Zircon el pin PWM NO es un enable de verdad, esas dos patas
-   solas alcanzan para que el motor gire a full. Eso explicaria la trasera.
+   v1 dio dos cosas:
+   (a) La rueda TRASERA gira con PWM3 = 0, si las patas de direccion estan
+       en 1/0. O sea: en esta placa el PWM NO apaga el motor. Manda la
+       direccion. Consecuencia grande: en el firmware 2025 la trasera nunca
+       estuvo realmente libre durante el avance.
+   (b) La rueda DERECHA no giro con INA2=0 / INB2=1 ... pero SI habia girado
+       en la prueba de identificacion, que la manejaba con INA2=1 / INB2=0.
+       Sospecha: anda en un sentido y no en el otro.
 
-   ESTE PROGRAMA NO ARREGLA NADA. Separa el problema en 5 pruebas para saber
-   QUE esta pasando antes de tocar el codigo de competencia.
+   ESTA VERSION responde (b) en serio: prueba los TRES motores en los DOS
+   sentidos, y ademas repite la pregunta del PWM en cada motor.
+
+   Si el resultado es "M1 y M3 andan en los dos sentidos, M2 solo en uno",
+   el problema es de HARDWARE en el canal de la rueda derecha (medio puente
+   H quemado, o la pata 7 sin llegar al driver), no del programa.
+   Si los TRES fallan en el mismo sentido, entonces lo que esta mal es como
+   entendemos el driver, y hay que mirar el esquematico de la Zircon.
 
    ---------------------------------------------------------------------
    COMO SE CORRE
    ---------------------------------------------------------------------
-   ROBOT LEVANTADO, apoyado sobre una caja, las TRES RUEDAS AL AIRE.
-   Riesgo cero: el robot no se mueve de lugar.
+   ROBOT LEVANTADO, las TRES RUEDAS AL AIRE. Riesgo cero.
+   Bateria puesta. Monitor serie a 19200. Apreta RESET.
 
-   Bateria puesta (sin bateria no gira nada), monitor serie a 19200,
-   y apreta RESET. Anota rueda por rueda lo que pasa en cada paso.
+   Son 8 pasos de 3 s con 2 s de pausa entre medio (~40 s en total).
+   Para CADA paso anota una sola cosa: GIRA o NO GIRA.
+   No mires para que lado gira, no importa.
    ===================================================================== */
 
 
-// ARQUERO — confirmado en banco 2026-07-28
+// ARQUERO (ROBOT1) — mapeo confirmado en banco 2026-07-28
 #define INA1 2
 #define INB1 5
-#define PWM1 3      // M1 = rueda IZQUIERDA (medido)
+#define PWM1 3      // M1 = rueda IZQUIERDA
 
 #define INA2 8
 #define INB2 7
-#define PWM2 6      // M2 = rueda DERECHA (medido)
+#define PWM2 6      // M2 = rueda DERECHA
 
 #define INA3 11
 #define INB3 12
-#define PWM3 4      // M3 = rueda TRASERA (medido)
+#define PWM3 4      // M3 = rueda TRASERA
 
-const int VEL = 100;
-const int MS  = 3000;   // cuanto dura cada paso
+const int VEL      = 100;
+const int MS       = 3000;
 const int MS_PAUSA = 2000;
+
+// Tabla de pasos: motor, INA, INB, PWM, texto
+struct Paso {
+  const char* titulo;
+  int ina, inb, pwmPin;
+  int valINA, valINB, valPWM;
+};
+
+const Paso PASOS[] = {
+  { "1) IZQUIERDA  sentido A   (INA=1 INB=0  PWM=100)", INA1, INB1, PWM1, 1, 0, VEL },
+  { "2) IZQUIERDA  sentido B   (INA=0 INB=1  PWM=100)", INA1, INB1, PWM1, 0, 1, VEL },
+  { "3) DERECHA    sentido A   (INA=1 INB=0  PWM=100)", INA2, INB2, PWM2, 1, 0, VEL },
+  { "4) DERECHA    sentido B   (INA=0 INB=1  PWM=100)  <<< la que usa avanzar()", INA2, INB2, PWM2, 0, 1, VEL },
+  { "5) TRASERA    sentido A   (INA=1 INB=0  PWM=100)", INA3, INB3, PWM3, 1, 0, VEL },
+  { "6) TRASERA    sentido B   (INA=0 INB=1  PWM=100)", INA3, INB3, PWM3, 0, 1, VEL },
+  { "7) IZQUIERDA  sentido A   (INA=1 INB=0  PWM=0)    <<< prueba del PWM", INA1, INB1, PWM1, 1, 0, 0 },
+  { "8) DERECHA    sentido A   (INA=1 INB=0  PWM=0)    <<< prueba del PWM", INA2, INB2, PWM2, 1, 0, 0 },
+};
+const int N_PASOS = sizeof(PASOS) / sizeof(PASOS[0]);
 
 
 void todoApagado() {
   analogWrite(PWM1, 0); digitalWrite(INA1, 0); digitalWrite(INB1, 0);
   analogWrite(PWM2, 0); digitalWrite(INA2, 0); digitalWrite(INB2, 0);
   analogWrite(PWM3, 0); digitalWrite(INA3, 0); digitalWrite(INB3, 0);
-}
-
-void paso(const char* titulo, const char* preguntar) {
-  todoApagado();
-  delay(MS_PAUSA);
-  Serial.println();
-  Serial.println(titulo);
-  Serial.print("    PREGUNTA: "); Serial.println(preguntar);
 }
 
 
@@ -72,11 +89,11 @@ void setup() {
   while (!Serial && millis() < 4000) { }
 
   Serial.println();
-  Serial.println("==========================================");
-  Serial.println("DIAGNOSTICO DE MOTORES — ARQUERO (ROBOT1)");
+  Serial.println("=================================================");
+  Serial.println("DIAGNOSTICO v2 — 3 motores, 2 sentidos");
   Serial.println("ROBOT LEVANTADO, ruedas al aire.");
-  Serial.println("Anota rueda por rueda en cada paso.");
-  Serial.println("==========================================");
+  Serial.println("Para cada paso anota solo: GIRA / NO GIRA");
+  Serial.println("=================================================");
   Serial.println("Arranca en 5 segundos.");
   for (int s = 5; s >= 1; s--) { Serial.print(s); Serial.println("..."); delay(1000); }
 }
@@ -84,51 +101,33 @@ void setup() {
 
 void loop() {
 
-  // ---- PASO 1: avanzar() tal cual esta en el codigo 2025 ----
-  paso("PASO 1 — avanzar() del codigo 2025, tal cual",
-       "¿QUE ruedas giran? (izquierda / derecha / trasera)");
-  analogWrite(PWM1, VEL); digitalWrite(INA1, 1); digitalWrite(INB1, 0);
-  analogWrite(PWM2, VEL); digitalWrite(INA2, 0); digitalWrite(INB2, 1);
-  analogWrite(PWM3, 0);   digitalWrite(INA3, 1); digitalWrite(INB3, 0);
-  delay(MS);
+  for (int i = 0; i < N_PASOS; i++) {
+    todoApagado();
+    delay(MS_PAUSA);
 
-  // ---- PASO 2: LA PRUEBA CLAVE ----
-  // Solo la trasera, con PWM 0 y las patas de direccion como las deja
-  // avanzar(). Si gira, PWM=0 NO apaga el motor en esta placa.
-  paso("PASO 2 — SOLO trasera: PWM3=0 con INA3=1, INB3=0  <<< LA CLAVE",
-       "¿Gira la TRASERA? Si gira, PWM=0 NO apaga el motor.");
-  analogWrite(PWM3, 0); digitalWrite(INA3, 1); digitalWrite(INB3, 0);
-  delay(MS);
+    Serial.println();
+    Serial.println(PASOS[i].titulo);
 
-  // ---- PASO 3: control del paso 2 ----
-  paso("PASO 3 — SOLO trasera: PWM3=0 con INA3=0, INB3=0  (control)",
-       "¿Se queda quieta? Si con 0/0 para y con 1/0 giraba, esta confirmado.");
-  analogWrite(PWM3, 0); digitalWrite(INA3, 0); digitalWrite(INB3, 0);
-  delay(MS);
+    digitalWrite(PASOS[i].ina, PASOS[i].valINA);
+    digitalWrite(PASOS[i].inb, PASOS[i].valINB);
+    analogWrite(PASOS[i].pwmPin, PASOS[i].valPWM);
+    delay(MS);
+  }
 
-  // ---- PASO 4: la derecha, con la polaridad que usa avanzar() ----
-  paso("PASO 4 — SOLO derecha (M2): PWM=100 con INA2=0, INB2=1",
-       "¿Gira la DERECHA? Es la polaridad exacta que usa avanzar().");
-  analogWrite(PWM2, VEL); digitalWrite(INA2, 0); digitalWrite(INB2, 1);
-  delay(MS);
-
-  // ---- PASO 5: la izquierda, con la polaridad que usa avanzar() ----
-  paso("PASO 5 — SOLO izquierda (M1): PWM=100 con INA1=1, INB1=0",
-       "¿Gira la IZQUIERDA? Es la polaridad exacta que usa avanzar().");
-  analogWrite(PWM1, VEL); digitalWrite(INA1, 1); digitalWrite(INB1, 0);
-  delay(MS);
-
-  // ---- fin ----
   todoApagado();
   Serial.println();
   Serial.println("=== TERMINO. Apreta RESET para repetir. ===");
   Serial.println();
   Serial.println("COMO SE LEE:");
-  Serial.println(" - Paso 2 gira y paso 3 no  -> PWM=0 no apaga: hay que apagar");
-  Serial.println("   la trasera con INA3=0/INB3=0. Explica todo el sintoma.");
-  Serial.println(" - Paso 4 NO gira -> el problema es la rueda derecha o su");
-  Serial.println("   driver con esa polaridad, no la trasera.");
-  Serial.println(" - Pasos 4 y 5 giran y el paso 1 igual sale mal -> avisar,");
-  Serial.println("   hay algo que no entendimos.");
+  Serial.println(" - Si 1,2,5,6 giran y 4 NO: el canal de la rueda DERECHA");
+  Serial.println("   anda en un solo sentido. Es hardware, no software.");
+  Serial.println("   avanzar() no puede funcionar hasta arreglarlo.");
+  Serial.println(" - Si 2,4,6 (todos los sentido B) NO giran: no es una rueda,");
+  Serial.println("   es como entendemos el driver. Mirar el esquematico Zircon.");
+  Serial.println(" - Si 7 y 8 GIRAN: confirmado que PWM=0 no apaga el motor;");
+  Serial.println("   para apagar de verdad hay que poner INA=0 e INB=0.");
+  Serial.println(" - Si 3 gira y 4 no, proba cambiar el conector del motor");
+  Serial.println("   derecho por el de otra rueda para separar motor de driver.");
+
   while (true) { todoApagado(); delay(1000); }
 }

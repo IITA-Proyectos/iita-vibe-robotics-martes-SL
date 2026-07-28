@@ -1,0 +1,5 @@
+﻿
+# builds de PlatformIO (no van al repo)
+.pio-build/
+.pio/
+

@@ -52,6 +52,14 @@ PINES (arquero = ROBOT1):
   Motor1 INA=2  INB=5  PWM=3   | Motor2 INA=8  INB=7  PWM=6   | Motor3 INA=11 INB=12 PWM=4
 PINES (delantero = ROBOT2):
   Motor1 INA=8  INB=7  PWM=6   | Motor2 INA=11 INB=12 PWM=4   | Motor3 INA=2  INB=5  PWM=3
+
+QUE RUEDA ES CADA UNA (medido en banco el 2026-07-28, en el ARQUERO):
+  pines 2/5/3   = rueda IZQUIERDA
+  pines 8/7/6   = rueda DERECHA
+  pines 11/12/4 = rueda TRASERA   (Motor3 en los dos robots es el trasero)
+OJO: los comentarios del codigo 2025 dicen "M1 = motor derecho" y "M2 = motor izquierdo",
+y estan ESPEJADOS: fueron escritos mirando al robot de frente, no desde el robot. La
+medicion de banco manda. No razones sobre izquierda/derecha usando esos comentarios.
 COMPARTIDOS: Serial1 RX=0 TX=1 | botones 9 y 10 | IR pelota 14-17 y 20-23
              I2C 18/19 | línea A11(25)=Line1, A13(27)=Line2, A12(26)=Line3
 

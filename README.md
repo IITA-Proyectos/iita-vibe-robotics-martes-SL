@@ -65,8 +65,23 @@ La IA propone, el robot dispone. 🎯
 │
 ├── rutinas-exitosas/     ← Código que FUNCIONÓ bien en pruebas
 │
-└── docs/                 ← Documentación y guías
+├── docs/                 ← Documentación y guías
+│
+└── futbol-roboliga2026/  ← ⚽ Los robots de fútbol del Nacional 2025 (¡NO es LEGO!)
 ```
+
+## ⚽ Track de fútbol — Roboliga 2026
+
+Además del taller, el equipo retoma los **dos robots de fútbol con los que IITA salió campeón
+del Nacional 2025** para competir en la Roboliga Argentina 2026. Los robots están intactos:
+mismos puertos, mismas cámaras, listos para programar.
+
+👉 **[`futbol-roboliga2026/`](futbol-roboliga2026/)** — empezá por su README.
+
+> ⚠️ **Ojo: esos robots no son LEGO.** Son Teensy 4.1 + placa Zircon + cámara OpenMV, en C++,
+> cargados por cable USB. Nada de Pybricks. Antes de pedirle código a la IA para ellos, usá la
+> directiva [`directivas-ia/system-prompts/soccer-teensy-zircon.md`](directivas-ia/system-prompts/soccer-teensy-zircon.md)
+> — si le pasás las skills de Pybricks te va a escribir código que no sirve y que *parece* bien.
 
 ## 🚀 ¿Cómo empezar?
 
@@ -177,10 +192,10 @@ Las skills son **documentos vivos**:
 
 | Nombre | Carpeta |
 |--------|--------|
-| Octavio | `alumnos/octavio/` |
-| Maximio | `alumnos/maximio/` |
+| Diego | `alumnos/diego/` |
 | Juanse | `alumnos/juanse/` |
 | Laureano | `alumnos/laureano/` |
+| Máximo | `alumnos/maximo/` |
 | Profe Gustavo | `alumnos/profegustavo/` |
 | Profe Franco | `alumnos/profefranco/` |
 

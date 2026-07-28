@@ -4,6 +4,10 @@
 
 Competimos en la categoría **Soccer** con robots autónomos.
 
+> 🤖 **¿Buscás los programas de los robots?** Están en
+> **[`futbol-roboliga2026/`](../../futbol-roboliga2026/)**.
+> Esta carpeta es solo de **reglas, specs y notas de estrategia** de la competencia.
+
 ### Resumen rápido de reglas 2025-2026
 
 - 2 robots por equipo en cancha

@@ -67,7 +67,7 @@ Tu código personal y tus pruebas siguen yendo a tu carpeta `alumnos/<tunombre>/
 
 ## 🔑 Lo primero que hay que entender: es UN solo programa
 
-`arquero-2025.ino` y `delantero-2025.ino` **son el mismo firmware**. Los dos contienen la máquina
+`arquero.ino` y `delantero.ino` **son el mismo firmware**. Los dos contienen la máquina
 de estados del arquero *y* la del delantero, en el mismo `switch`. Lo que cambia es:
 
 | | Arquero | Delantero |

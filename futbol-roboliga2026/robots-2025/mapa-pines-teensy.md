@@ -104,8 +104,8 @@ Los siguientes pines del Teensy 4.1 no estan conectados en la Zircon Rev v15:
 > **Rutas corregidas el 2026-07-28.** Este documento viene del repo del equipo de Incheon y
 > apuntaba a carpetas que en este repo no existen. Los equivalentes acá son:
 
-- Codigo arquero: [`arquero/arquero-2025.ino`](arquero/arquero-2025.ino)
-- Codigo delantero: [`delantero/delantero-2025.ino`](delantero/delantero-2025.ino)
+- Codigo arquero: [`arquero/arquero.ino`](arquero/arquero.ino)
+- Codigo delantero: [`delantero/delantero.ino`](delantero/delantero.ino)
 - Libreria: [`libreria-zircon/zirconLib.cpp`](libreria-zircon/zirconLib.cpp)
 - Como funciona cada robot: [`arquero/COMO-FUNCIONA.md`](arquero/COMO-FUNCIONA.md) ·
   [`delantero/COMO-FUNCIONA.md`](delantero/COMO-FUNCIONA.md)

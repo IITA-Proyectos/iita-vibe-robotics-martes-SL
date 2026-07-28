@@ -10,8 +10,11 @@ Los dos programas del robot la usan.
 
 ## 🚨 Antes que nada: NO COMPILA tal cual
 
-`zirconLib.cpp` tiene **una llave de cierre `}` de más en la línea 355**. Está suelta, después de
-que la función `isCompassCalibrated()` ya cerró en la línea 351.
+Son **DOS errores encadenados**, y el segundo está tapado por el primero.
+
+### Error 1 — una llave `}` de más (línea 355)
+
+Está suelta, después de que `isCompassCalibrated()` ya cerró en la línea 351.
 
 ```cpp
 349  bool isCompassCalibrated() {
@@ -24,18 +27,47 @@ que la función `isCompassCalibrated()` ya cerró en la línea 351.
 356
 ```
 
-**El arreglo es borrar la línea 355.** Nada más. Verificado leyendo el archivo el 28-jul-2026.
+Verificado de dos formas independientes: leyendo el archivo, y contando llaves con un script que
+ignora comentarios (desbalance de exactamente 1). El error dirá algo tipo
+`expected declaration before '}' token`.
 
-Si intentás compilar sin arreglarlo, el error va a decir algo tipo
-`expected declaration before '}' token`. No es tu culpa ni un problema de tu instalación:
-viene así desde 2025.
+### Error 2 — la variable `bno` está definida dos veces
 
-> Como el archivo de esta carpeta es una copia congelada del original, **no lo arreglamos acá**.
-> Copiá la librería a tu carpeta de trabajo y arreglala ahí. Si el equipo decide adoptar el
-> arreglo para todos, se hace en un commit aparte y se anota en la bitácora.
+`zirconLib.cpp:4` declara `Adafruit_BNO055 bno;` y **cada programa declara otra con el mismo
+nombre** (`arquero.ino:68`, `delantero.ino:76`). Las dos son globales públicas y el *enlazador*
+—el paso final que junta la librería con el programa— no puede decidir cuál es cuál:
+`multiple definition of 'bno'`.
 
-**Atajo si esto te frena:** `../delantero/variantes/delantero-sin-zirconlib.ino` no usa la
-librería. Te sirve para tener el robot moviéndose hoy mismo.
+**No vas a ver este error hasta arreglar el primero**, porque el compilador ni llega al
+enlazador. No es que rompiste algo: siempre estuvo ahí.
+
+El arreglo es agregarle `static` (privada de este archivo):
+
+```cpp
+static Adafruit_BNO055 bno;
+```
+
+No rompe el giroscopio: **ningún programa llama nunca a `readCompass()`** (cero apariciones en
+las 1207 y 1214 líneas), y aunque lo llamara, esa función está guardada por un `if` que nunca es
+verdadero. Los programas hablan con el BNO055 con su **propio** objeto.
+
+### Dónde se aplican estos parches
+
+⚠️ **No acá.** Esta carpeta es una copia congelada. Y sobre todo: el archivo que el Arduino IDE
+realmente compila **no es este** — es el que está instalado en `Documentos/Arduino/libraries/`.
+El `#include <zirconLib.h>` con los signos `< >` significa *"buscalo en las librerías
+instaladas"*. Si editás la copia del repo y compilás, no cambia nada y vas a pensar que el parche
+no sirve.
+
+Paso a paso, con la prueba de banco: [`../../correcciones-propuestas.md`](../../correcciones-propuestas.md).
+
+> 🤔 **¿Y cómo ganaron el Nacional con esto?** No lo ganaron con esto. La copia instalada en la
+> computadora del equipo 2025 era, casi seguro, otra. **La que quedó en el repo está rota.**
+> Antes de pisar nada, fijate si hay una versión instalada distinta: esa es la que ganó.
+
+**Atajo si esto te frena:** `../delantero/sin-zirconlib/sin-zirconlib.ino` no usa la librería.
+Te sirve para tener el robot moviéndose hoy mismo — pero ojo, **es otro programa, no el que ganó
+el nacional**.
 
 ---
 

@@ -3,7 +3,7 @@ title: "Análisis FIEL — Arquero 2025 (definitivo-arquero)"
 date: 2026-06-18
 status: referencia-fiel
 tipo: analisis-codigo-historico
-fuente: "futbol-roboliga2026/robots-2025/arquero/arquero-2025.ino (1207 líneas)"
+fuente: "futbol-roboliga2026/robots-2025/arquero/arquero.ino (1207 líneas)"
 fuente-original: "repo open-soccer-robocup-team2026 → software/_deprecated-2025/robot-arquero/definitivo-arquero_6-9-2026"
 copiado-a-este-repo: 2026-07-28
 generado-por: "Claude (workflow 14 agentes, análisis línea por línea + crítico de completitud)"
@@ -17,7 +17,7 @@ generado-por: "Claude (workflow 14 agentes, análisis línea por línea + críti
 
 # DOCUMENTO FIEL — ARQUERO 2025 (`definitivo-arquero_6-9-2026`)
 
-**Archivo:** [`arquero-2025.ino`](arquero-2025.ino) (1207 líneas, Arduino/C++). Los números de
+**Archivo:** [`arquero.ino`](arquero.ino) (1207 líneas, Arduino/C++). Los números de
 línea de este documento coinciden **exactamente** con ese archivo — el contenido es idéntico al
 original, solo cambió el nombre (antes no tenía extensión).
 **Contexto:** Nacional 2025 (Buenos Aires, campeones). Robot mono-placa, librería `zirconLib`, BNO055 (giroscopio), cámara OpenMV v1 (paquete de 9 bytes), kicker por motores (no hay solenoide: la "patada" es un avance fuerte de las ruedas).

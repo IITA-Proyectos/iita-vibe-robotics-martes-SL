@@ -3,7 +3,7 @@ title: "Análisis FIEL — Delantero 2025 (definitivo-delantero)"
 date: 2026-06-18
 status: referencia-fiel
 tipo: analisis-codigo-historico
-fuente: "futbol-roboliga2026/robots-2025/delantero/delantero-2025.ino (1214 líneas)"
+fuente: "futbol-roboliga2026/robots-2025/delantero/delantero.ino (1214 líneas)"
 fuente-original: "repo open-soccer-robocup-team2026 → software/_deprecated-2025/robot-delantero/definitivo-delantero.cpp"
 copiado-a-este-repo: 2026-07-28
 generado-por: "Claude (workflow 14 agentes, análisis línea por línea + crítico de completitud)"
@@ -17,7 +17,7 @@ generado-por: "Claude (workflow 14 agentes, análisis línea por línea + críti
 
 # DOCUMENTO FIEL — ROBOT DELANTERO 2025 (`definitivo-delantero.cpp`)
 
-**Archivo fuente:** [`delantero-2025.ino`](delantero-2025.ino) (1214 líneas). Los números de línea
+**Archivo fuente:** [`delantero.ino`](delantero.ino) (1214 líneas). Los números de línea
 de este documento coinciden **exactamente** con ese archivo — el contenido es idéntico al
 original, solo cambió el nombre.
 **Contexto:** Nacional 2025 (Buenos Aires, campeones). Robot mono-placa con librería `zirconLib`, kicker físico (motor de pateo con rampa de PWM), cámara OpenMV v1 (paquete de 9 bytes por `Serial1`) e IMU BNO055 (I2C `0x28`) para heading.

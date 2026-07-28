@@ -30,7 +30,7 @@ dos cosas a la vez.
 
 ### Librerías que hacen falta
 
-Los programas empiezan con esto (`arquero-2025.ino:1-5`):
+Los programas empiezan con esto (`arquero.ino:1-5`):
 
 ```cpp
 #include <Arduino.h>
@@ -43,12 +43,31 @@ Los programas empiezan con esto (`arquero-2025.ino:1-5`):
 En `Herramientas → Gestionar librerías`, buscá e instalá **"Adafruit BNO055"**; el IDE te va a
 ofrecer instalar también **"Adafruit Unified Sensor"** — decile que sí, hace falta.
 
-`zirconLib` **no está en el gestor**: es del IITA. Copiá `zirconLib.h` y `zirconLib.cpp` a la
-carpeta de tu sketch, o a `Documentos/Arduino/libraries/zirconLib/`.
+`zirconLib` **no está en el gestor**: es del IITA. Copiá `zirconLib.h` y `zirconLib.cpp` a
+`Documentos/Arduino/libraries/zirconLib/`.
 
-> ⚠️ **`zirconLib.cpp` no compila tal cual.** Tiene una llave de más. Leé
-> [`robots-2025/libreria-zircon/README.md`](robots-2025/libreria-zircon/README.md) — el arreglo
-> es borrar una línea.
+> ⚠️ **Tiene que ir sí o sí en la carpeta de librerías, NO al lado del programa.** El
+> `#include <zirconLib.h>` usa los signos `< >`, que significan *"buscalo en las librerías
+> instaladas"*. Si la dejás junto al `.ino`, no la va a encontrar.
+
+> 🚨 **`zirconLib.cpp` NO COMPILA tal cual — son dos errores, no uno.** Una llave de más y una
+> variable duplicada. Leé
+> [`robots-2025/libreria-zircon/README.md`](robots-2025/libreria-zircon/README.md) antes de
+> pelearte con el compilador, y los parches en
+> [`correcciones-propuestas.md`](correcciones-propuestas.md).
+
+### Dependencias, para que a todos les compile igual
+
+| Qué | Dónde se consigue |
+|---|---|
+| Arduino IDE | arduino.cc |
+| Teensyduino | pjrc.com |
+| Adafruit BNO055 | Gestor de Librerías |
+| Adafruit Unified Sensor | Gestor de Librerías (lo pide la anterior) |
+| zirconLib | este repo → `Documentos/Arduino/libraries/zirconLib/` |
+
+**Anoten en la bitácora las versiones que instalaron.** Si a uno le compila y a otro no, la
+diferencia casi siempre está en esta tabla.
 
 ### Elegir qué robot estás programando
 
@@ -112,6 +131,10 @@ que conviene hacer para verificar que el enlace anda.
 ---
 
 ## 4. Encendido: el orden importa
+
+> 🚨 **NO HAY BOTÓN DE ARRANQUE.** El programa empieza a mover motores **apenas hay energía**.
+> Los botones existen en la placa (pines 9 y 10) pero el programa nunca los usa. Apoyá el robot
+> donde querés que arranque **antes** de conectar la batería, y no lo tengas en la mano.
 
 1. Poné el robot **quieto sobre la mesa**.
 2. Encendelo y **esperá unos segundos sin moverlo**. El giroscopio necesita ese rato para

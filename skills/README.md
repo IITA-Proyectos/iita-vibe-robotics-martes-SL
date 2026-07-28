@@ -1,4 +1,7 @@
-# 🧠 Skills
+# 🧠 Skills de Claude para Robótica de Competición
+
+Dos familias, para dos robots que no tienen nada que ver entre sí. **Elegí la correcta antes de
+pedirle código a la IA:** las de Pybricks no sirven para el robot de fútbol, y viceversa.
 
 ## ⚽ Skills del robot de fútbol (Teensy + Zircon + OpenMV) — NO son LEGO
 
@@ -21,7 +24,7 @@ contra el código real del Nacional 2025: cada número lleva su `archivo:línea`
 
 ---
 
-## 🧱 Skills del taller (LEGO Spike Prime / EV3 + Pybricks) de Claude para Robótica de Competición
+## 🧱 Skills del taller (LEGO Spike Prime / EV3 + Pybricks)
 
 Set de **15 skills** para que Claude (y cualquier IA compatible con el formato Anthropic Skills) pueda asistir profesionalmente en programación de robots LEGO Spike Prime / EV3 con Pybricks, cubriendo todos los formatos de competición de robótica educativa.
 

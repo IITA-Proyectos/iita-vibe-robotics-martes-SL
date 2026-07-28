@@ -31,9 +31,17 @@ HARDWARE (los 2 robots comparten todo esto):
 - NO hay solenoide: la "patada" es un avance fuerte de las ruedas
 - NO hay encoders en los motores. NO hay odometría. NO hay ToF ni ultrasonido.
 
-DOS ROBOTS, UN SOLO PROGRAMA:
-El mismo archivo contiene la máquina de estados del ARQUERO y la del DELANTERO, en el
-mismo switch. Se elige con un #define arriba de todo:
+DOS ROBOTS, DOS ARCHIVOS QUE SE SEPARARON:
+arquero.ino y delantero.ino salieron del mismo programa y los dos contienen la máquina
+de estados del ARQUERO y la del DELANTERO en el mismo switch. PERO NO SON EL MISMO
+ARCHIVO: el equipo 2025 los copió y los editó por separado. Verificado: el estado
+avanzar_despues_de_patear existe solo en arquero.ino; APUNTAR_PELOTA_horario existe
+solo en delantero.ino; tolerancia_cercania es 140.0 en el arquero y 50.0 en el
+delantero; los umbrales de blanco del bloque ROBOT1 difieren.
+=> Dar vuelta el #define de delantero.ino NO da el firmware del arquero: da una version
+VIEJA del arquero. Cada robot tiene SU archivo. Nunca los mezcles.
+
+Dentro de cada archivo, el robot se elige con un #define arriba de todo:
   #define ROBOT1   -> ARQUERO,    estado inicial impulso_inicial
   #define ROBOT2   -> DELANTERO,  estado inicial AVANCE_INICIO
 Los motores están CABLEADOS DISTINTO en cada robot, por eso los #define de pines cambian.

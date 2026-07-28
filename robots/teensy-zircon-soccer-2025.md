@@ -29,8 +29,13 @@ cuando le pidas código para ellos, junto con la directiva
 
 ## Elegir el robot: el `#define`
 
-Los dos robots corren **el mismo programa**. Se elige con un `#define` arriba de todo
-(líneas 10-11), y **los motores están cableados distinto en cada uno**:
+Cada robot tiene **su propio archivo** (`arquero.ino` / `delantero.ino`). Los dos salieron del
+mismo programa y los dos contienen las dos máquinas de estado, pero **divergieron**: hay estados
+que existen en uno y no en el otro, y umbrales distintos. **Dar vuelta el `#define` de un archivo
+no te da el firmware del otro robot.**
+
+Dentro de cada archivo, el robot se elige con un `#define` arriba de todo (líneas 10-11), y
+**los motores están cableados distinto en cada uno**:
 
 ```cpp
 // ELEGI 1

@@ -83,6 +83,10 @@ mismos puertos, mismas cámaras, listos para programar.
 > directiva [`directivas-ia/system-prompts/soccer-teensy-zircon.md`](directivas-ia/system-prompts/soccer-teensy-zircon.md)
 > — si le pasás las skills de Pybricks te va a escribir código que no sirve y que *parece* bien.
 
+Para ese robot hay **5 skills propias** en [`skills/`](skills/): `omni-3-ruedas-teensy`,
+`bno055-rumbo-teensy`, `openmv-h7-vision-y-enlace-serie`, `firmware-teensy-maquina-de-estados`
+y `pruebas-en-banco-robot-real`.
+
 ## 🚀 ¿Cómo empezar?
 
 1. Abrí [code.pybricks.com](https://code.pybricks.com) en tu navegador

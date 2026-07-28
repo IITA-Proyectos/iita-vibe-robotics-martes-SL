@@ -12,6 +12,8 @@ generado-por: "Claude (workflow 14 agentes, análisis línea por línea + críti
 > **TRANSCRIPCIÓN FIEL del código del Nacional 2025 (Buenos Aires, campeones).** Cada valor citado con `archivo:línea`.
 > Objetivo: reconstruir el comportamiento EXACTO en el robot 2026 (más sensores), sin perder nada.
 > ⚠️ Los DOS programas (`definitivo-arquero` y `definitivo-delantero`) son el MISMO firmware unificado arquero+delantero; cambian el `#define` de robot (arquero=ROBOT1, delantero=ROBOT2) y el estado inicial que selecciona el modo.
+>
+> 🔧 **CORRECCIÓN 2026-07-28:** eso es cierto en la ESTRUCTURA (los dos archivos contienen las dos FSM), pero **no** en el contenido: los archivos **divergieron**. Verificado — `APUNTAR_PELOTA_horario` existe solo acá; `avanzar_despues_de_patear` solo en el arquero; `tolerancia_cercania` es 50.0 acá (L119) y 140.0 allá (L110); los umbrales de blanco del bloque ROBOT1 difieren (600/600/600 vs 500/650/600). **El bloque "arquero" de ESTE archivo es una versión VIEJA del arquero — no lo uses para programar el arquero.**
 > ⚠️ Las mejoras con sensores nuevos van en una sección APARTE y marcada — NO contaminan la transcripción.
 > Completitud (crítico adversarial que re-leyó el programa): **EXTREMADAMENTE fiel; cobertura_ok=false SOLO por 4 ítems no materiales (ver apéndice)**.
 

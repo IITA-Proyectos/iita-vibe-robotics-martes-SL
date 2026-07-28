@@ -65,10 +65,24 @@ Tu código personal y tus pruebas siguen yendo a tu carpeta `alumnos/<tunombre>/
 
 ---
 
-## 🔑 Lo primero que hay que entender: es UN solo programa
+## 🔑 Lo primero que hay que entender: son DOS COPIAS que se separaron
 
-`arquero.ino` y `delantero.ino` **son el mismo firmware**. Los dos contienen la máquina
-de estados del arquero *y* la del delantero, en el mismo `switch`. Lo que cambia es:
+`arquero.ino` y `delantero.ino` **salieron del mismo programa**, y los dos contienen la máquina
+de estados del arquero *y* la del delantero en el mismo `switch`. Pero **no son el mismo archivo**:
+en algún momento el equipo 2025 los copió y los siguió editando **por separado**. Verificado:
+
+| | arquero.ino | delantero.ino |
+|---|---|---|
+| `avanzar_despues_de_patear` (un estado) | existe | **no existe** |
+| `APUNTAR_PELOTA_horario` (otro estado) | **no existe** | existe |
+| `tolerancia_cercania` | `140.0` (L110) | `50.0` (L119) |
+| umbrales de blanco del bloque ROBOT1 | 500 / 650 / 600 | 600 / 600 / 600 |
+
+> 🚨 **Consecuencia práctica: dar vuelta el `#define` de `delantero.ino` NO te da el firmware del
+> arquero.** Te da una versión **vieja** del arquero, con otros umbrales y sin algunos estados.
+> Cada robot tiene SU archivo. No los mezclen.
+
+Dentro de cada archivo, lo que cambia entre un robot y otro es:
 
 | | Arquero | Delantero |
 |---|---|---|

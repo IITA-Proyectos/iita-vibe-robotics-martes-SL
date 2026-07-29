@@ -53,13 +53,29 @@ PINES (arquero = ROBOT1):
 PINES (delantero = ROBOT2):
   Motor1 INA=8  INB=7  PWM=6   | Motor2 INA=11 INB=12 PWM=4   | Motor3 INA=2  INB=5  PWM=3
 
-QUE RUEDA ES CADA UNA (medido en banco el 2026-07-28, en el ARQUERO):
-  pines 2/5/3   = rueda IZQUIERDA
-  pines 8/7/6   = rueda DERECHA
-  pines 11/12/4 = rueda TRASERA   (Motor3 en los dos robots es el trasero)
+QUE RUEDA ES CADA UNA (MEDIDO en banco el 2026-07-28, en el robot DELANTERO):
+  pines 8/7/6   = rueda IZQUIERDA   (es su M1)
+  pines 11/12/4 = rueda DERECHA     (es su M2)
+  pines 2/5/3   = rueda TRASERA     (es su M3)
+En los dos robots, M3 es el motor TRASERO: eso es lo unico que el #define conserva.
+Para el ARQUERO todavia NO esta medido; se supone que M1=izq, M2=der, M3=atras igual,
+pero nadie lo verifico.
+
 OJO: los comentarios del codigo 2025 dicen "M1 = motor derecho" y "M2 = motor izquierdo",
 y estan ESPEJADOS: fueron escritos mirando al robot de frente, no desde el robot. La
 medicion de banco manda. No razones sobre izquierda/derecha usando esos comentarios.
+
+COSAS APRENDIDAS EN BANCO QUE NO ESTAN EN EL CODIGO 2025:
+- Para APAGAR un motor de verdad hay que poner las DOS patas de direccion en 0.
+  Poner solo PWM=0 no es confiable en esta placa.
+- Las dos ruedas de ADELANTE estan montadas espejadas: para avanzar derecho hay que
+  darles polaridad OPUESTA entre si (una 1/0 y la otra 0/1). Las tres iguales = rota.
+- Hay PISO DE ARRANQUE: abajo de ~70 de PWM las ruedas zumban y no giran. Para ir
+  LENTO no se baja el PWM: se mandan PULSOS CORTOS con pausas, arriba del piso.
+- La camara recorta la distancia en 200 y el desvio en +-100. Cuando llega justo uno
+  de esos topes, casi siempre es una mancha y no la pelota: conviene descartarlo.
+- La camara NO ve la pelota cuando la tiene pegada adelante (zona muerta): manda 0.
+  "Venia avanzando hacia una pelota centrada y desaparecio" = la tiene encima.
 COMPARTIDOS: Serial1 RX=0 TX=1 | botones 9 y 10 | IR pelota 14-17 y 20-23
              I2C 18/19 | línea A11(25)=Line1, A13(27)=Line2, A12(26)=Line3
 

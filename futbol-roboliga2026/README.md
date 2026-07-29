@@ -11,12 +11,16 @@ salió campeón del Nacional 2025** y los llevamos a la Roboliga Argentina 2026.
 
 | Robot | Se compila con | Rueda IZQUIERDA | Rueda DERECHA | Rueda ATRÁS |
 |---|---|---|---|---|
-| **ARQUERO** — el que el equipo llama *"robot 2"* | `#define ROBOT1` | pines 2/5/3 (U5) | 8/7/6 (U17) | 11/12/4 (U7) |
-| **DELANTERO** — el otro | `#define ROBOT2` | *sin medir todavía* | | |
+| **DELANTERO** — el que el equipo llama *"robot 2"* | `#define ROBOT2` | pines **8/7/6** (U17) | **11/12/4** (U7) | **2/5/3** (U5) |
+| **ARQUERO** — el otro | `#define ROBOT1` | *sin medir todavía* | | |
 
-> 🚨 **No confundas la etiqueta física con el `#define`.** El equipo llamó *"robot 2"* a una
-> unidad, pero en el código `ROBOT2` significa **DELANTERO**. Ese robot es el **ARQUERO** y va con
-> **`ROBOT1`**. Lo mejor: dejar de numerarlos y etiquetarlos por puesto con indeleble.
+**Cómo se supo:** la rueda **trasera** es el dato sin ambigüedad, y está en los pines 2/5/3 — que
+son el `M3` del `ROBOT2`. En el arquero el `M3` son los 11/12/4. Método y evidencia en
+[`bitacora/2026-07-28-identificacion-robot-y-mapeo-ruedas.md`](bitacora/2026-07-28-identificacion-robot-y-mapeo-ruedas.md).
+
+> 🚨 **No confundas la etiqueta física con el `#define`.** El equipo llama *"robot 2"* a esta
+> unidad y en el código `ROBOT2` significa DELANTERO — acá **coinciden por casualidad**, pero no
+> confíes en eso para el otro robot. Lo mejor: dejar de numerarlos y etiquetarlos por puesto.
 
 > ⚠️ **Los rótulos izquierda/derecha del código 2025 están ESPEJADOS.** Los comentarios dicen
 > `M1 = motor derecho` y `M2 = motor izquierdo`, pero medido en el robot es al revés: están

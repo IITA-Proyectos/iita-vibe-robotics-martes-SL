@@ -1,9 +1,83 @@
-# 🤖 Guía de Arduino - Curso de Verano "Arte y Robótica" 2023
-*Por el Profe Franco - IITA (Instituto de Innovación y Tecnología Aplicada)*
+# Guía de Arduino - Prácticas 
+*Por el Profe Franco*
 
-¡Bienvenidos a la guía interactiva de programación con Arduino! Esta guía fue diseñada para acompañarte paso a paso en el aprendizaje de la electrónica y la programación utilizando **Tinkercad** como simulador. 
+Hola chicos. Esta es una guía de Arduino donde van a poder encontrar algunos ejercicios para familiarizarse con la programación de esta plaquita.
 
-A continuación, encontrarás cada una de las prácticas explicadas, sus componentes, esquemas de conexión, códigos de programación y explicaciones detalladas.
+Absolutamente todos los ejercicios los pueden hacer usando **Tinkercad**, que es un simulador online gratuito. Con esto no hace falta ni que tengan la placa ni deben instalar nada en sus computadoras. Solo necesitan tener una cuenta en Gmail, recordar sus contraseñas y, de ser necesario, pedirle el permiso a sus tutores de Gmail.
+
+Y ya que posiblemente a más de uno le cuesta navegar por internet en pleno 2026... les dejo un paso a paso sobre como deben entrar a Tinkercad.
+
+### PASO 1 ╰(*°▽°*)╯
+
+Entramos a la web de Tinkercad:
+
+→ https://www.tinkercad.com/
+
+![Paso 1](img/tinkercad0.png)
+
+### PASO 2 (-"•-•)/
+
+Hacemos click en el botón azul que dice "Crear cuenta" o "Sign up" (si es que tienen la página en inglés):
+
+![Paso 2](img/tinkercad1.png)
+
+### PASO 3 (๑><๑)
+
+Nos aparecerá un menú con varias opciones. La que debemos elegir es la que dice **Crear una cuenta para uso personal**:
+
+![Paso 3](img/tinkercad2.png)
+
+### PASO 4 (*/ω＼*)
+
+Luego, elegiremos la opción más rápida, la que dice **Crear cuenta con Google** o **Sign in with Google** (en inglés):
+
+![Paso 4](img/tinkercad3.png)
+
+### PASO 5 (^///^)
+
+Elegimos la cuenta de Gmail con la que queremos crear nuestra cuenta:
+
+![Paso 5](img/tinkercad4.png)
+
+> **Nota del profe: A ustedes no les va a salir mi cuentra de Google, es solo un ejemplo...**
+
+### PASO 6 (ﾉ´ヮ´)ﾉ
+
+Quizá les pida algunos datos de ustedes, yo no puedo saberlo porque ya estoy registrado...
+
+![Paso 6](img/tinkercad5.png)
+
+### PASO 7 (❁´◡`❁)
+
+Una vez tengamos nuestra cuenta, nos redigirá a la siguiente página: https://www.tinkercad.com/dashboard
+
+Debemos hacer click en el botón **Nuevo** y luego en **Circuito**:
+
+![Paso 7](img/tinkercad6.png)
+
+
+### PASO 8 ☆*: .｡. o(≧▽≦)o .｡.:*☆
+
+Ya tenemos listo nuestro primer proyecto. Acá debemos arrastrar desde el menú de la derecha una placa Arduino y una protoboard.
+
+![Paso 8](img/tinkercad7.png)
+
+### PASO 9 (๑>◡<๑)
+
+Una vez que pongamos la placa podemos comenzar con nuestros ejercicios de abajo. Pero antes debemos cambiar la forma de programar nuestra placa Arduino. Ya que somos más grandes, no vamos a programar con bloques sino con código:
+
+![Paso 9](img/tinkercad8.png)
+
+Nos pedirá una confirmación a la cuál le decimos que sí
+
+![Paso 10](img/tinkercad9.png)
+
+
+### PASO 10 (´• ω •`)
+
+Con esto ya tenemos listo nuestro entorno para programar. Ahora sí pueden pasar a la guía de Arduino que escribí hace unos años.
+
+![Paso 11](img/tinkercad10.png)
 
 ---
 

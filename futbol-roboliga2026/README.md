@@ -56,6 +56,8 @@ correcto. Es el error más caro y más fácil de cometer en este track.
 
 | Carpeta / archivo | Qué es |
 |---|---|
+| ⭐ [`firmware/`](firmware/) | **El firmware vivo de cada robot** — lo que se lleva a la cancha |
+| [`pruebas/`](pruebas/) | Programas cortos de diagnóstico. Descartables |
 | [`robots-2025/`](robots-2025/) | Los programas y la documentación de los robots tal cual están hoy |
 | [`robots-2025/mapa-pines-teensy.md`](robots-2025/mapa-pines-teensy.md) | ⭐ **Empezá por acá.** Qué pin del Teensy va a qué cosa, en los dos robots |
 | [`robots-2025/arquero/`](robots-2025/arquero/) | Programa del arquero (1207 líneas) + cómo funciona, línea por línea |
@@ -72,6 +74,24 @@ Las reglas de la competencia van en
 Tu código personal y tus pruebas siguen yendo a tu carpeta `alumnos/<tunombre>/`, como siempre.
 
 ---
+
+## 👥 Dos sesiones en paralelo, una por robot
+
+Desde el 2026-08-04 se trabaja con **una rama y un worktree por robot**, para que las dos
+sesiones no se pisen:
+
+| Robot | Rama | Carpeta en disco |
+|---|---|---|
+| **Delantero** | `robot/delantero` | `C:\Users\violl\iita-martes-delantero` |
+| **Arquero** | `robot/arquero` | `C:\Users\violl\iita-martes-arquero` |
+| (integración) | `main` | `C:\Users\violl\iita-viberobotev3` |
+
+Cada sesión toca **sólo** la carpeta de su robot dentro de [`firmware/`](firmware/). Lo compartido
+—`robots-2025/`, `pruebas/`, `bugs-conocidos.md`— se toca avisando a la otra.
+
+> 🚨 **Un solo robot conectado por vez al cargar.** El cargador del Teensy no elige a qué placa le
+> manda el programa. Con los dos enchufados, una sesión puede flashear el robot de la otra.
+> Verificar con `pio device list` antes de subir. Detalle en [`firmware/README.md`](firmware/README.md).
 
 ## 🚦 Por dónde arrancar
 

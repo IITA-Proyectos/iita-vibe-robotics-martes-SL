@@ -88,7 +88,7 @@ const int TOL_ENTRA = 10;
 const int TOL_SALE  = 5;
 
 // --- distancias ---
-const int XP_ORBITA = 25;   // mas cerca que esto -> empieza a orbitar
+const int XP_ORBITA = 22;   // mas cerca que esto -> empieza a orbitar
 const int XP_SUELTA = 55;   // si se le aleja mas que esto, vuelve a avanzar
 const int XP_MAX    = 150;  // arriba de esto no le creo (la camara recorta en 200)
 
@@ -108,9 +108,43 @@ const int MS_ESPERA_CENT = 320;
 // --- avance ---
 const int VEL_AVANCE = 55;
 
-// --- ORBITA: relacion 1:1:3 del codigo 2025, escalada arriba del piso ---
-const int VEL_ORB_FRENTE  = 72;    // las dos de adelante
-const int VEL_ORB_TRASERA = 130;   // la trasera (mucho mas: es la que curva)
+// --- ORBITA PEGADA A LA PELOTA (2026-08-04) ---
+//
+// OBJETIVO: girar alrededor de la pelota casi rozandola, ~5 cm de aire entre
+// el robot y la pelota. En numeros: el centro del robot a unos 17-18 cm del
+// centro de la pelota.
+//
+// POR QUE ESE NUMERO SALE GRATIS. La cinematica del omni de 3 ruedas dice que
+// si las dos de ADELANTE no giran (velocidad cero) y solo empuja la TRASERA,
+// el radio del circulo queda clavado en:
+//
+//         R = 2 * L        (L = del centro del robot al centro de una rueda)
+//
+// Con L medido con regla = 8,75 cm  ->  R = 17,5 cm. Justo lo que queremos.
+// Y fijate lo que NO hace falta: ni la curva PWM->velocidad, ni la camara, ni
+// ningun lazo de control. El radio no depende de con cuanta fuerza empujes:
+// solo de la geometria del chasis. La trasera decide la VELOCIDAD, no el radio.
+//
+// COMO SE LOGRA QUE LAS DE ADELANTE "NO GIREN". No se apagan: se les manda un
+// PWM por DEBAJO del piso de arranque (~70). Con eso el motor queda energizado
+// pero no llega a vencer el rozamiento del engranaje: zumba y se planta. Una
+// rueda omni plantada es justo la condicion v=0 que pide la formula.
+//
+// ASI LO HACIA EL CAMPEON 2025. Su orbita (delantero.ino:613-617, con c=0.4)
+// mandaba 24 / 24 / 72. Ese 24 esta MUY por debajo de cualquier piso: sus
+// ruedas de adelante NO giraban. O sea que su "relacion 1:3" nunca fue una
+// relacion — era exactamente este caso, la trasera sola. Nos costo toda una
+// tarde entenderlo.
+//
+// SINTONIA — una sola perilla:
+//   VEL_ORB_TRASERA  = velocidad de la vuelta. Bajala para ir mas lento.
+//                      NO cambia el radio.
+//   VEL_ORB_FRENTE   = 30. Tiene que quedar DEBAJO del piso (~70) para que las
+//                      de adelante no giren. Si al mirarlas ves que giran,
+//                      bajalo a 20. Si el robot se traba y no avanza, subilo
+//                      de a 5 — pero nunca cerca de 70.
+const int VEL_ORB_FRENTE  = 30;    // DEBAJO del piso a proposito: no deben girar
+const int VEL_ORB_TRASERA = 120;   // <<< UNICA perilla de velocidad de la vuelta
 const unsigned long MS_ORBITA_MAX = 9000;   // si no encuentra el arco, se rinde
 
 // --- patada ---

@@ -90,12 +90,30 @@ misma dirección vistos desde el robot.
 | `XP_ORBITA` | empieza a orbitar desde más lejos |
 | `TOL_ALINEADO` | patea con menos precisión. Subilo si **nunca** patea |
 | `MS_ESPERA_*` | gira **más lento** (es la perilla correcta para "más despacio") |
-| `VEL_ORB_TRASERA` | círculo **más grande** al orbitar. Bajalo si se aleja de la pelota |
-| `VEL_*` | más fuerza. **No bajar de ~70**: es el piso de arranque |
+| `VEL_ORB_TRASERA` | orbita **más rápido**. **No cambia el radio** — el radio lo fija la geometría |
+| `MS_ORB_IMPULSO` | golpe de arranque más largo. Es la perilla de "no arranca la órbita" |
+| `VEL_*` | más fuerza. Desde quieto el piso es ~70; **ya rodando basta ~40** |
 
-**Quedó sin resolver:** la órbita todavía no rodea bien — tiende a alejarse de la pelota. La
-perilla es `VEL_ORB_TRASERA` (hoy 130). Menos = círculo más cerrado. Se ajusta a ojo en dos o
-tres intentos.
+> ⚠️ Esta tabla decía antes que `VEL_ORB_TRASERA` cambiaba el tamaño del círculo, y que
+> estaba en 130. Las dos cosas quedaron viejas con la órbita pegada del 2026-08-04: el radio
+> sale de `R = 2·L` y **no depende de la velocidad**. Corregido el 2026-08-04.
+
+**Órbita, estado al 2026-08-04:** gira bastante bien, pero a veces se descentra y se le escapa
+la ventana en la que ve el arco. Se le agregó el **impulso de arranque** del campeón 2025
+(golpe 99 durante 300 ms → crucero 48) para poder orbitar por debajo del piso de arranque.
+**Falta probarlo en el piso.**
+
+---
+
+---
+
+## 📋 Lo que sigue
+
+Todo lo pendiente, ordenado y con lo que hay que confirmar antes de escribir código:
+**[`MEJORAS-PENDIENTES.md`](MEJORAS-PENDIENTES.md)**.
+
+Lo primero de la próxima clase: **calibrar la cámara** — no detecta el arco de lejos, y la
+pelota da saltos imposibles. Protocolo y herramienta en [`../../vision/`](../../vision/).
 
 ---
 

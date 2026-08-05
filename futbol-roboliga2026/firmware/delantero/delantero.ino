@@ -136,16 +136,58 @@ const int VEL_AVANCE = 55;
 // relacion — era exactamente este caso, la trasera sola. Nos costo toda una
 // tarde entenderlo.
 //
-// SINTONIA — una sola perilla:
-//   VEL_ORB_TRASERA  = velocidad de la vuelta. Bajala para ir mas lento.
-//                      NO cambia el radio.
+// EL IMPULSO DE ARRANQUE (2026-08-04) — recuperado del delantero campeon 2025.
+//
+// EL PROBLEMA. Un motor parado necesita ~70 de PWM para arrancar, pero YA
+// RODANDO se sostiene con ~40. Son dos numeros distintos. Si mandas 48 desde
+// quieto, el motor zumba y no arranca; si mandas 48 cuando ya viene girando,
+// sigue girando tranquilo. O sea: la velocidad lenta que queremos EXISTE, pero
+// no se puede alcanzar desde el reposo yendo directo.
+//
+// LA SOLUCION. Arrancar fuerte un ratito y despues bajar. El golpe vence el
+// rozamiento estatico; una vez en movimiento, la inercia hace el resto y el
+// motor se sostiene muy por debajo de su piso de arranque. Es lo mismo que
+// empujar un auto: cuesta despegarlo, despues rueda con un dedo.
+//
+// ASI LO HACIA EL CAMPEON 2025 (robots-2025/delantero/delantero.ino, bloque
+// ROBOT2, con c=0.4 e ic=0.55). Su orbita eran DOS estados encadenados:
+//
+//   IMPULSO_CENTRANDO_horario      33 / 33 /  99   durante 300 ms
+//   CENTRANDO_horario              24 / 24 /  72   el resto del tiempo
+//
+// (en el otro sentido el impulso duraba 500 ms). Nunca orbito a potencia alta
+// sostenida. Nosotros veniamos corriendo la trasera a 120 FIJO, sin impulso.
+//
+// POR QUE EL IMPULSO DE LA ORBITA ES MAS SUAVE QUE EL DE GIRAR EN EL EJE. Para
+// girar sobre su propio eje el 2025 usaba 150; para orbitar, 99. No es un
+// descuido: orbitando la pelota esta a ~17 cm, y un golpe muy bruto LA EMPUJA.
+// Si la pelota se corre, deja de estar en el centro de la orbita y el robot se
+// descentra solo. Impulso suave = la pelota se queda quieta.
+//
+// SINTONIA — dos perillas y un tiempo:
+//   VEL_ORB_TRASERA  = velocidad de la vuelta, YA rodando. Mas bajo = mas lento.
+//                      NO cambia el radio. El 2025 uso 72; abajo de 40 se planta.
+//   VEL_ORB_IMPULSO  = el golpe inicial. Si la orbita no arranca, NO subas esto
+//                      primero: subi MS_ORB_IMPULSO. Mas golpe empuja la pelota.
+//   MS_ORB_IMPULSO   = cuanto dura el golpe. Es la perilla correcta para "no
+//                      arranca".
 //   VEL_ORB_FRENTE   = 30. Tiene que quedar DEBAJO del piso (~70) para que las
 //                      de adelante no giren. Si al mirarlas ves que giran,
 //                      bajalo a 20. Si el robot se traba y no avanza, subilo
 //                      de a 5 — pero nunca cerca de 70.
+//
+// COMO VOLVER A LO DE ANTES, exacto: VEL_ORB_IMPULSO = VEL_ORB_TRASERA = 120
+// y MS_ORBITA_MAX = 9000. Queda igual que el 2026-08-04 a la manana.
 const int VEL_ORB_FRENTE  = 30;    // DEBAJO del piso a proposito: no deben girar
-const int VEL_ORB_TRASERA = 120;   // <<< UNICA perilla de velocidad de la vuelta
-const unsigned long MS_ORBITA_MAX = 9000;   // si no encuentra el arco, se rinde
+const int VEL_ORB_IMPULSO = 99;    // el golpe. Es el 180*ic del campeon 2025.
+const int MS_ORB_IMPULSO  = 300;   // cuanto dura el golpe. El 2025: 300 y 500 ms.
+const int VEL_ORB_TRASERA = 48;    // <<< velocidad de la vuelta ya rodando
+
+// OJO: esto va de la mano con VEL_ORB_TRASERA. Si la vuelta se hace mas lenta y
+// el tiempo maximo no se sube, el robot SE RINDE ANTES DE COMPLETAR UNA VUELTA
+// y parece que "empeoro al ir mas lento". Tiene que alcanzar para ~2 vueltas:
+// cronometren una vuelta y pongan el doble.
+const unsigned long MS_ORBITA_MAX = 20000;  // si no encuentra el arco, se rinde
 
 // --- patada ---
 const int VEL_PATADA    = 240;
@@ -207,12 +249,15 @@ void retroceder(int vel) {
 // ORBITA: la maniobra del delantero 2025 (delantero.ino:613-617).
 // Adelante suave, trasera fuerte y al reves => arco amplio alrededor
 // de la pelota, en vez de girar sobre el propio eje.
-void orbitar(bool sentidoA) {
+// velTrasera se pasa desde afuera porque los primeros MS_ORB_IMPULSO ms va el
+// golpe de arranque y despues la velocidad de crucero. Las de adelante van
+// SIEMPRE igual: su trabajo es quedarse plantadas, no empujar.
+void orbitar(bool sentidoA, int velTrasera) {
   int a = sentidoA ? 0 : 1;    // las dos de adelante
   int b = sentidoA ? 1 : 0;
   analogWrite(IZQ_PWM, VEL_ORB_FRENTE);  digitalWrite(IZQ_INA, a); digitalWrite(IZQ_INB, b);
   analogWrite(DER_PWM, VEL_ORB_FRENTE);  digitalWrite(DER_INA, a); digitalWrite(DER_INB, b);
-  analogWrite(TRA_PWM, VEL_ORB_TRASERA); digitalWrite(TRA_INA, b); digitalWrite(TRA_INB, a);
+  analogWrite(TRA_PWM, velTrasera);      digitalWrite(TRA_INA, b); digitalWrite(TRA_INB, a);
 }
 
 void rotarPulsado(bool sentidoA, int vel, int msPulso, int msEspera) {
@@ -293,6 +338,10 @@ void setup() {
   Serial.println("BUSCAR - CENTRAR - AVANZAR - ORBITAR - PATEAR");
   Serial.print("orbita si Xp<"); Serial.println(XP_ORBITA);
   Serial.print("patea si |Yp - Yarcoazul| <= "); Serial.println(TOL_ALINEADO);
+  Serial.print("orbita: impulso "); Serial.print(VEL_ORB_IMPULSO);
+  Serial.print(" x "); Serial.print(MS_ORB_IMPULSO);
+  Serial.print(" ms  ->  crucero "); Serial.print(VEL_ORB_TRASERA);
+  Serial.print("   (max "); Serial.print(MS_ORBITA_MAX / 1000); Serial.println(" s)");
   Serial.println("==============================================");
   Serial.println("Arranca en 3 segundos.");
   delay(3000);
@@ -337,11 +386,17 @@ void loop() {
       cambiarA(PATEA_ADEL);
     }
     else if (enEstado > MS_ORBITA_MAX) {            // se rinde
-      Serial.println("... orbite 9 s y no encontre el arco azul alineado");
+      Serial.print("... orbite "); Serial.print(MS_ORBITA_MAX / 1000);
+      Serial.println(" s y no encontre el arco azul alineado");
       cambiarA(BUSCANDO);
     }
     else {
-      orbitar(!ORBITA_INVERTIDA);
+      // Los primeros MS_ORB_IMPULSO ms de CADA entrada a ORBITANDO van con el
+      // golpe de arranque; despues baja a la velocidad de crucero y sigue por
+      // inercia. enEstado se reinicia solo en cambiarA(), asi que el golpe se
+      // da una vez por orbita y no se repite.
+      bool enImpulso = (enEstado < (unsigned long)MS_ORB_IMPULSO);
+      orbitar(!ORBITA_INVERTIDA, enImpulso ? VEL_ORB_IMPULSO : VEL_ORB_TRASERA);
     }
   }
 

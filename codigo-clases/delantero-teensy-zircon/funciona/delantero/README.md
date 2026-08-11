@@ -61,7 +61,7 @@ ajuste de control va a andar bien: el robot está obedeciendo mediciones falsas.
 
 Se hace con el **OpenMV IDE**: se conecta la cámara, play, y se ve la imagen con los recuadros de
 lo que detecta. En diez minutos se ajustan los umbrales a la luz de hoy. El script vive en
-[`../../robots-2025/vision-openmv/`](../../robots-2025/vision-openmv/) y su README explica el
+[`../../robots-2025/vision-openmv/`](../../../../futbol-roboliga2026/robots-2025/vision-openmv/) y su README explica el
 protocolo de 9 bytes.
 
 Probablemente resuelva más que cualquier cosa que se toque en el firmware.
@@ -110,7 +110,7 @@ la ventana en la que ve el arco. Se le agregó el **impulso de arranque** del ca
 ## 📋 Lo que sigue
 
 Todo lo pendiente, ordenado y con lo que hay que confirmar antes de escribir código:
-**[`MEJORAS-PENDIENTES.md`](MEJORAS-PENDIENTES.md)**.
+**[`MEJORAS-PENDIENTES.md`](../../MEJORAS-PENDIENTES.md)**.
 
 Lo primero de la próxima clase: **calibrar la cámara** — no detecta el arco de lejos, y la
 pelota da saltos imposibles. Protocolo y herramienta en [`../../vision/`](../../vision/).
@@ -123,6 +123,6 @@ pelota da saltos imposibles. Protocolo y herramienta en [`../../vision/`](../../
 2. **Nada está arreglado hasta que se ve andar.** Que compile no prueba nada.
 3. **Una entrada de bitácora por sesión**, en [`../../bitacora/`](../../bitacora/), con los
    números. No "anduvo".
-4. **Sólo un robot conectado por vez al cargar** — ver [`../README.md`](../README.md). El cargador
+4. **Sólo un robot conectado por vez al cargar** — ver [`../README.md`](../../README.md). El cargador
    no elige placa: podés flashear el arquero sin querer.
 5. Esta sesión toca **sólo** `firmware/delantero/`. Lo compartido, con aviso a la otra sesión.

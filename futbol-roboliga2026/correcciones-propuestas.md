@@ -16,7 +16,7 @@ edita. El flujo es:
 
 1. Copiá `arquero/arquero.ino` (o `delantero/delantero.ino`) a tu carpeta `alumnos/<tunombre>/`.
 2. Aplicá el parche **ahí**.
-3. Probalo. Anotá el resultado en [`bitacora/`](bitacora/).
+3. Probalo. Anotá el resultado en [`bitacora/`](../codigo-clases/delantero-teensy-zircon/bitacora/).
 4. Si el equipo decide adoptarlo, se sube en un commit aparte y se marca acá abajo.
 
 **Excepción — la librería.** El parche 0 hay que aplicarlo sobre la copia de `zirconLib` que

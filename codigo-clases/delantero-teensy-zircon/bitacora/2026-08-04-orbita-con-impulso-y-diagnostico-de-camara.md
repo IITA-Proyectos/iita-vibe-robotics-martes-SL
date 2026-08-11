@@ -16,7 +16,7 @@ arranca nunca.
 
 Gustavo se acordó de que el equipo ya resolvía esto antes con un impulso inicial, y pidió
 buscarlo en los repos. **Estaba, y estaba justo en la órbita.** En
-`robots-2025/delantero/delantero.ino` (bloque `ROBOT2`, `c = 0.4`, `ic = 0.55`) la órbita del
+`futbol-roboliga2026/robots-2025/delantero/delantero.ino` (bloque `ROBOT2`, `c = 0.4`, `ic = 0.55`) la órbita del
 campeón son **dos estados encadenados**, no uno:
 
 | Estado 2025 | izq | der | trasera | dura |
@@ -108,7 +108,7 @@ Factor 7 de margen regalado al ruido.
 **El cable NO se desincroniza.** Barrí los 320×240 píxeles por la cuenta del script: los datos
 viven en 0..200 y las marcas son 201/202/203, así que **ningún byte de datos puede hacerse
 pasar por una marca**. Los dos firmwares buscan el 201 y validan 202/203: se realinean solos.
-El README de `robots-2025/vision-openmv/` dice lo contrario y **está mal**.
+El README de `futbol-roboliga2026/robots-2025/vision-openmv/` dice lo contrario y **está mal**.
 
 ## Hardware confirmado para las mejoras de la próxima clase
 
@@ -121,7 +121,7 @@ El README de `robots-2025/vision-openmv/` dice lo contrario y **está mal**.
 
 ## Qué queda pendiente
 
-Todo en [`../firmware/delantero/MEJORAS-PENDIENTES.md`](../firmware/delantero/MEJORAS-PENDIENTES.md).
+Todo en [`../firmware/delantero/MEJORAS-PENDIENTES.md`](../MEJORAS-PENDIENTES.md).
 Lo primero de la próxima clase: **calibrar la cámara** con
 [`../vision/calibrar-umbrales.py`](../vision/calibrar-umbrales.py).
 

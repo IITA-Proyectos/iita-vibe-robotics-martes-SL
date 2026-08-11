@@ -5,7 +5,7 @@ pregunta concreta.
 
 Ninguno usa `zirconLib` ni el giroscopio, a propósito: así compilan y corren siempre, sin
 depender de los dos problemas P0 del código de competencia (ver
-[`../bugs-conocidos.md`](../bugs-conocidos.md)).
+[`../bugs-conocidos.md`](../../../futbol-roboliga2026/bugs-conocidos.md)).
 
 | Prueba | Responde / hace |
 |---|---|

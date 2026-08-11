@@ -3,7 +3,7 @@
 > 📌 **Nota agregada el 2026-08-04 — leer antes de creer que esta bitácora está mal.**
 >
 > Este archivo estuvo borrado del repo por un tiempo. Lo borró la sesión de la **otra mesa**
-> ([`futbol-roboliga2026/bitacora/2026-07-28-identificacion-robot-y-mapeo-ruedas.md`](../../../futbol-roboliga2026/bitacora/2026-07-28-identificacion-robot-y-mapeo-ruedas.md)),
+> ([`delantero-teensy-zircon/bitacora/2026-07-28-identificacion-robot-y-mapeo-ruedas.md`](../../delantero-teensy-zircon/bitacora/2026-07-28-identificacion-robot-y-mapeo-ruedas.md)),
 > que lo tomó por un error propio y lo dio de baja.
 >
 > **No era un error: son DOS ROBOTS DISTINTOS.** El equipo trabaja en dos mesas a la vez —

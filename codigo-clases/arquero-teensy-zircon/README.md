@@ -5,7 +5,7 @@ acá y no se mezcla con lo de las otras mesas.
 
 > 🚨 **El equipo trabaja en DOS mesas a la vez, con DOS robots distintos.** Esta carpeta es la del
 > **arquero**. Lo del **delantero** está en
-> [`../../futbol-roboliga2026/`](../../futbol-roboliga2026/).
+> [`../delantero-teensy-zircon/`](../delantero-teensy-zircon/).
 >
 > **Los dos robots están cableados distinto** — por eso existe el `#define ROBOT1` / `ROBOT2`.
 > Un programa del delantero cargado en el arquero mueve las ruedas equivocadas, compila igual y

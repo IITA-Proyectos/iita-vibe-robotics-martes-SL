@@ -50,19 +50,26 @@
    ---------------------------------------------------------------------
    CUANDO PATEA — el criterio del 2025
    ---------------------------------------------------------------------
-        abs(Yp - Yarco) <= TOL_ALINEADO        (delantero.ino:621)
+   NO alcanza con "ver el arco": hay que verlo DETRAS de la pelota. O sea:
+   robot -> pelota -> arco, los tres en la misma linea. Ahi empujar la
+   pelota derecho la manda al arco.
 
-   Yp es hacia donde esta la PELOTA y Yarco hacia donde esta el ARCO. Si
-   los dos numeros son parecidos, es que estan en la MISMA DIRECCION
-   vistos desde el robot: o sea, robot -> pelota -> arco alineados. Ahi
-   empujar la pelota derecho la manda al arco.
-
-   NO alcanza con "ver el arco": hay que verlo DETRAS de la pelota.
+   Hasta el 2026-08-11 eso se decidia restando CENTIMETROS
+   (abs(Yp - Yarco) <= 12) y estaba mal, porque los centimetros de la
+   pelota se miden a 17 cm y los del arco a 100. Ahora se comparan
+   ANGULOS, como hacia el campeon 2025 (delantero.ino:311-313). El detalle
+   completo, con el numero que muestra el error, esta en el bloque
+   "A. ALINEACION POR ANGULO" mas abajo.
 
    ---------------------------------------------------------------------
-   El arco AZUL es el byte 203 del paquete de la camara.
+   El arco AMARILLO es el byte 202 del paquete de la camara y el AZUL el 203.
+   A cual se le apunta lo decide objetivoEsAmarillo (ver bloque B).
    Correr en el PISO, con espacio. Monitor serie a 19200.
    ===================================================================== */
+
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BNO055.h>
 
 // Mapeo MEDIDO en banco 2026-07-28 (robot DELANTERO)
 #define IZQ_INA 8
@@ -91,9 +98,6 @@ const int TOL_SALE  = 5;
 const int XP_ORBITA = 22;   // mas cerca que esto -> empieza a orbitar
 const int XP_SUELTA = 55;   // si se le aleja mas que esto, vuelve a avanzar
 const int XP_MAX    = 150;  // arriba de esto no le creo (la camara recorta en 200)
-
-// --- alineacion con el arco ---
-const int TOL_ALINEADO = 12;   // |Yp - Yarco| menor a esto = alineado. Subilo si nunca patea.
 
 // --- giro para BUSCAR ---
 const int VEL_GIRO       = 80;
@@ -198,20 +202,159 @@ const int MS_RETROCESO  = 700;
 const unsigned long MS_GRACIA    = 300;
 const unsigned long SIN_DATOS_MS = 1500;
 
+
+// =====================================================================
+//  LO NUEVO (2026-08-11) — tres cosas, cada una con SU interruptor
+// =====================================================================
+//
+//  Se agregaron juntas pero NO se prueban juntas. Si se encienden las tres
+//  y el robot empeora, no se sabe cual fue. El orden para probarlas esta
+//  abajo de todo, en el comentario "COMO PROBAR ESTO".
+//
+//  ---------------------------------------------------------------------
+//  A. ALINEACION POR ANGULO — activa
+//  ---------------------------------------------------------------------
+//  ANTES pateabamos con  abs(Yp - Yarco) <= 12 cm.  Eso esta MAL, y no por
+//  poco: Yp se mide a la distancia de la PELOTA (~17-22 cm) y Yarco a la
+//  distancia del ARCO (~100 cm o mas). Son centimetros medidos a distintas
+//  distancias — restarlos es como restar "3 pasos mios" menos "3 pasos de
+//  un gigante".
+//
+//  El numero: una pelota con Yp = 12 cm a 17 cm de distancia esta a 35
+//  grados. Un arco con Yarco = 12 cm a 100 cm esta a 6,8 grados. La cuenta
+//  vieja da |12-12| = 0 y canta "alineado" cuando en realidad estan a 28
+//  grados uno del otro. Por eso pateaba desviado.
+//
+//  La solucion es del propio delantero campeon 2025 (delantero.ino:311-313),
+//  que ya calculaba los angulos y nosotros no habiamos copiado:
+//
+//        angulo = atan2(Y, X) * 180 / PI
+//
+//  Un angulo NO depende de la distancia: 35 grados son 35 grados este la
+//  pelota cerca o lejos. Ahora se comparan angulos con angulos.
+//
+//  Y se pide una condicion mas, que el 2025 tambien tenia
+//  (tolerancia_apuntado): la pelota tiene que estar ADELANTE. Si la pelota
+//  esta a 40 grados y el arco tambien, la resta da 0 — pero el robot al
+//  avanzar derecho ni la toca.
+const float TOL_ANG_PELOTA   = 15.0;  // la pelota tiene que estar a menos de esto del frente
+const float TOL_ANG_ALINEADO = 15.0;  // y el arco a menos de esto de la pelota
+//         ^ el 2025 usaba 15 grados (tolerancia_apuntado). Subilo si NUNCA
+//           patea; bajalo si patea desviado. OJO: antes la perilla era
+//           TOL_ALINEADO y estaba en CENTIMETROS. Esto son GRADOS.
+
+//  ---------------------------------------------------------------------
+//  B. A QUE ARCO ATACAR, decidido AL ENCENDER — arranca APAGADA
+//  ---------------------------------------------------------------------
+//  En un partido no siempre atacamos el azul: se cambia de lado. Hasta hoy
+//  el arco estaba clavado en el codigo.
+//
+//  EL RITUAL: se apoya el robot MIRANDO AL ARCO RIVAL y se lo enciende.
+//  Durante los primeros MS_MIRAR_ARCOS el robot mira sin moverse y se queda
+//  con el arco que ve MAS CENTRADO. Ese pasa a ser su objetivo.
+//
+//  El mismo gesto sirve para dos cosas: define el arco Y define el "cero"
+//  del giroscopio (C). Un solo ritual, dos funciones.
+const bool ELEGIR_ARCO_AL_ENCENDER = false;
+const unsigned long MS_MIRAR_ARCOS = 2000;
+const int MUESTRAS_MINIMAS_ARCO    = 3;   // menos que esto, no le creo
+
+//  ---------------------------------------------------------------------
+//  C. GIROSCOPO (BNO055 en I2C 0x28) — arranca APAGADA
+//  ---------------------------------------------------------------------
+//  ⚠️ EL FIRMWARE NUNCA LO USO. El codigo 2025 y el arquero de hoy si, pero
+//  en ESTA placa no esta comprobado que el sensor conteste. Por eso arranca
+//  apagado y por eso, si falla, el robot sigue andando como hasta ayer.
+//
+//  Dos usos:
+//   C1. Si da la vuelta entera y no encuentra el arco, en vez de rendirse
+//       gira hasta mirar al rumbo de arranque (el "cero") y patea ahi.
+//   C2. Elegir para que lado orbitar: el camino MAS CORTO hasta el arco.
+const bool USAR_GIROSCOPO   = false;
+const bool PATEAR_AL_RUMBO0 = true;    // C1 (solo hace algo si USAR_GIROSCOPO)
+const bool ORBITA_CAMINO_CORTO = false;// C2 — apagada para que el primer flasheo
+                                       // cambie UNA sola cosa (la patada por angulo).
+                                       // Anda con el arco a la vista aunque no haya
+                                       // giroscopo; con giroscopo anda tambien a ciegas.
+const float TOL_RUMBO = 12.0;          // grados: "ya estoy mirando al cero"
+const unsigned long MS_APUNTAR_MAX = 6000;
+
+//  ---------------------------------------------------------------------
+//  PERILLAS DE SIGNO — [SIN VERIFICAR EN BANCO]
+//  ---------------------------------------------------------------------
+//  No sabemos de que lado del robot es "Y positivo", ni que sentido de giro
+//  produce sentidoA = true. El equipo ya lo venia tapando por prueba y error
+//  con GIRO_INVERTIDO. Estas dos son lo mismo para lo nuevo: si el robot
+//  gira PARA EL LADO CONTRARIO al que deberia, se da vuelta la que
+//  corresponda. Son un booleano, no una cuenta: se prueban en 2 minutos.
+const bool SENTIDO_ORBITA_INVERTIDO = false;  // si orbita alejandose del arco, ponelo en true
+const bool GIRO_RUMBO_INVERTIDO     = false;  // si al apuntar al cero se aleja, ponelo en true
+
+//  ---------------------------------------------------------------------
+//  COMO PROBAR ESTO — de a una, en este orden
+//  ---------------------------------------------------------------------
+//  Se agregaron tres cosas juntas pero se encienden de a una. Si se prenden
+//  todas y el robot empeora, no se sabe cual fue.
+//
+//  PASO 1 — la patada por angulo (ya esta activa, no hay que tocar nada).
+//     Que mirar: el monitor imprime ahora "angPelota", "angArco" y
+//     "separacion", los tres en grados. Ponele el arco atras de la pelota a
+//     ojo y fijate si "separacion" baja de 15 justo cuando VOS dirias que
+//     estan alineados. Si patea siempre, bajar TOL_ANG_ALINEADO; si no patea
+//     nunca, subirlo. ANOTAR los grados a los que pateo.
+//
+//  PASO 2 — el camino corto de la orbita: poner ORBITA_CAMINO_CORTO = true.
+//     Que mirar: poner el arco claramente de UN lado y soltar el robot cerca
+//     de la pelota. Tiene que arrancar a orbitar HACIA el arco, no al reves.
+//     Si arranca para el lado contrario: SENTIDO_ORBITA_INVERTIDO = true.
+//     Ese es el unico ajuste; es un booleano, se prueba en dos intentos.
+//
+//  PASO 3 — el arco al encender: poner ELEGIR_ARCO_AL_ENCENDER = true.
+//     Que mirar: apoyar el robot mirando al arco AMARILLO y encenderlo. El
+//     monitor tiene que decir "ATACO EL ARCO AMARILLO". Repetir mirando al
+//     azul. Si se equivoca, mirar cuantas muestras vio de cada uno: si son
+//     pocas, el problema es la camara (umbrales), no esta logica.
+//
+//  PASO 4 — el giroscopo: poner USAR_GIROSCOPO = true.
+//     ⚠️ Lo primero NO es probar la patada al rumbo 0: es ver si el sensor
+//     contesta. El monitor dice "Giroscopo: OK" o "NO CONTESTA" al arrancar.
+//     Si contesta, girar el robot a mano y ver que "rumbo=" cambie y vuelva.
+//     Recien despues probar el plan B (dejarlo orbitar sin arco a la vista y
+//     ver si apunta al rumbo de arranque). Si gira para el lado contrario:
+//     GIRO_RUMBO_INVERTIDO = true.
+
 // ============================================
 
-int Xp = 0, Yp = 0, Xaz = 0, Yaz = 0;
+int Xp = 0, Yp = 0;
+int Xam = 0, Yam = 0;              // arco AMARILLO (byte 202)
+int Xaz = 0, Yaz = 0;              // arco AZUL     (byte 203)
+
 int XpBueno = 0, YpBueno = 0;      // ultima posicion BUENA de la pelota
-int YazBueno = 0;                  // ultima direccion BUENA del arco azul
+int XamBueno = 0, YamBueno = 0;
+int XazBueno = 0, YazBueno = 0;
 
-unsigned long t_ultimaPelota  = 0;
-unsigned long t_ultimoArcoAzul = 0;
-unsigned long t_ultimoPaquete = 0;
-unsigned long t_ultimoAviso   = 0;
-unsigned long t_cicloPulso    = 0;
-unsigned long t_entroEstado   = 0;
+unsigned long t_ultimaPelota   = 0;
+unsigned long t_ultimoAmarillo = 0;
+unsigned long t_ultimoAzul     = 0;
+unsigned long t_ultimoPaquete  = 0;
+unsigned long t_ultimoAviso    = 0;
+unsigned long t_cicloPulso     = 0;
+unsigned long t_entroEstado    = 0;
 
-enum Estado { BUSCANDO, CENTRANDO, AVANZANDO, ORBITANDO, PATEA_ADEL, PATEA_ATRAS };
+// A que arco le apuntamos. Si ELEGIR_ARCO_AL_ENCENDER esta apagado, se queda
+// con este valor — que es lo que veniamos haciendo.
+bool objetivoEsAmarillo = false;
+
+// --- giroscopo ---
+Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
+bool  hayGiroscopo = false;
+float rumboCero    = 0;    // hacia donde miraba al encenderse = hacia el arco rival
+float ultimoRumbo  = 0;
+int   contadorCeros = 0;
+const int CEROS_PARA_DARLO_POR_CAIDO = 10;
+
+enum Estado { BUSCANDO, CENTRANDO, AVANZANDO, ORBITANDO,
+              APUNTA_RUMBO0, PATEA_ADEL, PATEA_ATRAS };
 Estado estado = BUSCANDO;
 Estado estadoAnterior = PATEA_ATRAS;
 
@@ -283,11 +426,11 @@ void leerCamara() {
     int h3  = Serial1.read();
     int xaz = Serial1.read();
     int yaz = Serial1.read();
-    (void)xam; (void)yam;
 
     if (h2 == 202 && h3 == 203) {
-      Xp = xp;  Yp = yp - 100;
-      Xaz = xaz; Yaz = yaz - 100;
+      Xp  = xp;   Yp  = yp  - 100;
+      Xam = xam;  Yam = yam - 100;    // antes se tiraba: ahora hace falta para elegir arco
+      Xaz = xaz;  Yaz = yaz - 100;
       t_ultimoPaquete = millis();
 
       // 200 y +-100 son los TOPES de recorte de la camara: casi siempre manchas.
@@ -295,12 +438,75 @@ void leerCamara() {
         XpBueno = Xp; YpBueno = Yp;
         t_ultimaPelota = millis();
       }
+      if ((Xam > 0) && (Xam <= XP_MAX) && (abs(Yam) < 100)) {
+        XamBueno = Xam; YamBueno = Yam;
+        t_ultimoAmarillo = millis();
+      }
       if ((Xaz > 0) && (Xaz <= XP_MAX) && (abs(Yaz) < 100)) {
-        YazBueno = Yaz;
-        t_ultimoArcoAzul = millis();
+        XazBueno = Xaz; YazBueno = Yaz;
+        t_ultimoAzul = millis();
       }
     }
   }
+}
+
+
+// ---------- angulos ----------
+//
+// LA IDEA, del delantero campeon 2025 (delantero.ino:311-313): pasar de
+// "cuantos centimetros esta corrido" a "en que direccion esta". El angulo no
+// depende de la distancia, y por eso SI se pueden comparar la pelota (cerca)
+// con el arco (lejos).
+//
+//   atan2(Y, X) da el angulo del punto (X,Y) visto desde el robot.
+//   X = para adelante, Y = para el costado. Angulo 0 = justo adelante.
+
+float anguloDe(int X, int Y) {
+  if (X <= 0) return 0.0;                    // sin dato, no invento un angulo
+  return atan2((float)Y, (float)X) * 180.0 / PI;
+}
+
+// Diferencia mas corta entre dos angulos, en (-180, 180]. Sin esto, ir de 350
+// a 10 grados se leeria como un giro de -340 en vez de +20.
+// Copiada del cuadrado-giroscopo del arquero, que ya la tiene andando.
+float diferencia(float objetivo, float actual) {
+  float d = objetivo - actual;
+  while (d > 180.0)   d -= 360.0;
+  while (d <= -180.0) d += 360.0;
+  return d;
+}
+
+// ---------- el arco al que le apuntamos ----------
+
+int   arcoX()       { return objetivoEsAmarillo ? XamBueno : XazBueno; }
+int   arcoY()       { return objetivoEsAmarillo ? YamBueno : YazBueno; }
+unsigned long arcoT() { return objetivoEsAmarillo ? t_ultimoAmarillo : t_ultimoAzul; }
+const char* arcoNombre() { return objetivoEsAmarillo ? "AMARILLO" : "AZUL"; }
+
+
+// ---------- giroscopo ----------
+//
+// La deteccion de "sensor caido" es prestada del arquero, que la pago caro:
+// el 2026-07-28 su BNO055 empezo a devolver 0.000 exacto en los tres angulos
+// y el programa siguio girando con datos basura sin enterarse. Si el chip no
+// contesta, la libreria devuelve ceros — y un cero es una postura posible, asi
+// que con UNA lectura no se distingue. Por eso se cuentan varias seguidas.
+
+float rumboActual() {
+  sensors_event_t evento;
+  bno.getEvent(&evento);
+  if (evento.orientation.x == 0.0 && evento.orientation.y == 0.0
+      && evento.orientation.z == 0.0) {
+    if (contadorCeros < CEROS_PARA_DARLO_POR_CAIDO) contadorCeros++;
+  } else {
+    contadorCeros = 0;
+  }
+  ultimoRumbo = evento.orientation.x;
+  return ultimoRumbo;                        // 0..360
+}
+
+bool giroscopoSano() {
+  return hayGiroscopo && contadorCeros < CEROS_PARA_DARLO_POR_CAIDO;
 }
 
 
@@ -310,10 +516,81 @@ const char* nombreEstado(Estado e) {
     case CENTRANDO:   return "CENTRANDO";
     case AVANZANDO:   return "AVANZANDO";
     case ORBITANDO:   return "ORBITANDO";
+    case APUNTA_RUMBO0: return "al rumbo 0";
     case PATEA_ADEL:  return "PATEANDO!";
     case PATEA_ATRAS: return "retrocede";
   }
   return "?";
+}
+
+
+// ---------- arranque del giroscopo y eleccion del arco ----------
+
+// Enciende el BNO055. Devuelve false si no contesta o si contesta puros
+// ceros. NO se cuelga el programa si falla: se sigue sin giroscopo.
+bool arrancarGiroscopo() {
+  if (!bno.begin()) return false;
+  delay(700);                      // el BNO tarda en arrancar la fusion
+  bno.setExtCrystalUse(true);
+  int buenas = 0;
+  for (int i = 0; i < 20; i++) {
+    sensors_event_t e;
+    bno.getEvent(&e);
+    if (e.orientation.x != 0.0 || e.orientation.y != 0.0 || e.orientation.z != 0.0) buenas++;
+    delay(50);
+  }
+  if (buenas < 10) {
+    Serial.print("   contesta pero da ceros ("); Serial.print(buenas);
+    Serial.println("/20 lecturas utiles) — no lo doy por bueno");
+    return false;
+  }
+  contadorCeros = 0;
+  return true;
+}
+
+// Mira sin moverse y se queda con el arco MAS CENTRADO. El ritual es apoyar
+// el robot mirando al arco rival y recien ahi encenderlo.
+void elegirArcoMirando() {
+  long   nAm = 0, nAz = 0;
+  double sumAm = 0, sumAz = 0;
+  unsigned long t0 = millis();
+
+  Serial.print("Mirando "); Serial.print(MS_MIRAR_ARCOS / 1000);
+  Serial.println(" s para ver a que arco apunto. NO LO MUEVAS.");
+
+  while (millis() - t0 < MS_MIRAR_ARCOS) {
+    leerCamara();
+    if (millis() - t_ultimoAmarillo < MS_GRACIA) {
+      nAm++;  sumAm += fabs(anguloDe(XamBueno, YamBueno));
+    }
+    if (millis() - t_ultimoAzul < MS_GRACIA) {
+      nAz++;  sumAz += fabs(anguloDe(XazBueno, YazBueno));
+    }
+  }
+
+  float medAm = nAm ? (float)(sumAm / nAm) : 999.0;
+  float medAz = nAz ? (float)(sumAz / nAz) : 999.0;
+
+  Serial.print("   amarillo: "); Serial.print(nAm); Serial.print(" muestras");
+  if (nAm) { Serial.print(", a "); Serial.print(medAm, 1); Serial.print(" grados"); }
+  Serial.println();
+  Serial.print("   azul:     "); Serial.print(nAz); Serial.print(" muestras");
+  if (nAz) { Serial.print(", a "); Serial.print(medAz, 1); Serial.print(" grados"); }
+  Serial.println();
+
+  bool sirveAm = (nAm >= MUESTRAS_MINIMAS_ARCO);
+  bool sirveAz = (nAz >= MUESTRAS_MINIMAS_ARCO);
+
+  if (!sirveAm && !sirveAz) {
+    Serial.print("   NO VI NINGUN ARCO -> me quedo con el de siempre: ");
+    Serial.println(arcoNombre());
+    return;
+  }
+  if (sirveAm && !sirveAz)      objetivoEsAmarillo = true;
+  else if (sirveAz && !sirveAm) objetivoEsAmarillo = false;
+  else                          objetivoEsAmarillo = (medAm < medAz);
+
+  Serial.print("   *** ATACO EL ARCO "); Serial.print(arcoNombre()); Serial.println(" ***");
 }
 
 void cambiarA(Estado nuevo) {
@@ -337,11 +614,38 @@ void setup() {
   Serial.println("==============================================");
   Serial.println("BUSCAR - CENTRAR - AVANZAR - ORBITAR - PATEAR");
   Serial.print("orbita si Xp<"); Serial.println(XP_ORBITA);
-  Serial.print("patea si |Yp - Yarcoazul| <= "); Serial.println(TOL_ALINEADO);
+  Serial.print("patea si pelota a menos de "); Serial.print(TOL_ANG_PELOTA, 0);
+  Serial.print(" grados del frente Y el arco a menos de "); Serial.print(TOL_ANG_ALINEADO, 0);
+  Serial.println(" grados de la pelota");
   Serial.print("orbita: impulso "); Serial.print(VEL_ORB_IMPULSO);
   Serial.print(" x "); Serial.print(MS_ORB_IMPULSO);
   Serial.print(" ms  ->  crucero "); Serial.print(VEL_ORB_TRASERA);
   Serial.print("   (max "); Serial.print(MS_ORBITA_MAX / 1000); Serial.println(" s)");
+  Serial.println("==============================================");
+
+  // --- giroscopo (C) ---
+  if (USAR_GIROSCOPO) {
+    Serial.print("Giroscopo: ");
+    hayGiroscopo = arrancarGiroscopo();
+    if (hayGiroscopo) {
+      rumboCero = rumboActual();
+      Serial.print("OK. Rumbo cero = "); Serial.print(rumboCero, 1);
+      Serial.println(" grados (hacia donde mira AHORA)");
+    } else {
+      Serial.println("NO CONTESTA. Sigo sin el, como hasta ayer.");
+    }
+  } else {
+    Serial.println("Giroscopo: apagado por configuracion.");
+  }
+
+  // --- que arco atacar (B) ---
+  if (ELEGIR_ARCO_AL_ENCENDER) {
+    elegirArcoMirando();
+  } else {
+    Serial.print("Arco objetivo: "); Serial.print(arcoNombre());
+    Serial.println("  (fijo por configuracion)");
+  }
+
   Serial.println("==============================================");
   Serial.println("Arranca en 3 segundos.");
   delay(3000);
@@ -351,13 +655,45 @@ void setup() {
 }
 
 
+// Para que lado orbitar. Prioridad:
+//   1. si VEO el arco, para el lado donde esta
+//   2. si no, y hay giroscopo, hacia el rumbo de arranque (el "cero")
+//   3. si no, el de siempre (ORBITA_INVERTIDA)
+// Los dos primeros dependen de una hipotesis de signo SIN VERIFICAR: se
+// corrigen con SENTIDO_ORBITA_INVERTIDO, que es un booleano, no una cuenta.
+bool sentidoParaOrbitar() {
+  bool porDefecto = !ORBITA_INVERTIDA;
+  if (!ORBITA_CAMINO_CORTO) return porDefecto;
+
+  bool haciaElPositivo;
+  if (millis() - arcoT() < MS_GRACIA) {
+    haciaElPositivo = (anguloDe(arcoX(), arcoY()) > 0);
+  } else if (giroscopoSano()) {
+    haciaElPositivo = (diferencia(rumboCero, rumboActual()) > 0);
+  } else {
+    return porDefecto;
+  }
+
+  if (SENTIDO_ORBITA_INVERTIDO) haciaElPositivo = !haciaElPositivo;
+  return haciaElPositivo;
+}
+
+
 void loop() {
 
   leerCamara();
 
-  bool laVeo    = (millis() - t_ultimaPelota)   < MS_GRACIA;
-  bool veoArco  = (millis() - t_ultimoArcoAzul) < MS_GRACIA;
+  bool laVeo    = (millis() - t_ultimaPelota) < MS_GRACIA;
+  bool veoArco  = (millis() - arcoT())        < MS_GRACIA;
   unsigned long enEstado = millis() - t_entroEstado;
+
+  // Los angulos, que es con lo que se decide la patada. Ver el bloque
+  // "A. ALINEACION POR ANGULO" arriba: comparar centimetros medidos a
+  // distancias distintas es lo que hacia que pateara desviado.
+  float angPelota = anguloDe(XpBueno, YpBueno);
+  float angArco   = anguloDe(arcoX(), arcoY());
+  bool  pelotaAdelante = (fabs(angPelota) <= TOL_ANG_PELOTA);
+  bool  arcoAlineado   = (fabs(diferencia(angArco, angPelota)) <= TOL_ANG_ALINEADO);
 
   // ---------- la patada NO se interrumpe ----------
   if (estado == PATEA_ADEL) {
@@ -379,16 +715,27 @@ void loop() {
     else if (XpBueno > XP_SUELTA) {                 // se le alejo: vuelve a ir
       cambiarA(AVANZANDO);
     }
-    else if (veoArco && abs(YpBueno - YazBueno) <= TOL_ALINEADO) {
-      Serial.print("*** ALINEADO con el arco azul  (Yp="); Serial.print(YpBueno);
-      Serial.print("  Yarco="); Serial.print(YazBueno);
+    else if (veoArco && pelotaAdelante && arcoAlineado) {
+      Serial.print("*** ALINEADO con el arco "); Serial.print(arcoNombre());
+      Serial.print("  (pelota a "); Serial.print(angPelota, 1);
+      Serial.print(" grados, arco a "); Serial.print(angArco, 1);
+      Serial.print(", separados "); Serial.print(fabs(diferencia(angArco, angPelota)), 1);
       Serial.println(")  -> PATADA");
       cambiarA(PATEA_ADEL);
     }
-    else if (enEstado > MS_ORBITA_MAX) {            // se rinde
+    else if (enEstado > MS_ORBITA_MAX) {            // dio la vuelta y no lo vio
       Serial.print("... orbite "); Serial.print(MS_ORBITA_MAX / 1000);
-      Serial.println(" s y no encontre el arco azul alineado");
-      cambiarA(BUSCANDO);
+      Serial.print(" s y no encontre el arco "); Serial.println(arcoNombre());
+
+      // C1: en vez de rendirse, apuntar al rumbo con el que se encendio —
+      // que es hacia donde estaba el arco rival cuando lo apoyaron.
+      if (PATEAR_AL_RUMBO0 && giroscopoSano()) {
+        Serial.print("    -> voy a apuntar al rumbo de arranque (");
+        Serial.print(rumboCero, 1); Serial.println(" grados) y patear ahi");
+        cambiarA(APUNTA_RUMBO0);
+      } else {
+        cambiarA(BUSCANDO);
+      }
     }
     else {
       // Los primeros MS_ORB_IMPULSO ms de CADA entrada a ORBITANDO van con el
@@ -396,7 +743,42 @@ void loop() {
       // inercia. enEstado se reinicia solo en cambiarA(), asi que el golpe se
       // da una vez por orbita y no se repite.
       bool enImpulso = (enEstado < (unsigned long)MS_ORB_IMPULSO);
-      orbitar(!ORBITA_INVERTIDA, enImpulso ? VEL_ORB_IMPULSO : VEL_ORB_TRASERA);
+      orbitar(sentidoParaOrbitar(), enImpulso ? VEL_ORB_IMPULSO : VEL_ORB_TRASERA);
+    }
+  }
+
+  // ---------- APUNTA_RUMBO0 (plan B del giroscopo) ----------
+  // Gira sobre el eje hasta mirar al rumbo con el que se encendio, y ahi
+  // patea. Es peor que patear al arco de verdad, pero es MUCHO mejor que
+  // rendirse: la pelota igual va para el lado correcto de la cancha.
+  else if (estado == APUNTA_RUMBO0) {
+
+    if (!laVeo) {
+      Serial.println("... perdi la pelota apuntando al rumbo 0");
+      cambiarA(BUSCANDO);
+    }
+    else if (!giroscopoSano()) {
+      Serial.println("!!! el giroscopo se quedo mudo apuntando -> vuelvo a buscar");
+      cambiarA(BUSCANDO);
+    }
+    else {
+      float err = diferencia(rumboCero, rumboActual());
+      if (fabs(err) <= TOL_RUMBO) {
+        Serial.print("*** mirando al rumbo de arranque (error ");
+        Serial.print(err, 1); Serial.println(" grados) -> PATADA");
+        cambiarA(PATEA_ADEL);
+      }
+      else if (enEstado > MS_APUNTAR_MAX) {
+        Serial.println("... no llegue a apuntar al rumbo 0 -> vuelvo a buscar");
+        cambiarA(BUSCANDO);
+      }
+      else {
+        // Mismo truco de pulsos que CENTRANDO: girar despacio sin bajar del
+        // piso de arranque. El signo es una HIPOTESIS -> GIRO_RUMBO_INVERTIDO.
+        bool haciaUnLado = (err > 0);
+        if (GIRO_RUMBO_INVERTIDO) haciaUnLado = !haciaUnLado;
+        rotarPulsado(haciaUnLado, VEL_CENT, MS_PULSO_CENT, MS_ESPERA_CENT);
+      }
     }
   }
 
@@ -408,7 +790,8 @@ void loop() {
     }
     else if (XpBueno < XP_ORBITA) {
       Serial.print("*** llegue a "); Serial.print(XpBueno);
-      Serial.println(" cm -> a orbitar buscando el arco azul");
+      Serial.print(" cm -> a orbitar buscando el arco ");
+      Serial.println(arcoNombre());
       cambiarA(ORBITANDO);
     }
     else {
@@ -436,8 +819,9 @@ void loop() {
     Serial.print(">>> "); Serial.print(nombreEstado(estado));
     Serial.print("   Xp="); Serial.print(XpBueno);
     Serial.print(" Yp=");  Serial.print(YpBueno);
-    Serial.print("  arco: ");
-    if (veoArco) { Serial.print("Yaz="); Serial.println(YazBueno); }
+    Serial.print(" (a "); Serial.print(angPelota, 1); Serial.print(" grados)");
+    Serial.print("  arco "); Serial.print(arcoNombre()); Serial.print(": ");
+    if (veoArco) { Serial.print("a "); Serial.print(angArco, 1); Serial.println(" grados"); }
     else         { Serial.println("no lo veo"); }
   }
 
@@ -453,9 +837,12 @@ void loop() {
     Serial.print("   ["); Serial.print(nombreEstado(estado));
     Serial.print("]  Xp="); Serial.print(XpBueno);
     Serial.print(" Yp="); Serial.print(YpBueno);
-    Serial.print("  Yaz=");
-    if (veoArco) Serial.print(YazBueno); else Serial.print("--");
-    Serial.print("  dif=");
-    if (veoArco) Serial.println(abs(YpBueno - YazBueno)); else Serial.println("--");
+    Serial.print("  angPelota="); Serial.print(angPelota, 1);
+    Serial.print("  angArco=");
+    if (veoArco) Serial.print(angArco, 1); else Serial.print("--");
+    Serial.print("  separacion=");
+    if (veoArco) Serial.print(fabs(diferencia(angArco, angPelota)), 1); else Serial.print("--");
+    if (giroscopoSano()) { Serial.print("  rumbo="); Serial.print(ultimoRumbo, 0); }
+    Serial.println();
   }
 }

@@ -97,7 +97,24 @@ const int TOL_SALE  = 5;
 // --- distancias ---
 const int XP_ORBITA = 22;   // mas cerca que esto -> empieza a orbitar
 const int XP_SUELTA = 55;   // si se le aleja mas que esto, vuelve a avanzar
-const int XP_MAX    = 150;  // arriba de esto no le creo (la camara recorta en 200)
+const int XP_MAX    = 150;  // arriba de esto no le creo A LA PELOTA (la camara recorta en 200)
+
+// EL ARCO NO LLEVA EL MISMO TECHO QUE LA PELOTA. [2026-08-11]
+// Hasta hoy se le aplicaba XP_MAX = 150 tambien al arco, y estaba mal: el arco
+// casi siempre esta LEJOS. Un arco a 170 cm se tiraba a la basura, y por eso el
+// robot decia "no veo el arco" mientras la camara lo estaba viendo perfecto.
+// Sintomas que explicaba: angArco = -- siempre, y "0 muestras" de los dos arcos
+// al arrancar.
+//
+// El campeon 2025 no tenia techo para el arco (delantero.ino:335-345): le
+// alcanzaba con  Xam != 0.  Le copiamos el criterio de la pelota al arco sin
+// preguntarnos si tenia sentido. Una pelota lejos es sospechosa (es chiquita y
+// se confunde con cualquier mancha naranja); un arco lejos es simplemente un
+// arco lejos: es un objeto grande y la camara le pide 300-600 pixeles.
+//
+// Ademas, para ALINEAR no nos importa a que distancia esta el arco: nos importa
+// en que DIRECCION. El angulo sirve igual este a 80 o a 200 cm.
+const int XARCO_MAX = 200;  // 200 es el tope que manda la camara: acepto todo
 
 // --- giro para BUSCAR ---
 const int VEL_GIRO       = 80;
@@ -370,6 +387,16 @@ Estado estadoAnterior = PATEA_ATRAS;
 
 bool avisadoSinCamara = false;
 
+// --- medicion del enlace con la camara [2026-08-11] ---
+// Gustavo planteo que podiamos estar leyendo lento y quedandonos con datos
+// viejos. En vez de discutirlo, se mide. Se imprime cada 2 s:
+//   paq/s     paquetes de 9 bytes VALIDOS por segundo = cuadros de camara
+//   tirados/s bytes descartados buscando el 201. Si esto es alto, hay
+//             desincronizacion, que es justo el sintoma de buffer desbordado.
+//   loops/s   vueltas del loop(). Si son miles, no estamos leyendo lento.
+unsigned long nPaquetes = 0, nTirados = 0, nLoops = 0;
+unsigned long t_contadores = 0;
+
 
 // ---------- motores ----------
 
@@ -426,7 +453,7 @@ void rotarPulsado(bool sentidoA, int vel, int msPulso, int msEspera) {
 void leerCamara() {
   while (Serial1.available() >= 9) {
     int h1 = Serial1.read();
-    if (h1 != 201) continue;
+    if (h1 != 201) { nTirados++; continue; }
 
     int xp  = Serial1.read();
     int yp  = Serial1.read();
@@ -442,17 +469,18 @@ void leerCamara() {
       Xam = xam;  Yam = yam - 100;    // antes se tiraba: ahora hace falta para elegir arco
       Xaz = xaz;  Yaz = yaz - 100;
       t_ultimoPaquete = millis();
+      nPaquetes++;
 
       // 200 y +-100 son los TOPES de recorte de la camara: casi siempre manchas.
       if ((Xp > 0) && (Xp <= XP_MAX) && (abs(Yp) < 100)) {
         XpBueno = Xp; YpBueno = Yp;
         t_ultimaPelota = millis();
       }
-      if ((Xam > 0) && (Xam <= XP_MAX) && (abs(Yam) < 100)) {
+      if ((Xam > 0) && (Xam <= XARCO_MAX) && (abs(Yam) < 100)) {
         XamBueno = Xam; YamBueno = Yam;
         t_ultimoAmarillo = millis();
       }
-      if ((Xaz > 0) && (Xaz <= XP_MAX) && (abs(Yaz) < 100)) {
+      if ((Xaz > 0) && (Xaz <= XARCO_MAX) && (abs(Yaz) < 100)) {
         XazBueno = Xaz; YazBueno = Yaz;
         t_ultimoAzul = millis();
       }
@@ -568,12 +596,19 @@ void elegirArcoMirando() {
   Serial.print("Mirando "); Serial.print(MS_MIRAR_ARCOS / 1000);
   Serial.println(" s para ver a que arco apunto. NO LO MUEVAS.");
 
+  // Se cuenta UNA VEZ POR CUADRO DE CAMARA, no una vez por vuelta del loop.
+  // El loop corre a ~400.000 vueltas por segundo y la camara manda 46 cuadros:
+  // contar por vuelta daba millones de "muestras" con un solo vistazo fugaz, y
+  // MUESTRAS_MINIMAS_ARCO dejaba de filtrar nada. [medido 2026-08-11]
+  unsigned long visto_am = 0, visto_az = 0;
   while (millis() - t0 < MS_MIRAR_ARCOS) {
     leerCamara();
-    if (millis() - t_ultimoAmarillo < MS_GRACIA) {
+    if (t_ultimoAmarillo != visto_am) {          // llego un dato NUEVO del amarillo
+      visto_am = t_ultimoAmarillo;
       nAm++;  sumAm += fabs(anguloDe(XamBueno, YamBueno));
     }
-    if (millis() - t_ultimoAzul < MS_GRACIA) {
+    if (t_ultimoAzul != visto_az) {
+      visto_az = t_ultimoAzul;
       nAz++;  sumAz += fabs(anguloDe(XazBueno, YazBueno));
     }
   }
@@ -661,6 +696,7 @@ void setup() {
   delay(3000);
 
   t_ultimoPaquete = millis();
+  t_contadores    = millis();   // si no, la primera medicion sale con dt enorme
   cambiarA(BUSCANDO);
 }
 
@@ -691,6 +727,7 @@ bool sentidoParaOrbitar() {
 
 void loop() {
 
+  nLoops++;
   leerCamara();
 
   bool laVeo    = (millis() - t_ultimaPelota) < MS_GRACIA;
@@ -854,5 +891,15 @@ void loop() {
     if (veoArco) Serial.print(fabs(diferencia(angArco, angPelota)), 1); else Serial.print("--");
     if (giroscopoSano()) { Serial.print("  rumbo="); Serial.print(ultimoRumbo, 0); }
     Serial.println();
+
+    unsigned long dt = millis() - t_contadores;
+    if (dt > 0) {
+      Serial.print("        camara: "); Serial.print(nPaquetes * 1000UL / dt);
+      Serial.print(" paq/s   "); Serial.print(nTirados * 1000UL / dt);
+      Serial.print(" bytes tirados/s   loop: "); Serial.print(nLoops * 1000UL / dt);
+      Serial.println(" /s");
+    }
+    nPaquetes = nTirados = nLoops = 0;
+    t_contadores = millis();
   }
 }

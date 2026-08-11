@@ -175,3 +175,73 @@ nueva: es que la cámara no ve los arcos.** Tercera confirmación del día.
 
 1. **Prender la batería** y resetear. Ver si el giroscopio pasa a `OK`. Un minuto.
 2. **Calibrar la cámara.** Van tres mediciones distintas hoy diciendo lo mismo.
+
+---
+
+## 🔴 Tercera tanda: EL bug. El arco se tiraba a la basura por lejos
+
+Gustavo conectó la cámara al OpenMV IDE y reportó: **"no parece estar mal, incluso lo ve de
+lejos al arco"**. Y propuso una hipótesis: que el programa leyera lento y se quedara con datos
+viejos del buffer.
+
+### El bug
+
+```cpp
+const int XP_MAX = 150;   // "arriba de esto no le creo" -> pensado para la PELOTA
+
+if ((Xaz > 0) && (Xaz <= XP_MAX) && (abs(Yaz) < 100)) {   // <-- aplicado AL ARCO
+```
+
+**El arco a más de 150 cm se descartaba.** Y el arco casi siempre está lejos. Por eso
+`angArco = --` en todos los logs del día y `0 muestras` de los dos arcos al arrancar: la cámara
+lo veía y **el firmware lo tiraba**.
+
+El campeón 2025 no tenía techo para el arco (`delantero.ino:335-345`): le alcanzaba con
+`Xam != 0`. Le habíamos copiado al arco el criterio de la pelota sin preguntarnos si tenía
+sentido. **Una pelota lejos es sospechosa** (es chiquita, se confunde con cualquier mancha
+naranja). **Un arco lejos es simplemente un arco lejos** — es grande, y la cámara ya le exige
+300-600 píxeles. Y para *alinear* no importa a qué distancia está: importa en qué **dirección**.
+
+**El arreglo:** techo propio, `XARCO_MAX = 200` (todo lo que la cámara puede mandar).
+
+**El resultado, inmediato:**
+
+```
+*** ATACO EL ARCO AMARILLO ***
+>>> CENTRANDO  Xp=55 Yp=18 (a 18.1 grados)   arco AMARILLO: a -3.3 grados
+```
+
+### La hipótesis del buffer: medida, no discutida
+
+Se instrumentó el enlace en vez de opinar. Cada 2 s el robot imprime:
+
+```
+camara: 46 paq/s   0 bytes tirados/s   loop: 415350 /s
+```
+
+| Medición | Valor | Qué dice |
+|---|---|---|
+| Paquetes válidos | **46 /s** | la cámara corre a ~46 fps |
+| Bytes descartados resincronizando | **0 /s** | no hay desincronización ni buffer desbordado |
+| Vueltas del `loop()` | **415.000 /s** | leemos ~9.000 veces más rápido de lo que llegan los datos |
+
+**La hipótesis queda refutada con números.** Pero mandó a mirar el camino de los datos, que es
+donde estaba el bug — dos líneas más adelante que donde se sospechaba.
+
+### Un error propio que el mismo log delató
+
+La primera versión imprimió `amarillo: 4613996 muestras` en 2 segundos. Contaba **vueltas del
+loop**, no cuadros de cámara: con un solo vistazo fugaz el contador se llenaba igual y
+`MUESTRAS_MINIMAS_ARCO` no filtraba nada. Corregido a contar sólo cuando llega un dato **nuevo**
+(cambia `t_ultimoAmarillo`). Ahora imprime **95 muestras en 2 s**, que es consistente con los
+46 paq/s medidos.
+
+### Estado al cierre
+
+- ✅ El arco se ve y se sigue: `angArco` entre -1,6° y -3,3°.
+- ✅ La elección de arco al encender funciona: eligió **AMARILLO** con 95 muestras a 3,3°.
+- ⏸️ La patada todavía no se pudo ver: el robot no se estaba moviendo (`Xp=55 Yp=18` congelado),
+  así que nunca llegó a orbitar. La pelota a 18,1° con tolerancia de 8° **no debe** patear:
+  ahí el firmware está haciendo lo correcto.
+- ⏸️ Giroscopio sigue en ceros → **la batería sigue apagada**. Es la misma causa que explica que
+  el robot no se mueva.

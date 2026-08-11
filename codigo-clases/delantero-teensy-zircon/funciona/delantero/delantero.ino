@@ -237,11 +237,21 @@ const unsigned long SIN_DATOS_MS = 1500;
 //  (tolerancia_apuntado): la pelota tiene que estar ADELANTE. Si la pelota
 //  esta a 40 grados y el arco tambien, la resta da 0 — pero el robot al
 //  avanzar derecho ni la toca.
-const float TOL_ANG_PELOTA   = 15.0;  // la pelota tiene que estar a menos de esto del frente
-const float TOL_ANG_ALINEADO = 15.0;  // y el arco a menos de esto de la pelota
-//         ^ el 2025 usaba 15 grados (tolerancia_apuntado). Subilo si NUNCA
-//           patea; bajalo si patea desviado. OJO: antes la perilla era
-//           TOL_ALINEADO y estaba en CENTIMETROS. Esto son GRADOS.
+const float TOL_ANG_PELOTA   = 8.0;  // la pelota tiene que estar a menos de esto del frente
+const float TOL_ANG_ALINEADO = 8.0;  // y el arco a menos de esto de la pelota
+//         ^ el 2025 usaba 15 grados (tolerancia_apuntado). Arrancamos en 15 y
+//           el 2026-08-11 Gustavo lo probo en el piso: "es mucho y patea muy
+//           mal de direccion". Bajados los dos a 8.
+//
+//           POR QUE LOS DOS Y NO SOLO EL DEL ARCO. El robot empuja DERECHO.
+//           Si la pelota esta 14 grados al costado, la toca de refilon y sale
+//           para cualquier lado — o sea que la direccion tambien la arruina
+//           TOL_ANG_PELOTA, no solo la del arco. Por eso bajan juntos.
+//
+//           A 100 cm del arco, 8 grados son ~14 cm de desvio. La escalera si
+//           ahora NUNCA patea: 8 -> 10 -> 12. Si sigue pateando torcido: 6.
+//           OJO: antes la perilla era TOL_ALINEADO y estaba en CENTIMETROS.
+//           Estas son GRADOS. No son la misma cosa.
 
 //  ---------------------------------------------------------------------
 //  B. A QUE ARCO ATACAR, decidido AL ENCENDER — arranca APAGADA
@@ -255,7 +265,7 @@ const float TOL_ANG_ALINEADO = 15.0;  // y el arco a menos de esto de la pelota
 //
 //  El mismo gesto sirve para dos cosas: define el arco Y define el "cero"
 //  del giroscopio (C). Un solo ritual, dos funciones.
-const bool ELEGIR_ARCO_AL_ENCENDER = false;
+const bool ELEGIR_ARCO_AL_ENCENDER = true;   // 2026-08-11: ENCENDIDA a pedido de Gustavo
 const unsigned long MS_MIRAR_ARCOS = 2000;
 const int MUESTRAS_MINIMAS_ARCO    = 3;   // menos que esto, no le creo
 
@@ -270,7 +280,7 @@ const int MUESTRAS_MINIMAS_ARCO    = 3;   // menos que esto, no le creo
 //   C1. Si da la vuelta entera y no encuentra el arco, en vez de rendirse
 //       gira hasta mirar al rumbo de arranque (el "cero") y patea ahi.
 //   C2. Elegir para que lado orbitar: el camino MAS CORTO hasta el arco.
-const bool USAR_GIROSCOPO   = false;
+const bool USAR_GIROSCOPO   = true;    // 2026-08-11: ENCENDIDA a pedido de Gustavo
 const bool PATEAR_AL_RUMBO0 = true;    // C1 (solo hace algo si USAR_GIROSCOPO)
 const bool ORBITA_CAMINO_CORTO = false;// C2 — apagada para que el primer flasheo
                                        // cambie UNA sola cosa (la patada por angulo).

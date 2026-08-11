@@ -103,3 +103,75 @@ contesta poniendo la pelota a 30 cm exactos y leyendo `Xp`.
 
 **Compila y carga no prueban nada de esto.** Lo único validado hoy es que el firmware corre y
 que imprime los ángulos.
+
+---
+
+## Segunda tanda del mismo día: se prendieron B y C
+
+Gustavo probó el ritual (encender mirando al arco amarillo) y **pateó al azul**. No falló nada:
+`ELEGIR_ARCO_AL_ENCENDER` estaba en `false`, o sea que la función estaba **apagada por
+configuración**. El robot lo decía en el banner: `Arco objetivo: AZUL (fijo por configuracion)`.
+
+También pidió bajar el ángulo: *"es mucho y patea muy mal de dirección"*.
+
+### Qué se cambió
+
+| Perilla | Antes | Ahora |
+|---|---|---|
+| `TOL_ANG_PELOTA` | 15° | **8°** |
+| `TOL_ANG_ALINEADO` | 15° | **8°** |
+| `ELEGIR_ARCO_AL_ENCENDER` | false | **true** |
+| `USAR_GIROSCOPO` | false | **true** |
+| `ORBITA_CAMINO_CORTO` | false | false (sigue apagada: signo sin verificar) |
+
+**Por qué bajaron los dos ángulos y no sólo el del arco:** el robot empuja **derecho**. Si la
+pelota está 14° al costado, la toca de refilón y sale para cualquier lado. La dirección la
+arruina `TOL_ANG_PELOTA` tanto como la del arco.
+
+A 100 cm, 8° son ~14 cm de desvío. Escalera si ahora **nunca** patea: 8 → 10 → 12. Si sigue
+torcido: 6.
+
+### 🔴 El hallazgo: el giroscopio contesta pero da ceros
+
+Primera vez que se lo enciende en este robot. El banner:
+
+```
+Giroscopo:    contesta pero da ceros (9/20 lecturas utiles) --- no lo doy por bueno
+              NO CONTESTA. Sigo sin el, como hasta ayer.
+```
+
+**Qué significa exactamente:** `bno.begin()` **funcionó** — el sensor está en el bus I2C y
+responde quién es. Pero de 20 lecturas, **11 devolvieron 0.000 exacto en los tres ángulos**. La
+guarda prestada del arquero lo detectó y se negó a darlo por bueno. **El diseño funcionó: el
+robot avisó y siguió andando como antes en vez de girar con datos basura.**
+
+**La causa más probable, y no es nuestra:** el README del arquero lo dice textual —
+*"El giroscopio se alimenta de la batería, no del USB. Con la batería apagada contesta que
+existe pero devuelve puros ceros."*
+
+**Dos señales independientes apuntan a lo mismo:**
+
+1. El giroscopio da ceros.
+2. `Xp=89 Yp=-3` quedó **congelado en el mismo valor durante 8 impresiones seguidas** estando en
+   BUSCANDO, que es un estado en el que el robot gira. Si girara, la pelota cambiaría de
+   posición. **El robot no se estaba moviendo** — o sea, los motores no tenían potencia.
+
+Las dos cosas se explican con **la batería apagada**. `[HIPÓTESIS — se confirma en 1 minuto:
+prender la batería y volver a resetear]`.
+
+### El otro dato: la cámara no vio NINGÚN arco
+
+```
+amarillo: 0 muestras
+azul:     0 muestras
+NO VI NINGUN ARCO -> me quedo con el de siempre: AZUL
+```
+
+En 2 segundos mirando, **cero muestras de los dos arcos**. La elección de arco funcionó
+perfecto: no vio nada, lo dijo, y se quedó con el de siempre. **El problema no es la lógica
+nueva: es que la cámara no ve los arcos.** Tercera confirmación del día.
+
+### Lo primero de la próxima vez
+
+1. **Prender la batería** y resetear. Ver si el giroscopio pasa a `OK`. Un minuto.
+2. **Calibrar la cámara.** Van tres mediciones distintas hoy diciendo lo mismo.

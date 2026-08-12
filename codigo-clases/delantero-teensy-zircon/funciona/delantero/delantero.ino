@@ -318,6 +318,49 @@ const bool SENTIDO_ORBITA_INVERTIDO = false;  // si orbita alejandose del arco, 
 const bool GIRO_RUMBO_INVERTIDO     = false;  // si al apuntar al cero se aleja, ponelo en true
 
 //  ---------------------------------------------------------------------
+//  D. LINEA BLANCA — escapar. PRIORIDAD ABSOLUTA
+//  ---------------------------------------------------------------------
+//  Si un sensor de linea pisa el blanco, se ANULA lo que sea que este
+//  haciendo el robot —incluida la patada— y se escapa. Salir de la cancha
+//  es lo peor que puede pasar: es lo unico que interrumpe a todo lo demas.
+//
+//  HACIA DONDE SE ESCAPA. Cada sensor vigila UN LADO del triangulo, y
+//  enfrente de cada sensor hay una rueda en el vertice opuesto:
+//
+//        sensor 1  -> se va hacia la rueda DI  (delantera izquierda, M1)
+//        sensor 2  -> se va hacia la rueda DD  (delantera derecha,   M2)
+//        sensor 3  -> se va hacia la rueda T   (trasera,             M3)
+//
+//  LA CUENTA SALE GRATIS, igual que la orbita. Para moverse en la direccion
+//  de una rueda, ESA rueda no tiene que girar (su empuje es perpendicular a
+//  ese movimiento) y las otras dos empujan iguales y al reves entre si:
+//
+//        sensor 1 -> IZQ apagada,  DER y TRA opuestas
+//        sensor 2 -> DER apagada,  IZQ y TRA opuestas
+//        sensor 3 -> TRA apagada,  IZQ y DER opuestas
+//
+//  No lo invente: es exactamente retroceder1/2/3 del campeon 2025
+//  (delantero.ino:164-178), que usaba PWM 100 durante 400 ms.
+//
+//  LAS ESQUINAS. Si saltan DOS sensores a la vez, las dos direcciones se
+//  SUMAN. Y como las tres direcciones suman cero, sensor1+sensor2 da
+//  exactamente lo contrario de sensor3: alejarse de la rueda T. Sale solo,
+//  sin medir ningun angulo.
+const bool LINEA_ACTIVA = true;
+const int  VEL_ESCAPE   = 100;              // el del campeon 2025
+const unsigned long MS_ESCAPE_EXTRA = 400;  // sigue 400 ms DESPUES de dejar de verla
+
+//  UMBRALES DEL 2025, luz del laboratorio del anio pasado. Ya nos paso con
+//  los umbrales de color: se re-miden con pruebas/sensores-de-linea/ antes
+//  de confiar. Mientras tanto hay una AUTOPROTECCION al arrancar: si un
+//  sensor ya lee "blanco" con el robot apoyado en el verde, el umbral esta
+//  mal y la funcion se desactiva sola en vez de escapar para siempre.
+int UMBRAL_LINEA[3] = { 650, 650, 750 };
+
+//  Pines: se autodetectan leyendo el pin 32, igual que zirconLib.cpp:52-60.
+const int PIN_VERSION_PLACA = 32;
+
+//  ---------------------------------------------------------------------
 //  COMO PROBAR ESTO — de a una, en este orden
 //  ---------------------------------------------------------------------
 //  Se agregaron tres cosas juntas pero se encienden de a una. Si se prenden
@@ -380,8 +423,15 @@ float ultimoRumbo  = 0;
 int   contadorCeros = 0;
 const int CEROS_PARA_DARLO_POR_CAIDO = 10;
 
+// --- sensores de linea ---
+int  pinLinea[3]  = { A11, A13, A12 };   // Mark1; se corrige en setup()
+const char* versionPlaca = "?";
+bool lineaHabilitada = false;
+int  mascaraLinea = 0;
+unsigned long t_ultimaLinea = 0;
+
 enum Estado { BUSCANDO, CENTRANDO, AVANZANDO, ORBITANDO,
-              APUNTA_RUMBO0, PATEA_ADEL, PATEA_ATRAS };
+              APUNTA_RUMBO0, PATEA_ADEL, PATEA_ATRAS, ESCAPA_LINEA };
 Estado estado = BUSCANDO;
 Estado estadoAnterior = PATEA_ATRAS;
 
@@ -438,6 +488,53 @@ void orbitar(bool sentidoA, int velTrasera) {
   analogWrite(IZQ_PWM, VEL_ORB_FRENTE);  digitalWrite(IZQ_INA, a); digitalWrite(IZQ_INB, b);
   analogWrite(DER_PWM, VEL_ORB_FRENTE);  digitalWrite(DER_INA, a); digitalWrite(DER_INB, b);
   analogWrite(TRA_PWM, velTrasera);      digitalWrite(TRA_INA, b); digitalWrite(TRA_INB, a);
+}
+
+// ---------- linea blanca ----------
+
+// Devuelve una mascara: bit 0 = sensor 1, bit 1 = sensor 2, bit 2 = sensor 3.
+int leerLineas() {
+  int m = 0;
+  for (int i = 0; i < 3; i++) {
+    if (analogRead(pinLinea[i]) >= UMBRAL_LINEA[i]) m |= (1 << i);
+  }
+  return m;
+}
+
+// Escapa de la(s) linea(s) que se estan viendo. Suma las direcciones, asi
+// que las esquinas (dos sensores a la vez) salen solas.
+void escaparDeLinea(int m) {
+  //          IZQ(M1) DER(M2) TRA(M3)
+  int v[3] = {   0,      0,      0   };
+  if (m & 1) { v[1] -= 1; v[2] += 1; }   // hacia la DI  -> IZQ apagada
+  if (m & 2) { v[0] += 1; v[2] -= 1; }   // hacia la DD  -> DER apagada
+  if (m & 4) { v[0] -= 1; v[1] += 1; }   // hacia la T   -> TRA apagada
+
+  int pico = 0;
+  for (int i = 0; i < 3; i++) if (abs(v[i]) > pico) pico = abs(v[i]);
+
+  if (pico == 0) {
+    // Los tres sensores a la vez: las tres direcciones se cancelan y no hay
+    // para donde ir. Casi seguro son los umbrales mal puestos. Parar es lo
+    // honesto: salir para un lado elegido al azar seria inventar.
+    parar();
+    return;
+  }
+
+  int pwm[3];
+  for (int i = 0; i < 3; i++) pwm[i] = (v[i] * VEL_ESCAPE) / pico;
+
+  analogWrite(IZQ_PWM, abs(pwm[0]));
+  digitalWrite(IZQ_INA, pwm[0] > 0 ? 1 : 0);
+  digitalWrite(IZQ_INB, pwm[0] < 0 ? 1 : 0);
+
+  analogWrite(DER_PWM, abs(pwm[1]));
+  digitalWrite(DER_INA, pwm[1] > 0 ? 1 : 0);
+  digitalWrite(DER_INB, pwm[1] < 0 ? 1 : 0);
+
+  analogWrite(TRA_PWM, abs(pwm[2]));
+  digitalWrite(TRA_INA, pwm[2] > 0 ? 1 : 0);
+  digitalWrite(TRA_INB, pwm[2] < 0 ? 1 : 0);
 }
 
 void rotarPulsado(bool sentidoA, int vel, int msPulso, int msEspera) {
@@ -557,6 +654,7 @@ const char* nombreEstado(Estado e) {
     case APUNTA_RUMBO0: return "al rumbo 0";
     case PATEA_ADEL:  return "PATEANDO!";
     case PATEA_ATRAS: return "retrocede";
+    case ESCAPA_LINEA: return "!LINEA!";
   }
   return "?";
 }
@@ -668,6 +766,47 @@ void setup() {
   Serial.print("   (max "); Serial.print(MS_ORBITA_MAX / 1000); Serial.println(" s)");
   Serial.println("==============================================");
 
+  // --- sensores de linea (D) ---
+  pinMode(PIN_VERSION_PLACA, INPUT_PULLDOWN);
+  delay(10);
+  if (digitalRead(PIN_VERSION_PLACA) == LOW) {
+    versionPlaca = "Mark1";
+    pinLinea[0] = A11; pinLinea[1] = A13; pinLinea[2] = A12;
+  } else {
+    versionPlaca = "Naveen1";
+    pinLinea[0] = A8;  pinLinea[1] = A9;  pinLinea[2] = A12;
+  }
+  Serial.print("Placa (pin 32): "); Serial.print(versionPlaca);
+  Serial.print("   sensores de linea en pines ");
+  Serial.print(pinLinea[0]); Serial.print(", ");
+  Serial.print(pinLinea[1]); Serial.print(", "); Serial.println(pinLinea[2]);
+
+  if (LINEA_ACTIVA) {
+    // AUTOPROTECCION: el robot se enciende apoyado en el verde, no sobre una
+    // linea. Si un sensor ya dice "blanco", el umbral esta mal para la luz de
+    // hoy — y con el umbral mal el robot escaparia para siempre. Mejor
+    // desactivar y avisar que salir corriendo sin motivo.
+    Serial.print("Linea: sensores leen ");
+    Serial.print(analogRead(pinLinea[0])); Serial.print(" / ");
+    Serial.print(analogRead(pinLinea[1])); Serial.print(" / ");
+    Serial.print(analogRead(pinLinea[2]));
+    Serial.print("   umbrales "); Serial.print(UMBRAL_LINEA[0]);
+    Serial.print(" / "); Serial.print(UMBRAL_LINEA[1]);
+    Serial.print(" / "); Serial.println(UMBRAL_LINEA[2]);
+
+    int m = leerLineas();
+    if (m != 0) {
+      lineaHabilitada = false;
+      Serial.println("!!! YA LEE BLANCO ESTANDO EN EL VERDE -> el umbral esta mal.");
+      Serial.println("!!! ESCAPE DE LINEA DESACTIVADO. Corre pruebas/sensores-de-linea/");
+    } else {
+      lineaHabilitada = true;
+      Serial.println("Linea: OK, escape ACTIVADO (anula todo lo demas).");
+    }
+  } else {
+    Serial.println("Linea: apagada por configuracion.");
+  }
+
   // --- giroscopo (C) ---
   if (USAR_GIROSCOPO) {
     Serial.print("Giroscopo: ");
@@ -730,6 +869,24 @@ void loop() {
   nLoops++;
   leerCamara();
 
+  // ---------- LA LINEA BLANCA MANDA SOBRE TODO ----------
+  // Va antes que cualquier otra cosa y anula el estado en curso, incluida la
+  // patada. Salir de la cancha es peor que perder una jugada.
+  if (lineaHabilitada) {
+    int m = leerLineas();
+    if (m != 0) {
+      t_ultimaLinea = millis();
+      mascaraLinea  = m;
+      if (estado != ESCAPA_LINEA) {
+        Serial.print("!!! LINEA BLANCA (sensores");
+        for (int i = 0; i < 3; i++) if (m & (1 << i)) { Serial.print(" "); Serial.print(i + 1); }
+        Serial.print(") estando en "); Serial.print(nombreEstado(estado));
+        Serial.println(" -> ESCAPO");
+        cambiarA(ESCAPA_LINEA);
+      }
+    }
+  }
+
   bool laVeo    = (millis() - t_ultimaPelota) < MS_GRACIA;
   bool veoArco  = (millis() - arcoT())        < MS_GRACIA;
   unsigned long enEstado = millis() - t_entroEstado;
@@ -742,8 +899,18 @@ void loop() {
   bool  pelotaAdelante = (fabs(angPelota) <= TOL_ANG_PELOTA);
   bool  arcoAlineado   = (fabs(diferencia(angArco, angPelota)) <= TOL_ANG_ALINEADO);
 
-  // ---------- la patada NO se interrumpe ----------
-  if (estado == PATEA_ADEL) {
+  // ---------- ESCAPA_LINEA: lo primero, no lo interrumpe nadie ----------
+  if (estado == ESCAPA_LINEA) {
+    if (millis() - t_ultimaLinea > MS_ESCAPE_EXTRA) {
+      Serial.println("... ya me despegue de la linea");
+      cambiarA(BUSCANDO);
+    } else {
+      escaparDeLinea(mascaraLinea);
+    }
+  }
+
+  // ---------- la patada no se interrumpe (salvo por la linea) ----------
+  else if (estado == PATEA_ADEL) {
     avanzar(VEL_PATADA);
     if (enEstado >= (unsigned long)MS_PATADA) cambiarA(PATEA_ATRAS);
   }

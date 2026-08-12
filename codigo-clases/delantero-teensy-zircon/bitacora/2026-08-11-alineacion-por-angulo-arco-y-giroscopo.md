@@ -245,3 +245,83 @@ loop**, no cuadros de cámara: con un solo vistazo fugaz el contador se llenaba 
   ahí el firmware está haciendo lo correcto.
 - ⏸️ Giroscopio sigue en ceros → **la batería sigue apagada**. Es la misma causa que explica que
   el robot no se mueva.
+
+---
+
+## Cuarta tanda: escape de la línea blanca
+
+Gustavo confirmó dos cosas del dibujo: la rueda de abajo-izquierda es **DD** (delantera derecha,
+M2, pines 11/12/4), y la regla de comportamiento: **si detecta línea blanca se anula todo lo que
+esté haciendo y se escapa para el lado que corresponda.**
+
+### La geometría, y por qué sale gratis
+
+Cada sensor vigila **un lado** del triángulo, y enfrente de cada lado hay una rueda:
+
+| Sensor | Escapa hacia | Qué hacen los motores |
+|---|---|---|
+| 1 | rueda **DI** (M1, izquierda) | **IZQ apagada**, DER y TRA opuestas |
+| 2 | rueda **DD** (M2, derecha) | **DER apagada**, IZQ y TRA opuestas |
+| 3 | rueda **T** (M3, trasera) | **TRA apagada**, IZQ y DER opuestas |
+
+Para moverse en la dirección de una rueda, **esa rueda no tiene que girar** (su empuje es
+perpendicular a ese movimiento) y las otras dos hacen todo. Es el mismo truco que la órbita: la
+rueda que no gira define la geometría, y **no hace falta calibrar nada**.
+
+No lo inventamos: es exactamente `retroceder1/2/3` del campeón 2025
+(`delantero.ino:164-178`), PWM 100 durante 400 ms.
+
+**Las esquinas salen solas.** Si saltan dos sensores, las dos direcciones se **suman**. Y como
+las tres direcciones suman cero, sensor1 + sensor2 da exactamente lo contrario de sensor3:
+alejarse de la rueda T. Sin medir un solo ángulo.
+
+Si saltan **los tres**, las direcciones se cancelan y no hay hacia dónde ir: el robot **para** y
+lo dice. Salir para un lado elegido al azar sería inventar.
+
+### Prioridad absoluta
+
+La comprobación de línea va **antes** de la máquina de estados y anula el estado en curso,
+**incluida la patada** —que hasta hoy era lo único ininterrumpible—. Sale de la línea, sigue
+400 ms más después de dejar de verla, y vuelve a BUSCANDO.
+
+### Los pines: medidos, no adivinados
+
+La librería Zircon **autodetecta** la versión de placa leyendo el pin 32
+(`zirconLib.cpp:52-60`), y cada versión usa pines distintos:
+
+| Versión | Sensor 1 | Sensor 2 | Sensor 3 |
+|---|---|---|---|
+| Mark1 | A11 | A13 | A12 |
+| Naveen1 | A8 | A9 | A12 |
+
+Se replicó la misma detección en el firmware. **Resultado leído del robot: `Mark1`**, sensores
+en los pines físicos **25 / 27 / 26**.
+
+### La autoprotección se activó — y hay que leerla con cuidado
+
+```
+Linea: sensores leen 743 / 642 / 758   umbrales 650 / 650 / 750
+!!! YA LEE BLANCO ESTANDO EN EL VERDE -> el umbral esta mal.
+!!! ESCAPE DE LINEA DESACTIVADO.
+```
+
+La idea: el robot se enciende apoyado en el verde, nunca sobre una línea. Si un sensor ya dice
+"blanco" al arrancar, el umbral está mal para la luz de hoy — y con el umbral mal el robot
+**escaparía para siempre**. Mejor desactivar y avisar.
+
+⚠️ **PERO el robot estaba sobre el ESCRITORIO, no sobre la cancha.** Esos 743/642/758 son del
+escritorio, no del verde. **No se puede concluir todavía que los umbrales estén mal para la
+cancha.** Hay que repetirlo con el robot apoyado en el verde.
+
+### Qué hacer la próxima vez, en orden
+
+1. Robot **sobre el verde**, resetear, y mirar qué dice el chequeo.
+2. Cargar `pruebas/sensores-de-linea/` (no mueve motores) y anotar: cuánto lee cada sensor sobre
+   el **verde** y cuánto sobre la **línea blanca**. El programa calcula solo el umbral (el punto
+   medio) e indica **cuál sensor saltó** al pasar cada lado por la línea — que es el dato que
+   confirma cuál índice es cuál lado.
+3. Poner esos tres números en `UMBRAL_LINEA[3]` del firmware.
+4. Recién ahí probar el escape de verdad.
+
+> Nota: mientras `lineaHabilitada` sea false, los `analogRead` no se ejecutan y el `loop()`
+> sigue a ~490.000 vueltas/s. Cuando se active va a bajar, y eso es normal.

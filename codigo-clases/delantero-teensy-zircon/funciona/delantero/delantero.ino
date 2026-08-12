@@ -355,7 +355,14 @@ const unsigned long MS_ESCAPE_EXTRA = 400;  // sigue 400 ms DESPUES de dejar de 
 //  de confiar. Mientras tanto hay una AUTOPROTECCION al arrancar: si un
 //  sensor ya lee "blanco" con el robot apoyado en el verde, el umbral esta
 //  mal y la funcion se desactiva sola en vez de escapar para siempre.
-int UMBRAL_LINEA[3] = { 650, 650, 750 };
+//  ACTUALIZADO 2026-08-11 con la medicion en cancha de la mesa del ARQUERO
+//  (su bitacora 2026-08-11-sensores-de-linea-y-arquero-completo.md):
+//        verde  350 a 468     blanco  ~760     umbral = punto medio = 620
+//  Los 650/650/750 del 2025 quedaban demasiado altos: 750 esta pegado al
+//  blanco real (760), asi que el sensor 3 casi no disparaba nunca.
+//  [FALTA CONFIRMAR EN EL DELANTERO] — es otro robot; la autoproteccion del
+//  arranque avisa si estos numeros no sirven para esta placa.
+int UMBRAL_LINEA[3] = { 620, 620, 620 };
 
 //  Pines: se autodetectan leyendo el pin 32, igual que zirconLib.cpp:52-60.
 const int PIN_VERSION_PLACA = 32;

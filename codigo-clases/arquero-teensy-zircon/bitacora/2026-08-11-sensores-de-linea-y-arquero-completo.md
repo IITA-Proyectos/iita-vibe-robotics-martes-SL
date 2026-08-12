@@ -240,6 +240,69 @@ Se probaron tres valores en el día. Quedó en **48 cm**.
 
 ---
 
+## 5. 🚨 HALLAZGO DEL FINAL: los centímetros de la cámara NO son centímetros
+
+Se descubrió al final de la clase, midiendo con la regla:
+
+> **Cuando la cámara dice 48 cm, la pelota está a 12 cm de verdad.**
+
+Está exagerando por un factor de **cuatro**.
+
+### De dónde viene
+
+La cámara no mide distancia. Ve un punto en la imagen y lo convierte a centímetros con una
+**matriz de conversión** (una homografía) que está escrita en su programa
+(`enviar_coordenadas_2_arcos_y_pelota.py`). Esa matriz **fue calibrada para una altura de cámara
+de 18,7 cm**, y el propio README de la visión lo advierte:
+
+> *"Esa matriz está calibrada para la altura de cámara de 18,7 cm. Si movés la cámara de lugar,
+> la matriz deja de servir."*
+
+Si la cámara de este robot está montada más baja, más alta o con otro ángulo que en 2025, la
+conversión queda mal. Es lo que estamos viendo.
+
+### Qué rompe esto
+
+**Todo el programa está hablando en una unidad que no es la que dice.** No solo la distancia:
+
+| Parámetro | Dice | En realidad es |
+|---|---|---|
+| `umbralCm = 48` | "despeja a 48 cm" | despeja a **~12 cm reales** |
+| `umbralDesvio = 15` | "desviada 15 cm" | unidades de cámara, no cm |
+| `ZONA_MUERTA_PELOTA = 4` | "4 cm" | unidades de cámara, no cm |
+
+**Y deja el empujón de ida sobredimensionado.** Se puso en 533 ms (~50 cm reales) creyendo que la
+pelota estaba a 48 cm. Está a 12. El robot sale 50 cm cuando le alcanzaría con 25 o 30, y se aleja
+del arco mucho más de lo necesario.
+
+⚠️ **Los centímetros del despeje SÍ son reales** (los 30 cm, los 10 cm, los 533 ms) porque salieron
+de medir con regla el movimiento del robot. Los que no son reales son los que vienen de la cámara.
+**No mezclar las dos cosas.**
+
+### Qué medir la próxima clase
+
+Con la regla y la pelota, en la cancha. Poner la pelota a **10, 20, 30, 40 y 50 cm reales** y
+anotar qué dice la cámara en cada posición. Cinco lecturas, se hace con la tecla `i`.
+
+Eso responde dos preguntas, y la segunda es la importante:
+
+1. **¿Cuánto exagera?**
+2. **¿Exagera parejo?** Si a 10 cm exagera por 4 y a 40 exagera por 2, la relación es curva y no
+   se arregla con una multiplicación. **Sospecha:** estas matrices suelen fallar peor cerca del
+   robot, así que probablemente no sea parejo.
+
+### La decisión que hay que tomar después de medir
+
+**Opción A — que el programa hable en unidades de cámara.** Renombrar todo (`umbralCm` pasa a ser
+`umbralCamara`, etc.) para que nadie crea que son centímetros. Rápido y honesto, pero los números
+del programa siguen sin significar nada físico.
+
+**Opción B — convertir a centímetros de verdad.** Aplicar la corrección en el Teensy (o mejor,
+recalibrar la matriz en la cámara con `calibrar-umbrales.py` y la altura real). Más trabajo, pero
+después los números del programa son distancias reales y se pueden razonar.
+
+---
+
 ## Números de hoy, para no volver a medirlos
 
 | Qué | Valor |
@@ -255,8 +318,8 @@ Se probaron tres valores en el día. Quedó en **48 cm**.
 | Freno de emergencia del retroceso | 1200 ms |
 | `lateralInvertido` | **false** |
 | `camaraYInvertida` | **true** (Yp negativo = derecha) |
-| Distancia de disparo del despeje | **48 cm** |
-| Ida del despeje | **533 ms ≈ 50 cm** |
+| Distancia de disparo del despeje | **48 de cámara = ~12 cm REALES** |
+| Ida del despeje | **533 ms ≈ 50 cm reales** (quedó grande, ver §5) |
 | Empujón final | 133 ms ≈ 10 cm |
 | Proporción de ruedas para ir de costado | 50 / 50 / 89 |
 | Corrección de rumbo | KP 5.0, KI 1.5, tope 30 |
@@ -266,6 +329,13 @@ Se probaron tres valores en el día. Quedó en **48 cm**.
 ## Qué queda pendiente
 
 ### 🔴 Lo primero la próxima clase
+
+- ⬜ **Medir la tabla de conversión de la cámara** (ver §5). Pelota a 10, 20, 30, 40 y 50 cm
+  reales, anotar qué dice la cámara en cada una. **Va primero porque de esto dependen todos los
+  demás números del comportamiento**: mientras no sepamos qué significan, cualquier umbral que
+  ajustemos lo estamos ajustando a ciegas.
+- ⬜ Con esa tabla, **decidir A o B** (unidades de cámara renombradas, o convertir a cm reales) y
+  **achicar el empujón de ida**, que hoy quedó en 50 cm reales para una pelota que está a 12.
 
 - ⬜ **El enderezado del despeje no funcionó bien.** Se reportó *"no se enderezó bien"* y quedó
   sin diagnosticar. **Importa más de lo que parece: es el mismo mecanismo que mantiene al robot

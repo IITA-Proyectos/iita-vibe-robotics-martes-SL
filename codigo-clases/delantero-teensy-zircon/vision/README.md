@@ -1,7 +1,7 @@
 # Recalibrar la cámara — qué encontré y cómo se hace
 
 **2026-08-04.** Escrito antes de tocar la cámara, leyendo el script que hoy corre en ella:
-[`../robots-2025/vision-openmv/enviar_coordenadas_2_arcos_y_pelota.py`](../robots-2025/vision-openmv/enviar_coordenadas_2_arcos_y_pelota.py).
+[`../robots-2025/vision-openmv/enviar_coordenadas_2_arcos_y_pelota.py`](../../../futbol-roboliga2026/robots-2025/vision-openmv/enviar_coordenadas_2_arcos_y_pelota.py).
 
 Herramienta de banco: [`calibrar-umbrales.py`](calibrar-umbrales.py) — se abre con el **OpenMV IDE**.
 
@@ -232,7 +232,7 @@ la relación tamaño ↔ distancia, y sirve para mucho más que esto.
 ### Paso 5 — pasar los números al script de competencia
 
 Recién ahora se toca
-[`../robots-2025/vision-openmv/enviar_coordenadas_2_arcos_y_pelota.py`](../robots-2025/vision-openmv/enviar_coordenadas_2_arcos_y_pelota.py):
+[`../robots-2025/vision-openmv/enviar_coordenadas_2_arcos_y_pelota.py`](../../../futbol-roboliga2026/robots-2025/vision-openmv/enviar_coordenadas_2_arcos_y_pelota.py):
 
 | Dónde | Qué va | Hoy dice |
 |---|---|---|
@@ -263,7 +263,7 @@ firmware.
 
 ### Descartado: el problema NO es que se desincronice el cable
 
-El [README de visión](../robots-2025/vision-openmv/README.md) dice que el protocolo *"no tiene
+El [README de visión](../../../futbol-roboliga2026/robots-2025/vision-openmv/README.md) dice que el protocolo *"no tiene
 forma de recuperarse si se desincroniza"*. **Eso no es correcto**, y conviene saberlo porque
 si no van a sospechar del cable cuando el problema está en la vista.
 

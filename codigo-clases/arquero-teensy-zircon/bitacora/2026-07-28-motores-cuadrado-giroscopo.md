@@ -2,7 +2,7 @@
 
 **Quiénes:** Gustavo Viollaz (banco y piso) + Claude (código, carga y lectura del serie)
 **Robot:** **arquero** (el que el equipo llama "robot 2") — ver
-[2026-07-28-identificacion-robot-arquero.md](2026-07-28-identificacion-robot-arquero.md)
+[2026-07-28-identificacion-arquero.md](2026-07-28-identificacion-arquero.md)
 **Programas cargados, en orden:** `pruebas/motores-a-mano` → `pruebas/cuadrado-lento` →
 `pruebas/cuadrado-giroscopo`. Todos compilados para ROBOT1 (mapeo del arquero).
 

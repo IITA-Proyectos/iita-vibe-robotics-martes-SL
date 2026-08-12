@@ -1,5 +1,20 @@
 # ⚽ Fútbol — Roboliga 2026
 
+> 📦 **SE MUDÓ (2026-08-11).** El trabajo de cada robot ahora vive junto, en `codigo-clases/`,
+> una carpeta por robot:
+>
+> | Robot | Dónde está ahora |
+> |---|---|
+> | **DELANTERO** | [`../codigo-clases/delantero-teensy-zircon/`](../codigo-clases/delantero-teensy-zircon/) |
+> | **ARQUERO** | [`../codigo-clases/arquero-teensy-zircon/`](../codigo-clases/arquero-teensy-zircon/) |
+>
+> Ahí están el firmware vivo, las pruebas, las bitácoras y lo de la cámara.
+>
+> **Esta carpeta se queda con el material 2025**, que es compartido por los dos robots y no se
+> toca sin avisar a la otra mesa: [`robots-2025/`](robots-2025/) (el código campeón del Nacional,
+> el script de la cámara y el mapa de pines), [`bugs-conocidos.md`](bugs-conocidos.md),
+> [`correcciones-propuestas.md`](correcciones-propuestas.md) y [`entorno.md`](entorno.md).
+
 Equipo del taller de los martes. Retomamos los **dos robots de fútbol con los que IITA Salta
 salió campeón del Nacional 2025** y los llevamos a la Roboliga Argentina 2026.
 
@@ -16,7 +31,7 @@ salió campeón del Nacional 2025** y los llevamos a la Roboliga Argentina 2026.
 
 **Cómo se supo:** la rueda **trasera** es el dato sin ambigüedad, y está en los pines 2/5/3 — que
 son el `M3` del `ROBOT2`. En el arquero el `M3` son los 11/12/4. Método y evidencia en
-[`bitacora/2026-07-28-identificacion-robot-y-mapeo-ruedas.md`](bitacora/2026-07-28-identificacion-robot-y-mapeo-ruedas.md).
+[`bitacora/2026-07-28-identificacion-robot-y-mapeo-ruedas.md`](../codigo-clases/delantero-teensy-zircon/bitacora/2026-07-28-identificacion-robot-y-mapeo-ruedas.md).
 
 > 🚨 **No confundas la etiqueta física con el `#define`.** El equipo llama *"robot 2"* a esta
 > unidad y en el código `ROBOT2` significa DELANTERO — acá **coinciden por casualidad**, pero no
@@ -26,7 +41,7 @@ son el `M3` del `ROBOT2`. En el arquero el `M3` son los 11/12/4. Método y evide
 > `M1 = motor derecho` y `M2 = motor izquierdo`, pero medido en el robot es al revés: están
 > escritos mirando al robot **de frente**, no desde el robot. El código funciona igual — lo que
 > engaña es el comentario. Detalle y evidencia en
-> [`bitacora/2026-07-28-identificacion-robot-arquero.md`](bitacora/2026-07-28-identificacion-robot-arquero.md).
+> [`bitacora/2026-07-28-identificacion-robot-arquero.md`](../codigo-clases/arquero-teensy-zircon/bitacora/2026-07-28-identificacion-arquero.md).
 
 ---
 
@@ -57,7 +72,7 @@ correcto. Es el error más caro y más fácil de cometer en este track.
 | Carpeta / archivo | Qué es |
 |---|---|
 | ⭐ [`firmware/`](firmware/) | **El firmware vivo de cada robot** — lo que se lleva a la cancha |
-| [`pruebas/`](pruebas/) | Programas cortos de diagnóstico. Descartables |
+| [`pruebas/`](../codigo-clases/delantero-teensy-zircon/pruebas/) | Programas cortos de diagnóstico. Descartables |
 | [`robots-2025/`](robots-2025/) | Los programas y la documentación de los robots tal cual están hoy |
 | [`robots-2025/mapa-pines-teensy.md`](robots-2025/mapa-pines-teensy.md) | ⭐ **Empezá por acá.** Qué pin del Teensy va a qué cosa, en los dos robots |
 | [`robots-2025/arquero/`](robots-2025/arquero/) | Programa del arquero (1207 líneas) + cómo funciona, línea por línea |
@@ -67,7 +82,7 @@ correcto. Es el error más caro y más fácil de cometer en este track.
 | `bugs-conocidos.md` | Los problemas heredados de 2025, con síntoma y cómo se ven en cancha |
 | `correcciones-propuestas.md` | Los parches propuestos para esos problemas — **propuestos, sin validar en banco** |
 | [`entorno.md`](entorno.md) | Cómo instalar todo y cómo cargar un programa al robot |
-| [`bitacora/`](bitacora/) | Qué hicimos cada día. Una entrada por clase |
+| [`bitacora/`](../codigo-clases/delantero-teensy-zircon/bitacora/) | Qué hicimos cada día. Una entrada por clase |
 
 Las reglas de la competencia van en
 [`competition-packs/rcj-soccer/`](../competition-packs/rcj-soccer/).
@@ -91,7 +106,7 @@ Cada sesión toca **sólo** la carpeta de su robot dentro de [`firmware/`](firmw
 
 > 🚨 **Un solo robot conectado por vez al cargar.** El cargador del Teensy no elige a qué placa le
 > manda el programa. Con los dos enchufados, una sesión puede flashear el robot de la otra.
-> Verificar con `pio device list` antes de subir. Detalle en [`firmware/README.md`](firmware/README.md).
+> Verificar con `pio device list` antes de subir. Detalle en [`firmware/README.md`](../codigo-clases/delantero-teensy-zircon/README.md).
 
 ## 🚦 Por dónde arrancar
 

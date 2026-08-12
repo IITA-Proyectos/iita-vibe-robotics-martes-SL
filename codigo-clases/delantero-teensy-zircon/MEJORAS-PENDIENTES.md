@@ -33,8 +33,8 @@ movió 98 cm. Son dos manchas distintas en extremos opuestos de la imagen.
 ciegas. Y las mejoras 2 y 3 dependen de ver el arco.
 
 **Cómo se hace:** está todo escrito, con protocolo de 6 pasos y herramienta lista.
-→ [`../../vision/README.md`](../../vision/README.md) y
-[`../../vision/calibrar-umbrales.py`](../../vision/calibrar-umbrales.py)
+→ [`../../vision/README.md`](vision/README.md) y
+[`../../vision/calibrar-umbrales.py`](vision/calibrar-umbrales.py)
 
 **Lo que hay que arreglar antes de mover un solo umbral:** la cámara tiene ganancia y balance
 de blancos **en automático**. Se re-acomoda sola según toda la escena, así que cualquier umbral
@@ -53,7 +53,7 @@ completa y no encontró el arco, en vez de rendirse, patea hacia esa dirección 
 plan B: mejor patear a un lado razonable que no patear.
 
 **Lo bueno: ya hay código de referencia.** El delantero 2025 hace exactamente eso
-(`robots-2025/delantero/delantero.ino`):
+(`futbol-roboliga2026/robots-2025/delantero/delantero.ino`):
 
 ```cpp
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);   // :76
@@ -99,7 +99,7 @@ ve de lejos, no hay nada que comparar.
 **dejar de orbitar y patear la pelota en dirección al arco**, para no salirse de la cancha.
 
 **El hardware existe en el código viejo:** `readLine(1/2/3)` = izquierdo / centro / derecho, con
-umbrales propios del delantero **650 / 650 / 750** (`robots-2025/delantero/delantero.ino:26-28`,
+umbrales propios del delantero **650 / 650 / 750** (`futbol-roboliga2026/robots-2025/delantero/delantero.ino:26-28`,
 `:369-371`).
 
 **⚠️ Mismo aviso que arriba:** el firmware de 2026 no los lee. Hay que confirmar que funcionan.
@@ -162,6 +162,6 @@ Propuesta: una constante `ATACAR_ARCO_AMARILLO`, ~10 líneas.
   por estimación, no por medición.
 - **Dibujar el círculo de la órbita con tiza** y confirmar los ~35 cm de diámetro que predice
   `R = 2·L`. Nunca se midió.
-- **Corregir el README de `robots-2025/vision-openmv/`**: dice que el protocolo no se puede
+- **Corregir el README de `futbol-roboliga2026/robots-2025/vision-openmv/`**: dice que el protocolo no se puede
   resincronizar, y eso es falso — ningún byte de datos puede valer 201/202/203, así que se
   realinea solo.

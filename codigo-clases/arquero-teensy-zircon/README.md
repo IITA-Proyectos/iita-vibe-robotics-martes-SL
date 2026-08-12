@@ -32,6 +32,19 @@ acá y no se mezcla con lo de las otras mesas.
 | 8 / 7 / 6 | U17 | **derecha** |
 | 11 / 12 / 4 | U7 | **trasera** |
 
+### Mapa de sensores de línea — MEDIDO en banco
+
+| Pin | Posición |
+|---|---|
+| A12 | **adelante** |
+| A13 | **atrás izquierda** |
+| A11 | **atrás derecha** |
+
+Más claro = número más alto. En cancha: verde 356 y 465, línea blanca ~760,
+**umbral 620**. Los dos de atrás no son iguales entre sí — 110 puntos de
+diferencia sobre el mismo verde. Ver
+[la bitácora del 11/08](bitacora/2026-08-11-sensores-de-linea-y-arquero-completo.md).
+
 ⚠️ Los comentarios del código 2025 dicen izquierda/derecha **al revés** — están escritos mirando
 al robot de frente en vez de desde el robot. La tabla de arriba es lo medido. Ver
 [la bitácora de identificación](bitacora/2026-07-28-identificacion-arquero.md).
@@ -49,6 +62,9 @@ al robot de frente en vez de desde el robot. La tabla de arriba es lo medido. Ve
 | Prueba | Responde |
 |---|---|
 | [`ver-camara/`](pruebas/ver-camara/) | ¿La cámara está hablando? ¿Ve la pelota, y a qué distancia? |
+| [`ver-linea/`](pruebas/ver-linea/) | Los tres sensores de línea en vivo. Cuál es cuál |
+| [`buscar-sensores/`](pruebas/buscar-sensores/) | ¿En qué pines están los sensores? Lee las 18 entradas a la vez |
+| [`calibrar-linea/`](pruebas/calibrar-linea/) | Verde vs. blanco en la cancha, sin cable. Calcula el umbral |
 | [`cuadrado-lento/`](pruebas/cuadrado-lento/) | Con el peso encima, ¿anda derecho? (giros por cronómetro) |
 | [`cuadrado-giroscopo/`](pruebas/cuadrado-giroscopo/) | Lo mismo con lazo cerrado de rumbo |
 | [`calibrar-15cm/`](pruebas/calibrar-15cm/) | ¿Cuánto tiempo de motor es una distancia dada? |
@@ -58,7 +74,8 @@ al robot de frente en vez de desde el robot. La tabla de arriba es lo medido. Ve
 
 | Programa | Qué hace |
 |---|---|
-| [`despeje-pelota/`](funciona/despeje-pelota/) | Ve la pelota naranja cerca → salta 30 cm, la saca, vuelve y se endereza |
+| [`seguir-y-despejar/`](funciona/seguir-y-despejar/) | ⭐ **El arquero completo.** Sigue la pelota de costado sin dejar de mirar al frente, y la despeja cuando se acerca |
+| [`despeje-pelota/`](funciona/despeje-pelota/) | Solo el despeje, sin seguimiento. Más simple para probar de a una cosa |
 
 ## Cargar un programa
 

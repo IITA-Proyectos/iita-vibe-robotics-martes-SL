@@ -1,4 +1,4 @@
-# 1 "C:\\Users\\violl\\AppData\\Local\\Temp\\tmp5lwc1ei2"
+# 1 "C:\\Users\\violl\\AppData\\Local\\Temp\\tmp889p23v6"
 #include <Arduino.h>
 # 1 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
 # 70 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
@@ -92,12 +92,15 @@ const bool LINEA_ACTIVA = true;
 const int VEL_ESCAPE = 100;
 const unsigned long MS_ESCAPE_EXTRA = 400;
 const unsigned long MS_PARA_ARMAR = 500;
-# 369 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
+# 377 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
+const int VEL_FRENO = 240;
+const unsigned long MS_FRENO = 150;
+# 392 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
 int UMBRAL_LINEA[3] = { 620, 620, 620 };
 
 
 const int PIN_VERSION_PLACA = 32;
-# 409 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
+# 432 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
 int Xp = 0, Yp = 0;
 int Xam = 0, Yam = 0;
 int Xaz = 0, Yaz = 0;
@@ -131,6 +134,7 @@ int pinLinea[3] = { A11, A13, A12 };
 const char* versionPlaca = "?";
 bool lineaArmada = false;
 unsigned long t_verdeDesde = 0;
+bool frenoFuerte = false;
 int mascaraLinea = 0;
 unsigned long t_ultimaLinea = 0;
 
@@ -140,7 +144,7 @@ Estado estado = BUSCANDO;
 Estado estadoAnterior = PATEA_ATRAS;
 
 bool avisadoSinCamara = false;
-# 459 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
+# 483 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
 unsigned long nPaquetes = 0, nTirados = 0, nLoops = 0;
 unsigned long t_contadores = 0;
 void parar();
@@ -149,7 +153,7 @@ void avanzar(int vel);
 void retroceder(int vel);
 void orbitar(bool sentidoA, int velTrasera);
 int leerLineas();
-void escaparDeLinea(int m);
+void escaparDeLinea(int m, int velocidad);
 void rotarPulsado(bool sentidoA, int vel, int msPulso, int msEspera);
 void leerCamara();
 float anguloDe(int X, int Y);
@@ -167,7 +171,7 @@ void cambiarA(Estado nuevo);
 void setup();
 bool sentidoParaOrbitar();
 void loop();
-#line 465 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
+#line 489 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
 void parar() {
   analogWrite(IZQ_PWM, 0); digitalWrite(IZQ_INA, 0); digitalWrite(IZQ_INB, 0);
   analogWrite(DER_PWM, 0); digitalWrite(DER_INA, 0); digitalWrite(DER_INB, 0);
@@ -221,7 +225,7 @@ int leerLineas() {
 
 
 
-void escaparDeLinea(int m) {
+void escaparDeLinea(int m, int velocidad) {
 
   int v[3] = { 0, 0, 0 };
   if (m & 1) { v[1] -= 1; v[2] += 1; }
@@ -240,7 +244,7 @@ void escaparDeLinea(int m) {
   }
 
   int pwm[3];
-  for (int i = 0; i < 3; i++) pwm[i] = (v[i] * VEL_ESCAPE) / pico;
+  for (int i = 0; i < 3; i++) pwm[i] = (v[i] * velocidad) / pico;
 
   analogWrite(IZQ_PWM, abs(pwm[0]));
   digitalWrite(IZQ_INA, pwm[0] > 0 ? 1 : 0);
@@ -302,7 +306,7 @@ void leerCamara() {
     }
   }
 }
-# 611 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
+# 635 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
 float anguloDe(int X, int Y) {
   if (X <= 0) return 0.0;
   return atan2((float)Y, (float)X) * 180.0 / PI;
@@ -324,7 +328,7 @@ int arcoX() { return objetivoEsAmarillo ? XamBueno : XazBueno; }
 int arcoY() { return objetivoEsAmarillo ? YamBueno : YazBueno; }
 unsigned long arcoT() { return objetivoEsAmarillo ? t_ultimoAmarillo : t_ultimoAzul; }
 const char* arcoNombre() { return objetivoEsAmarillo ? "AMARILLO" : "AZUL"; }
-# 642 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
+# 666 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
 float rumboActual() {
   sensors_event_t evento;
   bno.getEvent(&evento);
@@ -480,7 +484,7 @@ void setup() {
   Serial.print(pinLinea[1]); Serial.print(", "); Serial.println(pinLinea[2]);
 
   if (LINEA_ACTIVA) {
-# 812 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
+# 836 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
     Serial.print("Linea: sensores leen ");
     Serial.print(analogRead(pinLinea[0])); Serial.print(" / ");
     Serial.print(analogRead(pinLinea[1])); Serial.print(" / ");
@@ -526,7 +530,7 @@ void setup() {
   t_verdeDesde = millis();
   cambiarA(BUSCANDO);
 }
-# 865 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
+# 889 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
 bool sentidoParaOrbitar() {
   bool porDefecto = !ORBITA_INVERTIDA;
   if (!ORBITA_CAMINO_CORTO) return porDefecto;
@@ -571,10 +575,17 @@ void loop() {
       t_ultimaLinea = millis();
       mascaraLinea = m;
       if (estado != ESCAPA_LINEA) {
+
+        frenoFuerte = (estado == PATEA_ADEL);
         Serial.print("!!! LINEA BLANCA (sensores");
         for (int i = 0; i < 3; i++) if (m & (1 << i)) { Serial.print(" "); Serial.print(i + 1); }
         Serial.print(") estando en "); Serial.print(nombreEstado(estado));
-        Serial.println(" -> ESCAPO");
+        if (frenoFuerte) {
+          Serial.print(" -> FRENO A FONDO ("); Serial.print(VEL_FRENO);
+          Serial.print(" x "); Serial.print(MS_FRENO); Serial.println(" ms) y escapo");
+        } else {
+          Serial.println(" -> ESCAPO");
+        }
         cambiarA(ESCAPA_LINEA);
       }
     }
@@ -598,7 +609,9 @@ void loop() {
       Serial.println("... ya me despegue de la linea");
       cambiarA(BUSCANDO);
     } else {
-      escaparDeLinea(mascaraLinea);
+
+      bool frenando = (frenoFuerte && enEstado < MS_FRENO);
+      escaparDeLinea(mascaraLinea, frenando ? VEL_FRENO : VEL_ESCAPE);
     }
   }
 

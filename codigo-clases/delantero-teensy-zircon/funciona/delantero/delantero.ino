@@ -354,6 +354,29 @@ const int  VEL_ESCAPE   = 100;              // el del campeon 2025
 const unsigned long MS_ESCAPE_EXTRA = 400;  // sigue 400 ms DESPUES de dejar de verla
 const unsigned long MS_PARA_ARMAR   = 500;  // verde de corrido antes de armar el escape
 
+//  EL GOLPE DE FRENO [2026-08-18]
+//
+//  POR QUE. Si el robot cruza la linea con mas de medio cuerpo es GOL EN
+//  CONTRA (regla que trajo Gustavo del reglamento nuevo). Pateando va a
+//  VEL_PATADA = 240, y el escape normal empuja a 100: le opone menos de la
+//  mitad de lo que traia. Peor: parar() SUELTA las ruedas, no las traba —
+//  pone las seis patas de direccion en 0, que es rueda libre. En todo el
+//  firmware no habia ni un freno activo.
+//
+//  COMO SE FRENA SIN FRENO. Se empuja al reves. Cuando el sensor de ADELANTE
+//  ve la linea, la direccion de escape ya apunta hacia la rueda TRASERA — o
+//  sea, para atras — asi que el escape SI se opone al avance. Lo que faltaba
+//  era fuerza: para matar un envion hecho con 240 hay que oponer 240, no 100.
+//
+//  ES LA MISMA FORMA QUE EL IMPULSO DE LA ORBITA, AL REVES: fuerte primero,
+//  normal despues.
+//
+//  SOLO SALIENDO DE LA PATADA. Avanzar va a 55 y la orbita a 48; si les
+//  metiera 240 de freno, el robot saldria disparado contra la linea de
+//  enfrente. La patada es el unico estado rapido.
+const int VEL_FRENO = 240;                 // igual que la patada: lo que trajo, se le opone
+const unsigned long MS_FRENO = 150;        // cuanto dura el golpe de freno
+
 //  UMBRALES DEL 2025, luz del laboratorio del anio pasado. Ya nos paso con
 //  los umbrales de color: se re-miden con pruebas/sensores-de-linea/ antes
 //  de confiar. Mientras tanto hay una AUTOPROTECCION al arrancar: si un
@@ -439,6 +462,7 @@ int  pinLinea[3]  = { A11, A13, A12 };   // Mark1; se corrige en setup()
 const char* versionPlaca = "?";
 bool lineaArmada  = false;   // se arma sola la primera vez que ve VERDE
 unsigned long t_verdeDesde = 0;
+bool frenoFuerte = false;    // entramos al escape viniendo de la patada?
 int  mascaraLinea = 0;
 unsigned long t_ultimaLinea = 0;
 
@@ -515,7 +539,7 @@ int leerLineas() {
 
 // Escapa de la(s) linea(s) que se estan viendo. Suma las direcciones, asi
 // que las esquinas (dos sensores a la vez) salen solas.
-void escaparDeLinea(int m) {
+void escaparDeLinea(int m, int velocidad) {
   //          IZQ(M1) DER(M2) TRA(M3)
   int v[3] = {   0,      0,      0   };
   if (m & 1) { v[1] -= 1; v[2] += 1; }   // hacia la DI  -> IZQ apagada
@@ -534,7 +558,7 @@ void escaparDeLinea(int m) {
   }
 
   int pwm[3];
-  for (int i = 0; i < 3; i++) pwm[i] = (v[i] * VEL_ESCAPE) / pico;
+  for (int i = 0; i < 3; i++) pwm[i] = (v[i] * velocidad) / pico;
 
   analogWrite(IZQ_PWM, abs(pwm[0]));
   digitalWrite(IZQ_INA, pwm[0] > 0 ? 1 : 0);
@@ -906,10 +930,17 @@ void loop() {
       t_ultimaLinea = millis();
       mascaraLinea  = m;
       if (estado != ESCAPA_LINEA) {
+        // Si veniamos pateando, el envion es mucho mas grande: primero freno.
+        frenoFuerte = (estado == PATEA_ADEL);
         Serial.print("!!! LINEA BLANCA (sensores");
         for (int i = 0; i < 3; i++) if (m & (1 << i)) { Serial.print(" "); Serial.print(i + 1); }
         Serial.print(") estando en "); Serial.print(nombreEstado(estado));
-        Serial.println(" -> ESCAPO");
+        if (frenoFuerte) {
+          Serial.print(" -> FRENO A FONDO ("); Serial.print(VEL_FRENO);
+          Serial.print(" x "); Serial.print(MS_FRENO); Serial.println(" ms) y escapo");
+        } else {
+          Serial.println(" -> ESCAPO");
+        }
         cambiarA(ESCAPA_LINEA);
       }
     }
@@ -933,7 +964,9 @@ void loop() {
       Serial.println("... ya me despegue de la linea");
       cambiarA(BUSCANDO);
     } else {
-      escaparDeLinea(mascaraLinea);
+      // Los primeros MS_FRENO ms van a fondo SOLO si veniamos pateando.
+      bool frenando = (frenoFuerte && enEstado < MS_FRENO);
+      escaparDeLinea(mascaraLinea, frenando ? VEL_FRENO : VEL_ESCAPE);
     }
   }
 

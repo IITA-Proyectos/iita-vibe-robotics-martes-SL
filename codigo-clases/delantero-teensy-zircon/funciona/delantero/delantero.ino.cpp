@@ -1,4 +1,4 @@
-# 1 "C:\\Users\\violl\\AppData\\Local\\Temp\\tmp889p23v6"
+# 1 "C:\\Users\\violl\\AppData\\Local\\Temp\\tmp2prhxmq4"
 #include <Arduino.h>
 # 1 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
 # 70 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
@@ -360,28 +360,48 @@ const char* nombreEstado(Estado e) {
   }
   return "?";
 }
-
-
-
-
-
-
+# 722 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
 bool arrancarGiroscopo() {
-  if (!bno.begin()) return false;
-  delay(700);
+  if (!bno.begin()) {
+    Serial.println("no contesta en el bus I2C (0x28)");
+    return false;
+  }
+  delay(1000);
   bno.setExtCrystalUse(true);
-  int buenas = 0;
+  delay(1000);
+
+  int buenas = 0, seguidasAlFinal = 0;
+  Serial.println();
+  Serial.print("   secuencia (. = dato, 0 = cero): ");
   for (int i = 0; i < 20; i++) {
     sensors_event_t e;
     bno.getEvent(&e);
-    if (e.orientation.x != 0.0 || e.orientation.y != 0.0 || e.orientation.z != 0.0) buenas++;
+    bool ok = (e.orientation.x != 0.0 || e.orientation.y != 0.0 || e.orientation.z != 0.0);
+    Serial.print(ok ? '.' : '0');
+    if (ok) { buenas++; seguidasAlFinal++; } else { seguidasAlFinal = 0; }
     delay(50);
   }
-  if (buenas < 10) {
-    Serial.print("   contesta pero da ceros ("); Serial.print(buenas);
-    Serial.println("/20 lecturas utiles) — no lo doy por bueno");
+  Serial.println();
+
+  uint8_t sys = 0, gy = 0, ac = 0, mg = 0;
+  bno.getCalibration(&sys, &gy, &ac, &mg);
+  Serial.print("   calibracion  sistema="); Serial.print(sys);
+  Serial.print(" giro="); Serial.print(gy);
+  Serial.print(" acel="); Serial.print(ac);
+  Serial.print(" magn="); Serial.print(mg);
+  Serial.println("   (0 = sin calibrar, 3 = calibrado)");
+
+
+
+  if (seguidasAlFinal < 5) {
+    Serial.print("   "); Serial.print(buenas);
+    Serial.print("/20 utiles y solo "); Serial.print(seguidasAlFinal);
+    Serial.println(" seguidas al final — no lo doy por bueno");
     return false;
   }
+  Serial.print("   "); Serial.print(buenas);
+  Serial.print("/20 utiles, "); Serial.print(seguidasAlFinal);
+  Serial.println(" seguidas al final");
   contadorCeros = 0;
   return true;
 }
@@ -484,7 +504,7 @@ void setup() {
   Serial.print(pinLinea[1]); Serial.print(", "); Serial.println(pinLinea[2]);
 
   if (LINEA_ACTIVA) {
-# 836 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
+# 880 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
     Serial.print("Linea: sensores leen ");
     Serial.print(analogRead(pinLinea[0])); Serial.print(" / ");
     Serial.print(analogRead(pinLinea[1])); Serial.print(" / ");
@@ -530,7 +550,7 @@ void setup() {
   t_verdeDesde = millis();
   cambiarA(BUSCANDO);
 }
-# 889 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
+# 933 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
 bool sentidoParaOrbitar() {
   bool porDefecto = !ORBITA_INVERTIDA;
   if (!ORBITA_CAMINO_CORTO) return porDefecto;

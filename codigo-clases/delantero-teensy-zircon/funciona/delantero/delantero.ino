@@ -700,22 +700,66 @@ const char* nombreEstado(Estado e) {
 
 // Enciende el BNO055. Devuelve false si no contesta o si contesta puros
 // ceros. NO se cuelga el programa si falla: se sigue sin giroscopo.
+// ERROR PROPIO, CORREGIDO EL 2026-08-18.
+//
+// La version anterior tomaba las 20 lecturas de prueba INMEDIATAMENTE despues
+// de setExtCrystalUse(). Y esa llamada pasa el BNO a modo configuracion,
+// cambia el reloj y vuelve: el algoritmo de fusion arranca DE CERO y devuelve
+// 0.000 legitimos mientras converge. O sea que yo le tomaba el pulso al sensor
+// mientras despertaba, contaba esos ceros como fallas, y lo declaraba muerto.
+//
+// El numero lo gritaba y no lo escuche: daba SIEMPRE "9 de 20 utiles". Con
+// lecturas cada 50 ms son 11 ceros al principio y 9 buenas al final — el
+// sensor despertando a la mitad de mi propia prueba.
+//
+// El arquero, que lo tiene andando, hace begin() + delay(1000) +
+// setExtCrystalUse() y NO VERIFICA NADA. Si corriera mi prueba, le daria igual
+// de mal.
+//
+// Ahora: se espera DESPUES del cambio de reloj, y se juzga por las ULTIMAS
+// lecturas, no por el total — porque lo que importa es como termina, no como
+// empieza. Y se imprime la secuencia entera para poder VERLO.
 bool arrancarGiroscopo() {
-  if (!bno.begin()) return false;
-  delay(700);                      // el BNO tarda en arrancar la fusion
+  if (!bno.begin()) {
+    Serial.println("no contesta en el bus I2C (0x28)");
+    return false;
+  }
+  delay(1000);                     // igual que el arquero
   bno.setExtCrystalUse(true);
-  int buenas = 0;
+  delay(1000);                     // <<< LO QUE FALTABA: dejarlo re-arrancar
+
+  int buenas = 0, seguidasAlFinal = 0;
+  Serial.println();
+  Serial.print("   secuencia (. = dato, 0 = cero): ");
   for (int i = 0; i < 20; i++) {
     sensors_event_t e;
     bno.getEvent(&e);
-    if (e.orientation.x != 0.0 || e.orientation.y != 0.0 || e.orientation.z != 0.0) buenas++;
+    bool ok = (e.orientation.x != 0.0 || e.orientation.y != 0.0 || e.orientation.z != 0.0);
+    Serial.print(ok ? '.' : '0');
+    if (ok) { buenas++; seguidasAlFinal++; } else { seguidasAlFinal = 0; }
     delay(50);
   }
-  if (buenas < 10) {
-    Serial.print("   contesta pero da ceros ("); Serial.print(buenas);
-    Serial.println("/20 lecturas utiles) — no lo doy por bueno");
+  Serial.println();
+
+  uint8_t sys = 0, gy = 0, ac = 0, mg = 0;
+  bno.getCalibration(&sys, &gy, &ac, &mg);
+  Serial.print("   calibracion  sistema="); Serial.print(sys);
+  Serial.print(" giro="); Serial.print(gy);
+  Serial.print(" acel="); Serial.print(ac);
+  Serial.print(" magn="); Serial.print(mg);
+  Serial.println("   (0 = sin calibrar, 3 = calibrado)");
+
+  // El criterio es como TERMINA, no el total: si las ultimas 5 son buenas, el
+  // sensor esta entregando datos ahora, que es lo unico que importa.
+  if (seguidasAlFinal < 5) {
+    Serial.print("   "); Serial.print(buenas);
+    Serial.print("/20 utiles y solo "); Serial.print(seguidasAlFinal);
+    Serial.println(" seguidas al final — no lo doy por bueno");
     return false;
   }
+  Serial.print("   "); Serial.print(buenas);
+  Serial.print("/20 utiles, "); Serial.print(seguidasAlFinal);
+  Serial.println(" seguidas al final");
   contadorCeros = 0;
   return true;
 }

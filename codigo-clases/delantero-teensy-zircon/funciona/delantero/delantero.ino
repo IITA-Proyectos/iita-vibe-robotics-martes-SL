@@ -254,11 +254,14 @@ const unsigned long SIN_DATOS_MS = 1500;
 //  (tolerancia_apuntado): la pelota tiene que estar ADELANTE. Si la pelota
 //  esta a 40 grados y el arco tambien, la resta da 0 — pero el robot al
 //  avanzar derecho ni la toca.
-const float TOL_ANG_PELOTA   = 8.0;  // la pelota tiene que estar a menos de esto del frente
-const float TOL_ANG_ALINEADO = 8.0;  // y el arco a menos de esto de la pelota
+const float TOL_ANG_PELOTA   = 10.0;  // la pelota tiene que estar a menos de esto del frente
+const float TOL_ANG_ALINEADO = 10.0;  // y el arco a menos de esto de la pelota
 //         ^ el 2025 usaba 15 grados (tolerancia_apuntado). Arrancamos en 15 y
 //           el 2026-08-11 Gustavo lo probo en el piso: "es mucho y patea muy
-//           mal de direccion". Bajados los dos a 8.
+//           mal de direccion". Bajados los dos a 8. El 2026-08-18 subidos a
+//           10 a pedido de Gustavo. OJO: 10 NO alcanza para patear orbitando —
+//           en el log del 11/08 la pelota estaba a 22-34 grados durante la
+//           orbita. Sirve para la patada de frente, no para la de la orbita.
 //
 //           POR QUE LOS DOS Y NO SOLO EL DEL ARCO. El robot empuja DERECHO.
 //           Si la pelota esta 14 grados al costado, la toca de refilon y sale

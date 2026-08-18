@@ -3,3 +3,8 @@
 .pio-build/
 .pio/
 
+
+# Basura del compilador: PlatformIO genera el .ino ya preprocesado al lado
+# del fuente. Es una COPIA que no se actualiza — si queda versionada, el que
+# abra la carpeta ve dos archivos casi iguales y no sabe cual manda.
+*.ino.cpp

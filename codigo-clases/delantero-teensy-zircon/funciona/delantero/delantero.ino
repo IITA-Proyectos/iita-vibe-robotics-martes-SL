@@ -352,6 +352,7 @@ const bool GIRO_RUMBO_INVERTIDO     = false;  // si al apuntar al cero se aleja,
 const bool LINEA_ACTIVA = true;
 const int  VEL_ESCAPE   = 100;              // el del campeon 2025
 const unsigned long MS_ESCAPE_EXTRA = 400;  // sigue 400 ms DESPUES de dejar de verla
+const unsigned long MS_PARA_ARMAR   = 500;  // verde de corrido antes de armar el escape
 
 //  UMBRALES DEL 2025, luz del laboratorio del anio pasado. Ya nos paso con
 //  los umbrales de color: se re-miden con pruebas/sensores-de-linea/ antes
@@ -436,7 +437,8 @@ const int CEROS_PARA_DARLO_POR_CAIDO = 10;
 // --- sensores de linea ---
 int  pinLinea[3]  = { A11, A13, A12 };   // Mark1; se corrige en setup()
 const char* versionPlaca = "?";
-bool lineaHabilitada = false;
+bool lineaArmada  = false;   // se arma sola la primera vez que ve VERDE
+unsigned long t_verdeDesde = 0;
 int  mascaraLinea = 0;
 unsigned long t_ultimaLinea = 0;
 
@@ -792,10 +794,21 @@ void setup() {
   Serial.print(pinLinea[1]); Serial.print(", "); Serial.println(pinLinea[2]);
 
   if (LINEA_ACTIVA) {
-    // AUTOPROTECCION: el robot se enciende apoyado en el verde, no sobre una
-    // linea. Si un sensor ya dice "blanco", el umbral esta mal para la luz de
-    // hoy — y con el umbral mal el robot escaparia para siempre. Mejor
-    // desactivar y avisar que salir corriendo sin motivo.
+    // ARMADO DIFERIDO [2026-08-18]
+    //
+    // La version anterior desactivaba el escape PARA SIEMPRE si al encender
+    // algun sensor leia blanco. El supuesto era "el robot se enciende sobre el
+    // verde". Es falso en la practica: se enciende sobre la MESA, que es clara,
+    // y entonces el escape quedaba muerto toda la corrida — el robot ni leia
+    // los sensores. Sintoma: "no detecta las lineas blancas".
+    //
+    // Ahora no se apaga nada. El escape se ARMA SOLO la primera vez que los
+    // tres sensores ven verde de corrido. O sea: lo apoyas en la cancha y se
+    // arma; lo dejas en la mesa y espera, avisando.
+    //
+    // Se conserva lo bueno de la proteccion: si un umbral esta de verdad mal,
+    // los tres nunca dan verde juntos, nunca se arma, y el robot NO sale
+    // corriendo por una linea que no existe.
     Serial.print("Linea: sensores leen ");
     Serial.print(analogRead(pinLinea[0])); Serial.print(" / ");
     Serial.print(analogRead(pinLinea[1])); Serial.print(" / ");
@@ -803,16 +816,8 @@ void setup() {
     Serial.print("   umbrales "); Serial.print(UMBRAL_LINEA[0]);
     Serial.print(" / "); Serial.print(UMBRAL_LINEA[1]);
     Serial.print(" / "); Serial.println(UMBRAL_LINEA[2]);
-
-    int m = leerLineas();
-    if (m != 0) {
-      lineaHabilitada = false;
-      Serial.println("!!! YA LEE BLANCO ESTANDO EN EL VERDE -> el umbral esta mal.");
-      Serial.println("!!! ESCAPE DE LINEA DESACTIVADO. Corre pruebas/sensores-de-linea/");
-    } else {
-      lineaHabilitada = true;
-      Serial.println("Linea: OK, escape ACTIVADO (anula todo lo demas).");
-    }
+    Serial.print("Linea: se arma sola cuando vea verde en los tres (");
+    Serial.print(MS_PARA_ARMAR); Serial.println(" ms seguidos). Apoyalo en la cancha.");
   } else {
     Serial.println("Linea: apagada por configuracion.");
   }
@@ -846,6 +851,7 @@ void setup() {
 
   t_ultimoPaquete = millis();
   t_contadores    = millis();   // si no, la primera medicion sale con dt enorme
+  t_verdeDesde    = millis();
   cambiarA(BUSCANDO);
 }
 
@@ -882,8 +888,20 @@ void loop() {
   // ---------- LA LINEA BLANCA MANDA SOBRE TODO ----------
   // Va antes que cualquier otra cosa y anula el estado en curso, incluida la
   // patada. Salir de la cancha es peor que perder una jugada.
-  if (lineaHabilitada) {
+  if (LINEA_ACTIVA) {
     int m = leerLineas();
+
+    if (!lineaArmada) {
+      // Todavia no se armo: espero a ver verde en los TRES, de corrido.
+      if (m != 0) {
+        t_verdeDesde = millis();          // vio blanco -> se reinicia la cuenta
+      } else if (millis() - t_verdeDesde >= MS_PARA_ARMAR) {
+        lineaArmada = true;
+        Serial.println("*** LINEA: verde confirmado -> ESCAPE ARMADO");
+      }
+      m = 0;                              // sin armar no se escapa de nada
+    }
+
     if (m != 0) {
       t_ultimaLinea = millis();
       mascaraLinea  = m;
@@ -1067,6 +1085,11 @@ void loop() {
     Serial.print("  separacion=");
     if (veoArco) Serial.print(fabs(diferencia(angArco, angPelota)), 1); else Serial.print("--");
     if (giroscopoSano()) { Serial.print("  rumbo="); Serial.print(ultimoRumbo, 0); }
+    Serial.print("  linea=");
+    Serial.print(analogRead(pinLinea[0])); Serial.print("/");
+    Serial.print(analogRead(pinLinea[1])); Serial.print("/");
+    Serial.print(analogRead(pinLinea[2]));
+    Serial.print(lineaArmada ? " [armado]" : " [SIN ARMAR]");
     Serial.println();
 
     unsigned long dt = millis() - t_contadores;

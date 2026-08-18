@@ -1,4 +1,4 @@
-# 1 "C:\\Users\\violl\\AppData\\Local\\Temp\\tmpz98ycas0"
+# 1 "C:\\Users\\violl\\AppData\\Local\\Temp\\tmp5lwc1ei2"
 #include <Arduino.h>
 # 1 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
 # 70 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
@@ -91,12 +91,13 @@ const bool GIRO_RUMBO_INVERTIDO = false;
 const bool LINEA_ACTIVA = true;
 const int VEL_ESCAPE = 100;
 const unsigned long MS_ESCAPE_EXTRA = 400;
-# 368 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
+const unsigned long MS_PARA_ARMAR = 500;
+# 369 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
 int UMBRAL_LINEA[3] = { 620, 620, 620 };
 
 
 const int PIN_VERSION_PLACA = 32;
-# 408 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
+# 409 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
 int Xp = 0, Yp = 0;
 int Xam = 0, Yam = 0;
 int Xaz = 0, Yaz = 0;
@@ -128,7 +129,8 @@ const int CEROS_PARA_DARLO_POR_CAIDO = 10;
 
 int pinLinea[3] = { A11, A13, A12 };
 const char* versionPlaca = "?";
-bool lineaHabilitada = false;
+bool lineaArmada = false;
+unsigned long t_verdeDesde = 0;
 int mascaraLinea = 0;
 unsigned long t_ultimaLinea = 0;
 
@@ -138,7 +140,7 @@ Estado estado = BUSCANDO;
 Estado estadoAnterior = PATEA_ATRAS;
 
 bool avisadoSinCamara = false;
-# 457 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
+# 459 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
 unsigned long nPaquetes = 0, nTirados = 0, nLoops = 0;
 unsigned long t_contadores = 0;
 void parar();
@@ -165,7 +167,7 @@ void cambiarA(Estado nuevo);
 void setup();
 bool sentidoParaOrbitar();
 void loop();
-#line 463 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
+#line 465 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
 void parar() {
   analogWrite(IZQ_PWM, 0); digitalWrite(IZQ_INA, 0); digitalWrite(IZQ_INB, 0);
   analogWrite(DER_PWM, 0); digitalWrite(DER_INA, 0); digitalWrite(DER_INB, 0);
@@ -300,7 +302,7 @@ void leerCamara() {
     }
   }
 }
-# 609 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
+# 611 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
 float anguloDe(int X, int Y) {
   if (X <= 0) return 0.0;
   return atan2((float)Y, (float)X) * 180.0 / PI;
@@ -322,7 +324,7 @@ int arcoX() { return objetivoEsAmarillo ? XamBueno : XazBueno; }
 int arcoY() { return objetivoEsAmarillo ? YamBueno : YazBueno; }
 unsigned long arcoT() { return objetivoEsAmarillo ? t_ultimoAmarillo : t_ultimoAzul; }
 const char* arcoNombre() { return objetivoEsAmarillo ? "AMARILLO" : "AZUL"; }
-# 640 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
+# 642 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
 float rumboActual() {
   sensors_event_t evento;
   bno.getEvent(&evento);
@@ -478,10 +480,7 @@ void setup() {
   Serial.print(pinLinea[1]); Serial.print(", "); Serial.println(pinLinea[2]);
 
   if (LINEA_ACTIVA) {
-
-
-
-
+# 812 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
     Serial.print("Linea: sensores leen ");
     Serial.print(analogRead(pinLinea[0])); Serial.print(" / ");
     Serial.print(analogRead(pinLinea[1])); Serial.print(" / ");
@@ -489,16 +488,8 @@ void setup() {
     Serial.print("   umbrales "); Serial.print(UMBRAL_LINEA[0]);
     Serial.print(" / "); Serial.print(UMBRAL_LINEA[1]);
     Serial.print(" / "); Serial.println(UMBRAL_LINEA[2]);
-
-    int m = leerLineas();
-    if (m != 0) {
-      lineaHabilitada = false;
-      Serial.println("!!! YA LEE BLANCO ESTANDO EN EL VERDE -> el umbral esta mal.");
-      Serial.println("!!! ESCAPE DE LINEA DESACTIVADO. Corre pruebas/sensores-de-linea/");
-    } else {
-      lineaHabilitada = true;
-      Serial.println("Linea: OK, escape ACTIVADO (anula todo lo demas).");
-    }
+    Serial.print("Linea: se arma sola cuando vea verde en los tres (");
+    Serial.print(MS_PARA_ARMAR); Serial.println(" ms seguidos). Apoyalo en la cancha.");
   } else {
     Serial.println("Linea: apagada por configuracion.");
   }
@@ -532,9 +523,10 @@ void setup() {
 
   t_ultimoPaquete = millis();
   t_contadores = millis();
+  t_verdeDesde = millis();
   cambiarA(BUSCANDO);
 }
-# 859 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
+# 865 "C:/Users/violl/iita-martes-delantero/codigo-clases/delantero-teensy-zircon/funciona/delantero/delantero.ino"
 bool sentidoParaOrbitar() {
   bool porDefecto = !ORBITA_INVERTIDA;
   if (!ORBITA_CAMINO_CORTO) return porDefecto;
@@ -561,8 +553,20 @@ void loop() {
 
 
 
-  if (lineaHabilitada) {
+  if (LINEA_ACTIVA) {
     int m = leerLineas();
+
+    if (!lineaArmada) {
+
+      if (m != 0) {
+        t_verdeDesde = millis();
+      } else if (millis() - t_verdeDesde >= MS_PARA_ARMAR) {
+        lineaArmada = true;
+        Serial.println("*** LINEA: verde confirmado -> ESCAPE ARMADO");
+      }
+      m = 0;
+    }
+
     if (m != 0) {
       t_ultimaLinea = millis();
       mascaraLinea = m;
@@ -746,6 +750,11 @@ void loop() {
     Serial.print("  separacion=");
     if (veoArco) Serial.print(fabs(diferencia(angArco, angPelota)), 1); else Serial.print("--");
     if (giroscopoSano()) { Serial.print("  rumbo="); Serial.print(ultimoRumbo, 0); }
+    Serial.print("  linea=");
+    Serial.print(analogRead(pinLinea[0])); Serial.print("/");
+    Serial.print(analogRead(pinLinea[1])); Serial.print("/");
+    Serial.print(analogRead(pinLinea[2]));
+    Serial.print(lineaArmada ? " [armado]" : " [SIN ARMAR]");
     Serial.println();
 
     unsigned long dt = millis() - t_contadores;

@@ -254,14 +254,11 @@ const unsigned long SIN_DATOS_MS = 1500;
 //  (tolerancia_apuntado): la pelota tiene que estar ADELANTE. Si la pelota
 //  esta a 40 grados y el arco tambien, la resta da 0 — pero el robot al
 //  avanzar derecho ni la toca.
-const float TOL_ANG_PELOTA   = 10.0;  // la pelota tiene que estar a menos de esto del frente
-const float TOL_ANG_ALINEADO = 10.0;  // y el arco a menos de esto de la pelota
+const float TOL_ANG_PELOTA   = 8.0;  // la pelota tiene que estar a menos de esto del frente
+const float TOL_ANG_ALINEADO = 8.0;  // y el arco a menos de esto de la pelota
 //         ^ el 2025 usaba 15 grados (tolerancia_apuntado). Arrancamos en 15 y
 //           el 2026-08-11 Gustavo lo probo en el piso: "es mucho y patea muy
-//           mal de direccion". Bajados los dos a 8. El 2026-08-18 subidos a
-//           10 a pedido de Gustavo. OJO: 10 NO alcanza para patear orbitando —
-//           en el log del 11/08 la pelota estaba a 22-34 grados durante la
-//           orbita. Sirve para la patada de frente, no para la de la orbita.
+//           mal de direccion". Bajados los dos a 8.
 //
 //           POR QUE LOS DOS Y NO SOLO EL DEL ARCO. El robot empuja DERECHO.
 //           Si la pelota esta 14 grados al costado, la toca de refilon y sale
@@ -352,30 +349,6 @@ const bool GIRO_RUMBO_INVERTIDO     = false;  // si al apuntar al cero se aleja,
 const bool LINEA_ACTIVA = true;
 const int  VEL_ESCAPE   = 100;              // el del campeon 2025
 const unsigned long MS_ESCAPE_EXTRA = 400;  // sigue 400 ms DESPUES de dejar de verla
-const unsigned long MS_PARA_ARMAR   = 500;  // verde de corrido antes de armar el escape
-
-//  EL GOLPE DE FRENO [2026-08-18]
-//
-//  POR QUE. Si el robot cruza la linea con mas de medio cuerpo es GOL EN
-//  CONTRA (regla que trajo Gustavo del reglamento nuevo). Pateando va a
-//  VEL_PATADA = 240, y el escape normal empuja a 100: le opone menos de la
-//  mitad de lo que traia. Peor: parar() SUELTA las ruedas, no las traba —
-//  pone las seis patas de direccion en 0, que es rueda libre. En todo el
-//  firmware no habia ni un freno activo.
-//
-//  COMO SE FRENA SIN FRENO. Se empuja al reves. Cuando el sensor de ADELANTE
-//  ve la linea, la direccion de escape ya apunta hacia la rueda TRASERA — o
-//  sea, para atras — asi que el escape SI se opone al avance. Lo que faltaba
-//  era fuerza: para matar un envion hecho con 240 hay que oponer 240, no 100.
-//
-//  ES LA MISMA FORMA QUE EL IMPULSO DE LA ORBITA, AL REVES: fuerte primero,
-//  normal despues.
-//
-//  SOLO SALIENDO DE LA PATADA. Avanzar va a 55 y la orbita a 48; si les
-//  metiera 240 de freno, el robot saldria disparado contra la linea de
-//  enfrente. La patada es el unico estado rapido.
-const int VEL_FRENO = 240;                 // igual que la patada: lo que trajo, se le opone
-const unsigned long MS_FRENO = 150;        // cuanto dura el golpe de freno
 
 //  UMBRALES DEL 2025, luz del laboratorio del anio pasado. Ya nos paso con
 //  los umbrales de color: se re-miden con pruebas/sensores-de-linea/ antes
@@ -460,9 +433,7 @@ const int CEROS_PARA_DARLO_POR_CAIDO = 10;
 // --- sensores de linea ---
 int  pinLinea[3]  = { A11, A13, A12 };   // Mark1; se corrige en setup()
 const char* versionPlaca = "?";
-bool lineaArmada  = false;   // se arma sola la primera vez que ve VERDE
-unsigned long t_verdeDesde = 0;
-bool frenoFuerte = false;    // entramos al escape viniendo de la patada?
+bool lineaHabilitada = false;
 int  mascaraLinea = 0;
 unsigned long t_ultimaLinea = 0;
 
@@ -539,7 +510,7 @@ int leerLineas() {
 
 // Escapa de la(s) linea(s) que se estan viendo. Suma las direcciones, asi
 // que las esquinas (dos sensores a la vez) salen solas.
-void escaparDeLinea(int m, int velocidad) {
+void escaparDeLinea(int m) {
   //          IZQ(M1) DER(M2) TRA(M3)
   int v[3] = {   0,      0,      0   };
   if (m & 1) { v[1] -= 1; v[2] += 1; }   // hacia la DI  -> IZQ apagada
@@ -558,7 +529,7 @@ void escaparDeLinea(int m, int velocidad) {
   }
 
   int pwm[3];
-  for (int i = 0; i < 3; i++) pwm[i] = (v[i] * velocidad) / pico;
+  for (int i = 0; i < 3; i++) pwm[i] = (v[i] * VEL_ESCAPE) / pico;
 
   analogWrite(IZQ_PWM, abs(pwm[0]));
   digitalWrite(IZQ_INA, pwm[0] > 0 ? 1 : 0);
@@ -700,66 +671,22 @@ const char* nombreEstado(Estado e) {
 
 // Enciende el BNO055. Devuelve false si no contesta o si contesta puros
 // ceros. NO se cuelga el programa si falla: se sigue sin giroscopo.
-// ERROR PROPIO, CORREGIDO EL 2026-08-18.
-//
-// La version anterior tomaba las 20 lecturas de prueba INMEDIATAMENTE despues
-// de setExtCrystalUse(). Y esa llamada pasa el BNO a modo configuracion,
-// cambia el reloj y vuelve: el algoritmo de fusion arranca DE CERO y devuelve
-// 0.000 legitimos mientras converge. O sea que yo le tomaba el pulso al sensor
-// mientras despertaba, contaba esos ceros como fallas, y lo declaraba muerto.
-//
-// El numero lo gritaba y no lo escuche: daba SIEMPRE "9 de 20 utiles". Con
-// lecturas cada 50 ms son 11 ceros al principio y 9 buenas al final — el
-// sensor despertando a la mitad de mi propia prueba.
-//
-// El arquero, que lo tiene andando, hace begin() + delay(1000) +
-// setExtCrystalUse() y NO VERIFICA NADA. Si corriera mi prueba, le daria igual
-// de mal.
-//
-// Ahora: se espera DESPUES del cambio de reloj, y se juzga por las ULTIMAS
-// lecturas, no por el total — porque lo que importa es como termina, no como
-// empieza. Y se imprime la secuencia entera para poder VERLO.
 bool arrancarGiroscopo() {
-  if (!bno.begin()) {
-    Serial.println("no contesta en el bus I2C (0x28)");
-    return false;
-  }
-  delay(1000);                     // igual que el arquero
+  if (!bno.begin()) return false;
+  delay(700);                      // el BNO tarda en arrancar la fusion
   bno.setExtCrystalUse(true);
-  delay(1000);                     // <<< LO QUE FALTABA: dejarlo re-arrancar
-
-  int buenas = 0, seguidasAlFinal = 0;
-  Serial.println();
-  Serial.print("   secuencia (. = dato, 0 = cero): ");
+  int buenas = 0;
   for (int i = 0; i < 20; i++) {
     sensors_event_t e;
     bno.getEvent(&e);
-    bool ok = (e.orientation.x != 0.0 || e.orientation.y != 0.0 || e.orientation.z != 0.0);
-    Serial.print(ok ? '.' : '0');
-    if (ok) { buenas++; seguidasAlFinal++; } else { seguidasAlFinal = 0; }
+    if (e.orientation.x != 0.0 || e.orientation.y != 0.0 || e.orientation.z != 0.0) buenas++;
     delay(50);
   }
-  Serial.println();
-
-  uint8_t sys = 0, gy = 0, ac = 0, mg = 0;
-  bno.getCalibration(&sys, &gy, &ac, &mg);
-  Serial.print("   calibracion  sistema="); Serial.print(sys);
-  Serial.print(" giro="); Serial.print(gy);
-  Serial.print(" acel="); Serial.print(ac);
-  Serial.print(" magn="); Serial.print(mg);
-  Serial.println("   (0 = sin calibrar, 3 = calibrado)");
-
-  // El criterio es como TERMINA, no el total: si las ultimas 5 son buenas, el
-  // sensor esta entregando datos ahora, que es lo unico que importa.
-  if (seguidasAlFinal < 5) {
-    Serial.print("   "); Serial.print(buenas);
-    Serial.print("/20 utiles y solo "); Serial.print(seguidasAlFinal);
-    Serial.println(" seguidas al final — no lo doy por bueno");
+  if (buenas < 10) {
+    Serial.print("   contesta pero da ceros ("); Serial.print(buenas);
+    Serial.println("/20 lecturas utiles) — no lo doy por bueno");
     return false;
   }
-  Serial.print("   "); Serial.print(buenas);
-  Serial.print("/20 utiles, "); Serial.print(seguidasAlFinal);
-  Serial.println(" seguidas al final");
   contadorCeros = 0;
   return true;
 }
@@ -862,21 +789,10 @@ void setup() {
   Serial.print(pinLinea[1]); Serial.print(", "); Serial.println(pinLinea[2]);
 
   if (LINEA_ACTIVA) {
-    // ARMADO DIFERIDO [2026-08-18]
-    //
-    // La version anterior desactivaba el escape PARA SIEMPRE si al encender
-    // algun sensor leia blanco. El supuesto era "el robot se enciende sobre el
-    // verde". Es falso en la practica: se enciende sobre la MESA, que es clara,
-    // y entonces el escape quedaba muerto toda la corrida — el robot ni leia
-    // los sensores. Sintoma: "no detecta las lineas blancas".
-    //
-    // Ahora no se apaga nada. El escape se ARMA SOLO la primera vez que los
-    // tres sensores ven verde de corrido. O sea: lo apoyas en la cancha y se
-    // arma; lo dejas en la mesa y espera, avisando.
-    //
-    // Se conserva lo bueno de la proteccion: si un umbral esta de verdad mal,
-    // los tres nunca dan verde juntos, nunca se arma, y el robot NO sale
-    // corriendo por una linea que no existe.
+    // AUTOPROTECCION: el robot se enciende apoyado en el verde, no sobre una
+    // linea. Si un sensor ya dice "blanco", el umbral esta mal para la luz de
+    // hoy — y con el umbral mal el robot escaparia para siempre. Mejor
+    // desactivar y avisar que salir corriendo sin motivo.
     Serial.print("Linea: sensores leen ");
     Serial.print(analogRead(pinLinea[0])); Serial.print(" / ");
     Serial.print(analogRead(pinLinea[1])); Serial.print(" / ");
@@ -884,8 +800,16 @@ void setup() {
     Serial.print("   umbrales "); Serial.print(UMBRAL_LINEA[0]);
     Serial.print(" / "); Serial.print(UMBRAL_LINEA[1]);
     Serial.print(" / "); Serial.println(UMBRAL_LINEA[2]);
-    Serial.print("Linea: se arma sola cuando vea verde en los tres (");
-    Serial.print(MS_PARA_ARMAR); Serial.println(" ms seguidos). Apoyalo en la cancha.");
+
+    int m = leerLineas();
+    if (m != 0) {
+      lineaHabilitada = false;
+      Serial.println("!!! YA LEE BLANCO ESTANDO EN EL VERDE -> el umbral esta mal.");
+      Serial.println("!!! ESCAPE DE LINEA DESACTIVADO. Corre pruebas/sensores-de-linea/");
+    } else {
+      lineaHabilitada = true;
+      Serial.println("Linea: OK, escape ACTIVADO (anula todo lo demas).");
+    }
   } else {
     Serial.println("Linea: apagada por configuracion.");
   }
@@ -919,7 +843,6 @@ void setup() {
 
   t_ultimoPaquete = millis();
   t_contadores    = millis();   // si no, la primera medicion sale con dt enorme
-  t_verdeDesde    = millis();
   cambiarA(BUSCANDO);
 }
 
@@ -956,35 +879,16 @@ void loop() {
   // ---------- LA LINEA BLANCA MANDA SOBRE TODO ----------
   // Va antes que cualquier otra cosa y anula el estado en curso, incluida la
   // patada. Salir de la cancha es peor que perder una jugada.
-  if (LINEA_ACTIVA) {
+  if (lineaHabilitada) {
     int m = leerLineas();
-
-    if (!lineaArmada) {
-      // Todavia no se armo: espero a ver verde en los TRES, de corrido.
-      if (m != 0) {
-        t_verdeDesde = millis();          // vio blanco -> se reinicia la cuenta
-      } else if (millis() - t_verdeDesde >= MS_PARA_ARMAR) {
-        lineaArmada = true;
-        Serial.println("*** LINEA: verde confirmado -> ESCAPE ARMADO");
-      }
-      m = 0;                              // sin armar no se escapa de nada
-    }
-
     if (m != 0) {
       t_ultimaLinea = millis();
       mascaraLinea  = m;
       if (estado != ESCAPA_LINEA) {
-        // Si veniamos pateando, el envion es mucho mas grande: primero freno.
-        frenoFuerte = (estado == PATEA_ADEL);
         Serial.print("!!! LINEA BLANCA (sensores");
         for (int i = 0; i < 3; i++) if (m & (1 << i)) { Serial.print(" "); Serial.print(i + 1); }
         Serial.print(") estando en "); Serial.print(nombreEstado(estado));
-        if (frenoFuerte) {
-          Serial.print(" -> FRENO A FONDO ("); Serial.print(VEL_FRENO);
-          Serial.print(" x "); Serial.print(MS_FRENO); Serial.println(" ms) y escapo");
-        } else {
-          Serial.println(" -> ESCAPO");
-        }
+        Serial.println(" -> ESCAPO");
         cambiarA(ESCAPA_LINEA);
       }
     }
@@ -1008,9 +912,7 @@ void loop() {
       Serial.println("... ya me despegue de la linea");
       cambiarA(BUSCANDO);
     } else {
-      // Los primeros MS_FRENO ms van a fondo SOLO si veniamos pateando.
-      bool frenando = (frenoFuerte && enEstado < MS_FRENO);
-      escaparDeLinea(mascaraLinea, frenando ? VEL_FRENO : VEL_ESCAPE);
+      escaparDeLinea(mascaraLinea);
     }
   }
 
@@ -1162,11 +1064,6 @@ void loop() {
     Serial.print("  separacion=");
     if (veoArco) Serial.print(fabs(diferencia(angArco, angPelota)), 1); else Serial.print("--");
     if (giroscopoSano()) { Serial.print("  rumbo="); Serial.print(ultimoRumbo, 0); }
-    Serial.print("  linea=");
-    Serial.print(analogRead(pinLinea[0])); Serial.print("/");
-    Serial.print(analogRead(pinLinea[1])); Serial.print("/");
-    Serial.print(analogRead(pinLinea[2]));
-    Serial.print(lineaArmada ? " [armado]" : " [SIN ARMAR]");
     Serial.println();
 
     unsigned long dt = millis() - t_contadores;

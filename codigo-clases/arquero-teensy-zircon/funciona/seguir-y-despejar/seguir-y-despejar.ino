@@ -13,9 +13,13 @@
         3. La pelota se acerca -> DESPEJA: sale 30 cm, la saca, vuelve hasta
                                   pisar la linea, se endereza, avanza 10 cm.
 
-   El movimiento de costado se frena solo al pisar la linea blanca del area:
-   yendo a la izquierda mira el sensor de atras-izquierda, yendo a la
-   derecha el de atras-derecha.
+   ⚠️ EL SEGUIMIENTO DE COSTADO NO TIENE LIMITE (cambio del 2026-08-18).
+   Lo unico que lo detiene es perder de vista la pelota. Antes se frenaba al
+   pisar la linea del costado del area, pero el robot vuelve chueco de
+   algunos despejes y estando torcido pisaba la linea antes de tiempo.
+
+   La linea SIGUE usandose para volver del despeje. Son dos usos distintos
+   de los mismos dos sensores de atras, y solo se saco el primero.
 
    ---------------------------------------------------------------------
    POR QUE EL GIROSCOPIO NO PUEDE MEDIR CUANTO SE MOVIO DE COSTADO
@@ -172,6 +176,40 @@ int umbralDesvio      = 15;
 
 const unsigned long MS_PAUSA_MEDIO   = 150;
 const unsigned long MS_MAX_RETROCESO = 1200;
+
+// Cuanto se sostiene el freno electrico. Despues se sueltan los motores:
+// mantenerlos cortocircuitados sin necesidad solo calienta el driver.
+unsigned long msFreno = 200;
+
+// Cuanto retrocede la prueba del freno ('B' y 'N'). Corto a proposito: la
+// prueba se hace en la MESA, porque el cable USB no llega a la cancha. A
+// potencia 110 son unos 20 cm. Para esta pregunta la superficie da igual:
+// solo queremos saber si el freno existe.
+const unsigned long MS_PRUEBA_FRENO = 250;
+
+// El empujoncito de 10 cm al final, para que el robot termine donde arranco
+// y no pegado a la linea. Se saco un rato el 2026-08-18 mientras se probaba
+// el freno, y se volvio a poner el mismo dia una vez que el freno funciono.
+bool empujonFinal = true;
+
+// Va DESPACIO, no a la potencia del despeje: son 10 cm y el robot ya esta
+// bien parado sobre la linea. Yendo rapido patina y arruina justo lo que
+// acaba de lograr.
+int potenciaEmpujon = 100;
+
+// MEDIDO con regla el 2026-08-18, a potencia 100 y con rampa:
+//     400 ms  ->  13 cm      (dos corridas)
+//
+// Para 10 cm NO alcanza la regla de tres (daria 308 ms). Los primeros
+// 100 ms el robot esta acelerando por la rampa, asi que ese tramo rinde
+// menos distancia que el resto. Al acortar el tiempo total, la rampa pasa
+// a ser una porcion mas grande del viaje y se pierde proporcionalmente mas.
+//
+// Descontando la rampa (~50 ms de recorrido equivalente) y el retardo
+// mecanico de arranque (~33 ms, medido el 04/08):
+//     velocidad = 13 cm / (400 - 50 - 33) ms = 0.041 cm/ms
+//     para 10 cm  ->  10/0.041 + 50 + 33  =  ~320 ms
+int msEmpujonFinal = 320;
 const unsigned long MS_ENFRIAMIENTO  = 1500;
 const unsigned long MS_AVISO_ARMADO  = 10000;
 const int VECES_PARA_CREERLE = 3;
@@ -218,17 +256,16 @@ int reintentosAcomodo = 0;
 
 // ---- estado ----
 enum Fase { APAGADO, ARMANDOSE, ESPERANDO, SIGUIENDO,
-            ADELANTE, PAUSA_MEDIO, ATRAS_HASTA_LINEA,
+            ADELANTE, PAUSA_MEDIO, ATRAS_HASTA_LINEA, FRENANDO,
             ACOMODANDO, ACOMODO_ASENTAR, ADELANTE_CHICO, ENFRIANDO,
-            PRUEBA_LATERAL };
+            PRUEBA_LATERAL, PRUEBA_FRENO_ATRAS, PRUEBA_FRENO_FRENAR,
+            CAL_EMPUJON };
 Fase fase = APAGADO;
 unsigned long t_fase = 0;
 
 int despejesHechos = 0;
 int vecesSeguidas = 0;
 bool ultimoRetrocesoEncontroLinea = false;
-bool frenadoPorLineaIzq = false;
-bool frenadoPorLineaDer = false;
 
 // ---- camara ----
 byte paquete[9];
@@ -240,10 +277,44 @@ unsigned long t_ultimoPaquete = 0;
 
 // ---------------------------------------------------------------- motores
 
+// SOLTAR los motores. No es frenar: el robot sigue de largo por inercia.
+// Las dos patas de direccion en 0 (no alcanza con poner el PWM en 0, eso ya
+// lo midio la otra mesa).
 void parar() {
   analogWrite(PWM1, 0); digitalWrite(INA1, 0); digitalWrite(INB1, 0);
   analogWrite(PWM2, 0); digitalWrite(INA2, 0); digitalWrite(INB2, 0);
   analogWrite(PWM3, 0); digitalWrite(INA3, 0); digitalWrite(INB3, 0);
+}
+
+// FRENO ELECTRICO. La idea es cortocircuitar los bornes del motor: la
+// corriente que el propio motor genera al girar lo frena a el mismo. Es
+// instantaneo y no hay que calibrar nada.
+//
+// Hay DOS formas de pedirselo al driver. MEDIDO en el piso el 2026-08-18
+// con `pruebas/probar-freno` (tres corridas iguales de 1 segundo, marcando
+// donde quedaba cada una):
+//
+//   VARIANTE 1 — las dos patas en ALTO, PWM al maximo.   ✅ FRENA
+//   VARIANTE 2 — las dos patas en BAJO, PWM al maximo.   ✅ FRENA  <-- activa
+//   Soltar (lo que habia antes)                          quedo MAS LEJOS
+//
+// Las dos frenan parecido. Se usa la 2 porque es la que quedo probada en
+// este camino del codigo.
+//
+// ⚠️ La variante 2 se parece peligrosamente a parar(): la unica diferencia
+// es el PWM. Con el PWM en CERO el driver apaga la salida y el motor queda
+// suelto; con el PWM al maximo, cortocircuitado. **Mismo estado de las patas
+// de direccion, efecto opuesto.** No confundirlas al leer.
+//
+// 🚨 Antes de esto hubo una prueba en la MESA que dijo que la variante 1 no
+// frenaba. Estaba mal: el retroceso era de 250 ms y el robot se movia menos
+// de 3 cm, o sea que nunca agarraba velocidad. **Un freno solo se puede
+// medir si hay inercia que frenar.** El experimento no podia distinguir las
+// dos respuestas, asi que no era una medicion.
+void frenar() {
+  digitalWrite(INA1, 0); digitalWrite(INB1, 0); analogWrite(PWM1, 255);
+  digitalWrite(INA2, 0); digitalWrite(INB2, 0); analogWrite(PWM2, 255);
+  digitalWrite(INA3, 0); digitalWrite(INB3, 0); analogWrite(PWM3, 255);
 }
 
 // Aplica un valor CON SIGNO a una rueda. Positivo = pata A alta.
@@ -266,8 +337,46 @@ void aplicar(int v1, int v2, int v3) {
 // Avanzar recto: mismas direcciones que avanzar() de arquero.ino, escritas
 // con signos. Las dos de adelante van opuestas entre si porque estan
 // montadas espejadas; la trasera no aporta al avance recto.
+//
+// Estas dos son CRUDAS: arrancan de golpe y sin corregir el rumbo. Se usan
+// solo para el empujoncito final y para las pruebas del freno.
 void adelante(int potencia) { aplicar(+potencia, -potencia, 0); }
 void atras(int potencia)    { aplicar(-potencia, +potencia, 0); }
+
+
+// ---------------------------------------------------- arranque suave
+
+// MEDIDO en cancha el 2026-08-18: arrancando de golpe a potencia 200, las
+// ruedas PATINAN. Y no patinan igual las dos — una agarra antes que la
+// otra, y ese instante de diferencia tuerce al robot. De ahi en mas se va
+// chueco, y como el avance no corregia el rumbo, llegaba torcido y volvia
+// por la misma diagonal.
+//
+// Subiendo la potencia de a poco (200 ms hasta el fondo) las ruedas
+// alcanzan a agarrar. Llega a la misma velocidad, sin el tiron.
+const int RAMPA_MOV_PASO = 10;
+const unsigned long RAMPA_MOV_MS = 10;
+int potenciaRampa = 0;
+unsigned long t_rampaMov = 0;
+
+void reiniciarRampaMovimiento() {
+  potenciaRampa = 0;
+  t_rampaMov = millis();
+}
+
+// Devuelve la potencia que corresponde AHORA, subiendo de a escalones.
+// Bajar puede ser de golpe: pedir menos fuerza nunca hace patinar.
+int rampa(int objetivo) {
+  unsigned long ahora = millis();
+  if (objetivo < potenciaRampa) {
+    potenciaRampa = objetivo;
+  } else if (ahora - t_rampaMov >= RAMPA_MOV_MS) {
+    t_rampaMov = ahora;
+    potenciaRampa += RAMPA_MOV_PASO;
+    if (potenciaRampa > objetivo) potenciaRampa = objetivo;
+  }
+  return potenciaRampa;
+}
 
 
 // ---------------------------------------------------------------- rumbo
@@ -350,20 +459,44 @@ void mostrarLinea() {
 // s > 0 pide ir a la DERECHA, s < 0 a la izquierda. El valor es la fuerza.
 // Suma el movimiento lateral con la correccion de rumbo: son dos cosas
 // independientes y por eso se pueden calcular por separado.
+//
+// La fuerza pasa por la rampa; la correccion de rumbo NO. La correccion
+// tiene que actuar enseguida, y ademas es chica: no hace patinar nada.
 void moverDeCostado(int s) {
   if (lateralInvertido) s = -s;
 
-  int frente  = (s * LADO_FRENTE)  / 100;
-  int trasera = (s * LADO_TRASERA) / 100;
+  int fuerza = rampa(abs(s));
+  if (s < 0) fuerza = -fuerza;
+
+  int frente  = (fuerza * LADO_FRENTE)  / 100;
+  int trasera = (fuerza * LADO_TRASERA) / 100;
 
   // Direcciones sacadas de adproporcional() de arquero.ino: las dos de
   // adelante para el mismo lado, la trasera al reves y mas fuerte.
-  int v1 = +frente;
-  int v2 = +frente;
-  int v3 = -trasera;
-
   int c = correccionDeRumbo();
-  aplicar(v1 + c, v2 + c, v3 + c);
+  aplicar(frente + c, frente + c, -trasera + c);
+}
+
+// Avanzar y retroceder SOSTENIENDO EL RUMBO, y con arranque suave.
+//
+// Antes el avance del despeje salia a ciegas: si patinaba al arrancar y se
+// torcia, nadie lo corregia en los 50 cm siguientes. Y el retroceso tampoco
+// corregia, asi que volvia por la misma diagonal torcida — de ahi que el
+// robot terminara "apuntando a donde termino el avance".
+//
+// La correccion se SUMA a las tres ruedas, igual que en el movimiento
+// lateral: girar es las tres parejas, avanzar son las dos de adelante
+// opuestas entre si. Como son movimientos independientes, se suman.
+void adelanteControlado(int potencia) {
+  int p = rampa(potencia);
+  int c = correccionDeRumbo();
+  aplicar(+p + c, -p + c, 0 + c);
+}
+
+void atrasControlado(int potencia) {
+  int p = rampa(potencia);
+  int c = correccionDeRumbo();
+  aplicar(-p + c, +p + c, 0 + c);
 }
 
 
@@ -406,6 +539,22 @@ float desvioPelota() {
 }
 
 
+// Adonde ir despues del enderezado. Esta en una funcion y no repetido en
+// cada rama porque hay TRES caminos que salen del enderezado (termino bien,
+// estaba desactivado, o el giroscopio estaba mudo) y los tres tienen que
+// respetar el interruptor del empujon final. Cuando estaba escrito tres
+// veces, dos se lo salteaban.
+void terminarDespeje() {
+  if (empujonFinal) {
+    fase = ADELANTE_CHICO; t_fase = millis();
+  } else {
+    despejesHechos++;
+    Serial.print(">> despeje n. "); Serial.println(despejesHechos);
+    fase = ENFRIANDO; t_fase = millis();
+  }
+}
+
+
 // ---------------------------------------------------------------- consola
 
 void ayuda() {
@@ -416,6 +565,8 @@ void ayuda() {
   Serial.println("  g = ACTIVAR (avisa 10 s)     0 = PARAR");
   Serial.println("  i = camara      L = sensores de linea");
   Serial.println("  v = prueba lateral corta    V = invertir lateral");
+  Serial.println("  B = retroceder y FRENAR     N = retroceder y SOLTAR");
+  Serial.println("  c = solo el empujoncito     e/d = empujon +/- 50 ms");
   Serial.println("  Y = invertir signo camara   k = enderezarse si/no");
   Serial.println("  f/F = fuerza del seguimiento -/+");
   Serial.println("  u/j = umbral blanco +/-     x/z = despeja a +/- cm");
@@ -455,6 +606,39 @@ void leerConsola() {
       fase = PRUEBA_LATERAL; t_fase = millis();
       Serial.println(">> prueba: me muevo a lo que YO llamo DERECHA");
       Serial.println("   si va para la izquierda, apretá 'V'");
+      break;
+
+    // Las dos teclas de la prueba del freno. Hacen EXACTAMENTE lo mismo —
+    // retroceder 500 ms — y solo cambian en como terminan. Marcá el piso,
+    // corré las dos, y compará cuanto se paso cada una.
+    // Hace SOLO el empujoncito final, para medirlo con la regla sin tener
+    // que provocar un despeje entero cada vez.
+    case 'c':
+      parar();
+      reiniciarRampaMovimiento();
+      reiniciarCorreccion();
+      fase = CAL_EMPUJON; t_fase = millis();
+      Serial.print(">> empujoncito de "); Serial.print(msEmpujonFinal);
+      Serial.print(" ms a potencia ");    Serial.print(potenciaEmpujon);
+      Serial.println(". Medí con la regla.");
+      break;
+
+    case 'e': msEmpujonFinal += 50; Serial.print("   empujon = ");
+              Serial.print(msEmpujonFinal); Serial.println(" ms"); break;
+    case 'd': if (msEmpujonFinal > 50) msEmpujonFinal -= 50;
+              Serial.print("   empujon = "); Serial.print(msEmpujonFinal);
+              Serial.println(" ms"); break;
+
+    case 'B':
+      parar();
+      fase = PRUEBA_FRENO_ATRAS; t_fase = millis();
+      Serial.println(">> PRUEBA: retrocedo un toque y FRENO. Marcá donde queda.");
+      break;
+
+    case 'N':
+      parar();
+      fase = PRUEBA_FRENO_FRENAR; t_fase = millis();
+      Serial.println(">> PRUEBA: retrocedo un toque y SUELTO. Marcá donde queda.");
       break;
 
     case 'V':
@@ -511,8 +695,6 @@ void leerConsola() {
         if (r < 0) Serial.println("GIROSCOPIO MUDO");
         else { Serial.print(r, 1); Serial.print("  base ");
                Serial.println(rumboBase, 1); } }
-      if (frenadoPorLineaIzq) Serial.println("   ojo: frene contra la linea IZQUIERDA");
-      if (frenadoPorLineaDer) Serial.println("   ojo: frene contra la linea DERECHA");
       break;
 
     case '?': ayuda(); break;
@@ -592,6 +774,39 @@ void loop() {
       break;
     }
 
+    case CAL_EMPUJON:
+      adelanteControlado(potenciaEmpujon);
+      if (ahora - t_fase >= (unsigned long)msEmpujonFinal) {
+        frenar();
+        delay(msFreno);
+        parar();
+        fase = APAGADO;
+        Serial.println("   listo. Medí. 'e' alarga 50 ms, 'd' acorta, 'c' repite.");
+      }
+      break;
+
+    // --- prueba del freno: las dos corridas son identicas hasta el final ---
+    case PRUEBA_FRENO_ATRAS:      // termina FRENANDO
+      atras(potenciaRetroceso);
+      if (ahora - t_fase >= MS_PRUEBA_FRENO) {
+        frenar();
+        delay(msFreno);           // corto y aislado: no hay nada mas corriendo
+        parar();
+        fase = APAGADO;
+        Serial.println("   FRENADO. Marcá. Ahora probá 'N' desde el mismo lugar.");
+      }
+      break;
+
+    case PRUEBA_FRENO_FRENAR:     // termina SOLTANDO (como era antes)
+      atras(potenciaRetroceso);
+      if (ahora - t_fase >= MS_PRUEBA_FRENO) {
+        parar();
+        fase = APAGADO;
+        Serial.println("   SOLTADO. Marcá. Si quedo mas lejos que con 'B',");
+        Serial.println("   el freno electrico FUNCIONA en esta placa.");
+      }
+      break;
+
     case PRUEBA_LATERAL:
       moverDeCostado(pwmMaxLateral);
       if (ahora - t_fase >= MS_PRUEBA_LATERAL) {
@@ -603,14 +818,16 @@ void loop() {
     case ESPERANDO:
       parar();
       digitalWrite(LED, ((ahora / 800) % 2) ? HIGH : LOW);
-      frenadoPorLineaIzq = false; frenadoPorLineaDer = false;
       if (hayQueDespejar()) {
         Serial.print(">> pelota a "); Serial.print(Xp);
         Serial.println(" cm — DESPEJANDO");
         fase = ADELANTE; t_fase = ahora;
+        reiniciarRampaMovimiento();   // arrancar suave: si patina, se tuerce
+        reiniciarCorreccion();
         digitalWrite(LED, HIGH);
       } else if (veLaPelota()) {
         fase = SIGUIENDO; t_fase = ahora;
+        reiniciarRampaMovimiento();
         reiniciarCorreccion();
       }
       break;
@@ -623,6 +840,8 @@ void loop() {
         Serial.print(">> pelota a "); Serial.print(Xp);
         Serial.println(" cm — DESPEJANDO");
         fase = ADELANTE; t_fase = ahora;
+        reiniciarRampaMovimiento();
+        reiniciarCorreccion();
         break;
       }
       if (!veLaPelota()) {
@@ -646,25 +865,41 @@ void loop() {
 
       bool hayQueIrDerecha = (desvio > 0);
 
-      // El limite es la LINEA, no una cuenta: yendo a la izquierda mira el
-      // sensor de atras-izquierda, y al reves. Mirar solo el del lado hacia
-      // donde va evita que el otro lo frene por nada.
-      if (hayQueIrDerecha && veBlancoDer()) {
-        parar(); frenadoPorLineaDer = true;
-        break;
+      // Si la pelota cruzo al otro lado, el robot tiene que invertir la
+      // marcha. Sin reiniciar la rampa, saldria para el otro lado a fondo
+      // de una — el mismo tiron que hace patinar al arrancar, pero peor,
+      // porque ademas viene con velocidad en contra.
+      static bool ibaDerecha = true;
+      if (hayQueIrDerecha != ibaDerecha) {
+        ibaDerecha = hayQueIrDerecha;
+        reiniciarRampaMovimiento();
       }
-      if (!hayQueIrDerecha && veBlancoIzq()) {
-        parar(); frenadoPorLineaIzq = true;
-        break;
-      }
-      frenadoPorLineaIzq = false; frenadoPorLineaDer = false;
+
+      // 2026-08-18: SIN LIMITE LATERAL, a pedido del equipo.
+      //
+      // Antes el seguimiento se frenaba al pisar la linea del costado del
+      // area. Se saco porque el robot vuelve chueco de algunos despejes, y
+      // estando torcido sus dos sensores de atras quedan en diagonal
+      // respecto de la linea: uno la pisa ANTES de que el robot este
+      // realmente en el borde, y el seguimiento se cortaba de mas.
+      //
+      // ⚠️ Esto saca el SINTOMA, no la causa. Lo que hay que arreglar es el
+      // enderezado (ver la bitacora del 11/08). Si algun dia se arregla,
+      // conviene volver a probar con el limite puesto.
+      //
+      // ⚠️ Consecuencia: lo unico que detiene el seguimiento ahora es perder
+      // de vista la pelota. El robot puede terminar lejos del arco, y ahi se
+      // queda — todavia no vuelve solo al centro.
+      //
+      // La linea SIGUE usandose para volver del despeje (ATRAS_HASTA_LINEA).
+      // Eso no se toco.
 
       moverDeCostado(hayQueIrDerecha ? fuerza : -fuerza);
       break;
     }
 
     case ADELANTE:
-      adelante(potenciaDespeje);
+      adelanteControlado(potenciaDespeje);
       if (ahora - t_fase >= (unsigned long)msAdelante) {
         parar(); fase = PAUSA_MEDIO; t_fase = ahora;
       }
@@ -680,32 +915,44 @@ void loop() {
       break;
 
     case ATRAS_HASTA_LINEA:
-      atras(potenciaRetroceso);
+      atrasControlado(potenciaRetroceso);
       if (algunoDeAtrasVeBlanco()) {
-        parar();
+        // FRENAR, no soltar. Antes aca iba parar(), y el robot seguia de
+        // largo y se pasaba de la linea: quedaba en un lugar distinto cada
+        // vez. Frenando se detiene practicamente donde la vio.
+        frenar();
         ultimoRetrocesoEncontroLinea = true;
         Serial.print("   linea a los "); Serial.print(ahora - t_fase);
-        Serial.println(" ms");
-        fase = ACOMODANDO; t_fase = ahora;
-        reintentosAcomodo = 0; pwmAcomodoAplicado = 0; t_rampa = ahora;
+        Serial.println(" ms — FRENANDO");
+        fase = FRENANDO; t_fase = ahora;
         break;
       }
       // Freno de emergencia: un robot que retrocede sin limite se va de la
       // cancha. El codigo 2025 tiene ese bug exacto en el arquero.
       if (ahora - t_fase >= MS_MAX_RETROCESO) {
-        parar();
+        frenar();
+        ultimoRetrocesoEncontroLinea = false;
         Serial.println("!! no encontre la linea — freno igual");
+        fase = FRENANDO; t_fase = ahora;
+      }
+      break;
+
+    case FRENANDO:
+      // El freno se sostiene un ratito y despues se sueltan los motores:
+      // dejarlos cortocircuitados de gusto solo calienta el driver.
+      if (ahora - t_fase >= msFreno) {
+        parar();
         fase = ACOMODANDO; t_fase = ahora;
         reintentosAcomodo = 0; pwmAcomodoAplicado = 0; t_rampa = ahora;
       }
       break;
 
     case ACOMODANDO: {
-      if (!enderezarActivado) { fase = ADELANTE_CHICO; t_fase = ahora; break; }
+      if (!enderezarActivado) { terminarDespeje(); break; }
       float r = rumboActual();
       if (rumboBase < 0 || r < 0) {
         Serial.println("!! no me puedo enderezar — giroscopio mudo");
-        fase = ADELANTE_CHICO; t_fase = ahora;
+        terminarDespeje();
         break;
       }
       float error = diferencia(rumboBase, r);
@@ -748,15 +995,21 @@ void loop() {
       } else {
         Serial.print("   derecho, a "); Serial.print(error, 1);
         Serial.println(" grados");
-        fase = ADELANTE_CHICO; t_fase = ahora;
+        terminarDespeje();
       }
       break;
     }
 
     case ADELANTE_CHICO:
       // Va DESPUES de enderezarse, para que los 10 cm salgan derechos.
-      adelante(potenciaDespeje);
-      if (ahora - t_fase >= (unsigned long)msAdelanteChico) {
+      // Despacio y con rumbo sostenido: la gracia es terminar bien parado,
+      // no llegar rapido.
+      adelanteControlado(potenciaEmpujon);
+      if (ahora - t_fase >= (unsigned long)msEmpujonFinal) {
+        // Frenar, no soltar. Es corto: si suelta, la inercia se lleva
+        // puesta buena parte de los 10 cm.
+        frenar();
+        delay(msFreno);
         parar();
         despejesHechos++;
         fase = ENFRIANDO; t_fase = ahora;

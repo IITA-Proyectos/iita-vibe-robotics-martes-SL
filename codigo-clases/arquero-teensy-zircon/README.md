@@ -65,6 +65,7 @@ al robot de frente en vez de desde el robot. La tabla de arriba es lo medido. Ve
 | [`ver-linea/`](pruebas/ver-linea/) | Los tres sensores de línea en vivo. Cuál es cuál |
 | [`buscar-sensores/`](pruebas/buscar-sensores/) | ¿En qué pines están los sensores? Lee las 18 entradas a la vez |
 | [`calibrar-linea/`](pruebas/calibrar-linea/) | Verde vs. blanco en la cancha, sin cable. Calcula el umbral |
+| [`probar-freno/`](pruebas/probar-freno/) | ¿Esta placa puede frenar los motores, o solo soltarlos? |
 | [`cuadrado-lento/`](pruebas/cuadrado-lento/) | Con el peso encima, ¿anda derecho? (giros por cronómetro) |
 | [`cuadrado-giroscopo/`](pruebas/cuadrado-giroscopo/) | Lo mismo con lazo cerrado de rumbo |
 | [`calibrar-15cm/`](pruebas/calibrar-15cm/) | ¿Cuánto tiempo de motor es una distancia dada? |
@@ -98,9 +99,13 @@ regresiva apenas termina la carga. Cargá con la batería apagada, o frená en e
 **El giroscopio se alimenta de la batería, no del USB.** Con la batería apagada contesta que
 existe pero devuelve puros ceros. Si ves rumbo `0.0`, lo primero que se revisa es la batería.
 
-**No hay botón de arranque ni freno.** Los motores salen a andar apenas hay energía, y al cortar
-quedan sueltos: el robot sigue de largo. Apoyalo donde querés que arranque **antes** de conectar
-la batería.
+**No hay botón de arranque.** Los motores salen a andar apenas hay energía. Apoyalo donde querés
+que arranque **antes** de conectar la batería.
+
+**Sí hay freno, pero hay que pedirlo.** `parar()` sólo suelta los motores y el robot sigue de
+largo; `frenar()` los cortocircuita y lo detiene en el acto. Medido el 18/08: las dos formas de
+pedir el freno funcionan en esta placa. Ojo que **la que usamos se parece a soltar** — mismo
+estado de las patas de dirección, y la diferencia está en el PWM.
 
 ## Regla de oro
 

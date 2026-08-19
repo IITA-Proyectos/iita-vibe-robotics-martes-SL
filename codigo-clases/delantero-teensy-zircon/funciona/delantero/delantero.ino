@@ -355,7 +355,39 @@ const unsigned long MS_ESCAPE_EXTRA = 400;  // sigue 400 ms DESPUES de dejar de 
 //  de confiar. Mientras tanto hay una AUTOPROTECCION al arrancar: si un
 //  sensor ya lee "blanco" con el robot apoyado en el verde, el umbral esta
 //  mal y la funcion se desactiva sola en vez de escapar para siempre.
-int UMBRAL_LINEA[3] = { 650, 650, 750 };
+//  ACTUALIZADO 2026-08-11 con la medicion en cancha de la mesa del ARQUERO
+//  (su bitacora 2026-08-11-sensores-de-linea-y-arquero-completo.md):
+//        verde  350 a 468     blanco  ~760     umbral = punto medio = 620
+//  Los 650/650/750 del 2025 quedaban demasiado altos: 750 esta pegado al
+//  blanco real (760), asi que el sensor 3 casi no disparaba nunca.
+//  [FALTA CONFIRMAR EN EL DELANTERO] — es otro robot; la autoproteccion del
+//  arranque avisa si estos numeros no sirven para esta placa.
+// MEDIDO EN LA CANCHA CON ESTE ROBOT, 2026-08-18.
+// Se leyeron las dos superficies sin mover nada mas:
+//
+//     sensor    verde   blanco   separacion
+//        1       762      765         3     <-- NO DISTINGUE
+//        2       588      762       174
+//        3       638      764       126
+//
+// El umbral es el punto medio de cada uno: (verde + blanco) / 2.
+//
+// EL SENSOR 1 VA EN 1024, que el conversor no puede alcanzar (llega hasta
+// 1023): asi NUNCA dispara. No es un parche feo, es la unica lectura honesta
+// del dato — con 3 puntos de diferencia entre verde y blanco, ese canal no
+// esta midiendo la superficie. Ponerlo en 1024 tambien hace que la
+// comprobacion de arranque deje de contarlo, sin tocar nada mas.
+//
+// Queda el 2 y el 3, y el 3 es EL DE ADELANTE: el que importa cuando patea y
+// se va de la cancha.
+//
+// [A REVISAR EN HARDWARE] por que el sensor 1 no responde: cable, conector,
+// altura al piso, o el sensor mismo. Los numeros del 2 y el 3 muestran que el
+// resto del circuito esta sano.
+//
+// Los 620 anteriores venian de la mesa del ARQUERO (su verde da 350-468).
+// No servian aca: son otro robot y otra altura de sensores.
+int UMBRAL_LINEA[3] = { 1024, 675, 700 };
 
 //  Pines: se autodetectan leyendo el pin 32, igual que zirconLib.cpp:52-60.
 const int PIN_VERSION_PLACA = 32;

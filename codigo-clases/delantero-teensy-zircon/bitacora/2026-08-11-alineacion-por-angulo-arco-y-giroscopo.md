@@ -4,6 +4,79 @@
 **Robot:** delantero (`ROBOT2`) · Teensy `15708680`
 **Programa cargado:** `funciona/delantero/delantero.ino` — **cargado y verificado corriendo**
 
+## 📋 REPORTE DE LA CLASE
+
+**Se arreglaron dos bugs de fondo, se agregaron cuatro funciones y quedó una sola cosa
+bloqueando: la batería.**
+
+### Lo que se arregló (eran errores, no falta de tuneo)
+
+| # | Qué estaba mal | Por qué importaba |
+|---|---|---|
+| 1 | La patada comparaba **centímetros medidos a distancias distintas** (`abs(Yp-Yarco) <= 12`) | Cantaba "alineado" con 28° de error real. Por eso pateaba desviado |
+| 2 | Al **arco** se le aplicaba el techo de distancia de la **pelota** (150 cm) | El arco casi siempre está lejos → se tiraba a la basura. La cámara lo veía y el firmware lo descartaba |
+
+El bug 2 lo encontró Gustavo empujando: conectó la cámara, vio que andaba bien, y dijo que el
+problema estaba en cómo usábamos los datos. Tenía razón en el lugar, aunque no en el mecanismo.
+
+### Lo que se agregó
+
+| | Función | Estado |
+|---|---|---|
+| A | Alineación por **ángulo** (`atan2`), del campeón 2025 | activa, tolerancia bajada 15° → **8°** |
+| B | **Elegir el arco al encender** — se apoya mirando al arco rival | activa, ya eligió AMARILLO |
+| C | **Giroscopio**: patear al rumbo 0 si no ve el arco | activa, pero el sensor da ceros |
+| D | **Escape de línea blanca**, prioridad absoluta | escrita, esperando umbrales |
+
+### Los números que se midieron
+
+| Medición | Valor | Qué contesta |
+|---|---|---|
+| Cámara | **46 paquetes/s** | los cuadros que manda |
+| `loop()` | **415.000 a 492.000 vueltas/s** | leemos 9.000× más rápido que los datos |
+| Bytes descartados | **0/s** | **no hay desincronización ni buffer lleno** |
+| Placa (pin 32) | **Mark1** | sensores de línea en pines 25/27/26 |
+| Giroscopio | **9/20 lecturas útiles** | contesta en el bus pero da 0.000 |
+
+### 🔋 Lo único que bloquea: la batería estuvo apagada toda la clase
+
+Dos señales independientes:
+
+1. El giroscopio devuelve ceros — y el README del arquero dice textual que *"se alimenta de la
+   batería, no del USB; con la batería apagada contesta que existe pero devuelve puros ceros"*.
+2. `Xp` y `Yp` quedaron **congelados en el mismo valor** durante logs enteros estando en estados
+   donde el robot debería estar girando. **No se movió en ningún momento.**
+
+**Prender la batería, resetear, y mirar el banner.** Si dice `Giroscopo: OK`, era eso — y recién
+ahí se puede evaluar si los 8° de la patada son el número correcto.
+
+### 🤝 Lo que aportó la otra mesa
+
+El arquero midió los sensores de línea **en la cancha** el mismo día, y sus números **confirman
+por una tercera vía independiente** el mapeo del dibujo de Gustavo:
+
+| Sensor | Nuestro dibujo dice | El arquero midió | ¿Coincide? |
+|---|---|---|---|
+| 3 (A12) | el lado de adelante (opuesto a rueda T) | **adelante** | ✅ |
+| 1 (A11) | opuesto a rueda DI → lado atrás-derecha | **atrás derecha** | ✅ |
+| 2 (A13) | opuesto a rueda DD → lado atrás-izquierda | **atrás izquierda** | ✅ |
+
+Tres fuentes que no se copiaron entre sí —el dibujo, los `retroceder1/2/3` del 2025 y la
+medición del arquero— dicen lo mismo.
+
+Y sus umbrales medidos en cancha: **verde 350-468, blanco ~760, umbral 620**. Se aplicaron.
+Los 650/650/750 del 2025 estaban demasiado altos: 750 queda pegado al blanco real.
+
+### Para la próxima, en orden
+
+1. **Prender la batería** y resetear. Un minuto, y destraba el giroscopio.
+2. Robot **sobre el verde**, resetear, y ver si el chequeo de línea pasa con el umbral 620.
+3. Si no pasa: `pruebas/sensores-de-linea/` mide los números de este robot.
+4. Con la batería puesta, ver la patada y decidir si 8° está bien.
+5. Sigue pendiente **calibrar la cámara** (`vision/`) — mejoró, pero los saltos de `Xp` siguen.
+
+---
+
 ## Qué queríamos probar
 
 Que patee mejor. Gustavo pidió revisar la lógica de alineación usando de guía el delantero
@@ -325,3 +398,30 @@ cancha.** Hay que repetirlo con el robot apoyado en el verde.
 
 > Nota: mientras `lineaHabilitada` sea false, los `analogRead` no se ejecutan y el `loop()`
 > sigue a ~490.000 vueltas/s. Cuando se active va a bajar, y eso es normal.
+
+---
+
+## ⚠️ Estado del binario al cerrar la clase
+
+**El robot NO tiene el último cambio.** Al final de la clase se aplicaron los umbrales de línea
+medidos por la mesa del arquero (**620**), pero cuando se intentó cargar, el Teensy ya estaba
+desenchufado: el cargador se quedó esperando el botón de programación.
+
+| | Umbrales de línea |
+|---|---|
+| Lo que tiene el robot ahora | **650 / 650 / 750** (los del 2025) |
+| Lo que hay en el repo | **620 / 620 / 620** (medidos en cancha, mesa del arquero) |
+
+**Lo primero de la próxima clase es cargar**, antes de sacar cualquier conclusión sobre los
+sensores de línea:
+
+```
+cd codigo-clases/delantero-teensy-zircon/funciona/delantero
+pio run -e teensy41 -t upload
+```
+
+(con el Teensy `15708680` enchufado, uno solo, y la app Teensy Loader abierta)
+
+> Anotado también como recordatorio de método: `pio` dijo **SUCCESS** igual, porque compiló y
+> le pasó el archivo al cargador. El `SUCCESS` no prueba que el programa llegó a la placa —
+> lo prueba leer el banner por el monitor serie.

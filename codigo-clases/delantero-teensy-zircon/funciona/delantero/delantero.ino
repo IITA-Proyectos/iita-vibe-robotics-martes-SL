@@ -271,12 +271,12 @@ const float TOL_ANG_ALINEADO = 8.0;  // y el arco a menos de esto de la pelota
 //  LA OBSERVACION, que es un dato y no una impresion: DE LEJOS NO PATEA.
 //  Orbita, no cumple nunca la condicion, y se rinde a los 20 s sin tirar.
 //
-//  LA REGLA: si el arco esta LEJOS, las dos tolerancias pasan a 10 grados.
+//  LA REGLA: si el arco esta LEJOS, las dos tolerancias pasan a 15 grados.
 //  Si esta cerca, quedan en 8 como estaban.
 //
 //  ⚠️ OJO CON LA GEOMETRIA, PORQUE VA AL REVES DE LO QUE PARECE. Un angulo
 //  fijo se ABRE con la distancia: 8 grados son 7 cm de desvio a 50 cm, 14 cm
-//  a 100 cm y 28 cm a 200 cm. Con 10 grados a 200 cm son 35 cm. O sea que
+//  a 100 cm y 28 cm a 200 cm. Con 15 grados a 200 cm son 54 cm. O sea que
 //  aflojar de lejos afloja justo donde ya se es mas impreciso, y si el arco
 //  mide ~45 cm ese tiro se va afuera.
 //
@@ -293,11 +293,18 @@ const float TOL_ANG_ALINEADO = 8.0;  // y el arco a menos de esto de la pelota
 //  tolerancia: es que la orbita termina donde no debe, y ahi hay que medir el
 //  Xp con cinta metrica (ver MEJORAS-PENDIENTES).
 //
+//  HISTORIAL DE ESTE NUMERO. Arranco en 10 el 25/08 y se subio a 15 el mismo
+//  dia a pedido de Maximo. 15 es el valor del campeon 2025 (tolerancia_apuntado)
+//  y es el que Gustavo probo el 11/08 y bajo a 8 porque "es mucho y patea muy
+//  mal de direccion" — pero ahi era la tolerancia UNICA, para toda distancia.
+//  Aca solo aplica con el arco lejos, asi que es una prueba distinta. Si patea
+//  torcido, la escalera para bajar es 15 -> 12 -> 10.
+//
 //  SI HACE CUALQUIER COSA: poner TOLERANCIA_ADAPTATIVA en false y queda como
 //  estaba, en 8 fijo.
 const bool  TOLERANCIA_ADAPTATIVA = true;
 const int   ARCO_LEJOS    = 100;    // arcoX() por encima de esto = "lejos"
-const float TOL_ANG_LEJOS = 10.0;   // las dos tolerancias cuando esta lejos
+const float TOL_ANG_LEJOS = 15.0;   // las dos tolerancias cuando esta lejos
 //
 //           A 100 cm del arco, 8 grados son ~14 cm de desvio. La escalera si
 //           ahora NUNCA patea: 8 -> 10 -> 12. Si sigue pateando torcido: 6.

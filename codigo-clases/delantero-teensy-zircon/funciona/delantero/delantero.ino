@@ -264,6 +264,40 @@ const float TOL_ANG_ALINEADO = 8.0;  // y el arco a menos de esto de la pelota
 //           Si la pelota esta 14 grados al costado, la toca de refilon y sale
 //           para cualquier lado — o sea que la direccion tambien la arruina
 //           TOL_ANG_PELOTA, no solo la del arco. Por eso bajan juntos.
+
+//  ---------------------------------------------------------------------
+//  TOLERANCIA ADAPTATIVA POR DISTANCIA AL ARCO — [2026-08-25, idea de Maximo]
+//  ---------------------------------------------------------------------
+//  LA OBSERVACION, que es un dato y no una impresion: DE LEJOS NO PATEA.
+//  Orbita, no cumple nunca la condicion, y se rinde a los 20 s sin tirar.
+//
+//  LA REGLA: si el arco esta LEJOS, las dos tolerancias pasan a 10 grados.
+//  Si esta cerca, quedan en 8 como estaban.
+//
+//  ⚠️ OJO CON LA GEOMETRIA, PORQUE VA AL REVES DE LO QUE PARECE. Un angulo
+//  fijo se ABRE con la distancia: 8 grados son 7 cm de desvio a 50 cm, 14 cm
+//  a 100 cm y 28 cm a 200 cm. Con 10 grados a 200 cm son 35 cm. O sea que
+//  aflojar de lejos afloja justo donde ya se es mas impreciso, y si el arco
+//  mide ~45 cm ese tiro se va afuera.
+//
+//  ENTONCES POR QUE SE HACE IGUAL. No por punteria, sino por oportunidad: si
+//  de lejos NUNCA cumple, no patea nunca. Un tiro torcido que al menos manda
+//  la pelota al lado correcto de la cancha le gana a orbitar 20 s y rendirse.
+//  Es una apuesta consciente, no un descuido.
+//
+//  ⚠️ Y PUEDE NO ALCANZAR. El 25/08 se midio en vivo que la condicion que
+//  bloquea es la de la PELOTA, no la del arco: se vieron separaciones con el
+//  arco de 0.3 y 0.8 grados (perfectas) con angPelota en 21 y 29 grados. Por
+//  eso aflojan LAS DOS y no solo la del arco — aflojar sola la del arco no
+//  cambiaria nada. Si aun asi sigue sin patear, el problema no es la
+//  tolerancia: es que la orbita termina donde no debe, y ahi hay que medir el
+//  Xp con cinta metrica (ver MEJORAS-PENDIENTES).
+//
+//  SI HACE CUALQUIER COSA: poner TOLERANCIA_ADAPTATIVA en false y queda como
+//  estaba, en 8 fijo.
+const bool  TOLERANCIA_ADAPTATIVA = true;
+const int   ARCO_LEJOS    = 100;    // arcoX() por encima de esto = "lejos"
+const float TOL_ANG_LEJOS = 10.0;   // las dos tolerancias cuando esta lejos
 //
 //           A 100 cm del arco, 8 grados son ~14 cm de desvio. La escalera si
 //           ahora NUNCA patea: 8 -> 10 -> 12. Si sigue pateando torcido: 6.
@@ -906,7 +940,12 @@ void setup() {
   Serial.print("orbita si Xp<"); Serial.println(XP_ORBITA);
   Serial.print("patea si pelota a menos de "); Serial.print(TOL_ANG_PELOTA, 0);
   Serial.print(" grados del frente Y el arco a menos de "); Serial.print(TOL_ANG_ALINEADO, 0);
-  Serial.println(" grados de la pelota");
+  Serial.print(" grados de la pelota");
+  if (TOLERANCIA_ADAPTATIVA) {
+    Serial.print("  (las dos pasan a "); Serial.print(TOL_ANG_LEJOS, 0);
+    Serial.print(" si arcoX > "); Serial.print(ARCO_LEJOS); Serial.print(")");
+  }
+  Serial.println();
   Serial.print("orbita: impulso "); Serial.print(VEL_ORB_IMPULSO);
   Serial.print(" x "); Serial.print(MS_ORB_IMPULSO);
   Serial.print(" ms  ->  crucero "); Serial.print(VEL_ORB_TRASERA);
@@ -1053,8 +1092,14 @@ void loop() {
   // distancias distintas es lo que hacia que pateara desviado.
   float angPelota = anguloDe(XpBueno, YpBueno);
   float angArco   = anguloDe(arcoX(), arcoY());
-  bool  pelotaAdelante = (fabs(angPelota) <= TOL_ANG_PELOTA);
-  bool  arcoAlineado   = (fabs(diferencia(angArco, angPelota)) <= TOL_ANG_ALINEADO);
+  // Tolerancia adaptativa: si el arco esta lejos se afloja a TOL_ANG_LEJOS.
+  // Ver el bloque "TOLERANCIA ADAPTATIVA POR DISTANCIA AL ARCO" arriba.
+  bool  arcoLejos   = (TOLERANCIA_ADAPTATIVA && arcoX() > ARCO_LEJOS);
+  float tolPelota   = arcoLejos ? TOL_ANG_LEJOS : TOL_ANG_PELOTA;
+  float tolAlineado = arcoLejos ? TOL_ANG_LEJOS : TOL_ANG_ALINEADO;
+
+  bool  pelotaAdelante = (fabs(angPelota) <= tolPelota);
+  bool  arcoAlineado   = (fabs(diferencia(angArco, angPelota)) <= tolAlineado);
 
   // ---------- ESCAPA_LINEA: lo primero, no lo interrumpe nadie ----------
   if (estado == ESCAPA_LINEA) {
@@ -1091,6 +1136,8 @@ void loop() {
       Serial.print("  (pelota a "); Serial.print(angPelota, 1);
       Serial.print(" grados, arco a "); Serial.print(angArco, 1);
       Serial.print(", separados "); Serial.print(fabs(diferencia(angArco, angPelota)), 1);
+      Serial.print(", tolerancia "); Serial.print(tolPelota, 0);
+      if (arcoLejos) Serial.print(" por arco LEJOS");
       Serial.println(")  -> PATADA");
       cambiarA(PATEA_ADEL);
     }
@@ -1213,6 +1260,9 @@ void loop() {
     if (veoArco) Serial.print(angArco, 1); else Serial.print("--");
     Serial.print("  separacion=");
     if (veoArco) Serial.print(fabs(diferencia(angArco, angPelota)), 1); else Serial.print("--");
+    Serial.print("  arcoX="); if (veoArco) Serial.print(arcoX()); else Serial.print("--");
+    Serial.print("  tol="); Serial.print(tolPelota, 0);
+    if (arcoLejos) Serial.print("(lejos)");
     if (giroscopoSano()) { Serial.print("  rumbo="); Serial.print(ultimoRumbo, 0); }
     Serial.println();
 

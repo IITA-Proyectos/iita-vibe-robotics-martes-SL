@@ -362,32 +362,58 @@ const unsigned long MS_ESCAPE_EXTRA = 400;  // sigue 400 ms DESPUES de dejar de 
 //  blanco real (760), asi que el sensor 3 casi no disparaba nunca.
 //  [FALTA CONFIRMAR EN EL DELANTERO] — es otro robot; la autoproteccion del
 //  arranque avisa si estos numeros no sirven para esta placa.
-// MEDIDO EN LA CANCHA CON ESTE ROBOT, 2026-08-18.
-// Se leyeron las dos superficies sin mover nada mas:
+// ===================== MEDIDO 2026-08-25 (VIGENTE) =====================
+// Metodo: rotando cual sensor pisa el blanco (dos en negro, uno en blanco)
+// y al final los tres en verde. El negro de cada sensor es el PROMEDIO de
+// las dos fases en que le toco estar en negro, no una lectura suelta. Cada
+// fase son ~20 muestras capturadas con el robot quieto.
 //
-//     sensor    verde   blanco   separacion
-//        1       762      765         3     <-- NO DISTINGUE
-//        2       588      762       174
-//        3       638      764       126
+//     sensor    negro   verde   blanco   separacion verde->blanco
+//        1        96     319      765         446
+//        2        71     330      762         432
+//        3        95     452      765         313
 //
-// El umbral es el punto medio de cada uno: (verde + blanco) / 2.
+// EL SENSOR 1 SE RECUPERO. El 18/08 tenia 3 puntos entre verde y blanco y
+// habia que anularlo con el 1024; hoy tiene 446 y es el que mejor separa.
+// Por eso vuelve a entrar en juego con un umbral real.
 //
-// EL SENSOR 1 VA EN 1024, que el conversor no puede alcanzar (llega hasta
-// 1023): asi NUNCA dispara. No es un parche feo, es la unica lectura honesta
-// del dato — con 3 puntos de diferencia entre verde y blanco, ese canal no
-// esta midiendo la superficie. Ponerlo en 1024 tambien hace que la
-// comprobacion de arranque deje de contarlo, sin tocar nada mas.
+// ⚠️ LO QUE NO SE CONFIRMO, Y HAY QUE MIRAR. El negro y el blanco dieron
+// igual que el 18/08, pero el VERDE se movio muchisimo: de 762/588/638 a
+// 319/330/452. Y ojo con el razonamiento facil: que negro y blanco
+// coincidan NO prueba que el montaje este igual, porque los dos estan en
+// los extremos del rango (el blanco satura en 765 pase lo que pase, el
+// negro esta contra el piso). El verde es el unico que esta en el medio, y
+// por eso es el unico sensible a la ALTURA de los sensores.
 //
-// Queda el 2 y el 3, y el 3 es EL DE ADELANTE: el que importa cuando patea y
-// se va de la cancha.
+// Quedaron dos explicaciones sin decidir:
+//   A) se levantaron los sensores (era el pendiente 3 del 18/08) -> estos
+//      numeros valen y S1 quedo arreglado;
+//   B) el verde de hoy no es el de la cancha. Estos 319-452 se parecen al
+//      verde de la mesa del ARQUERO (350-468), no al del delantero. Si es
+//      una muestra suelta, ESTOS UMBRALES NO VAN A TRANSFERIR A LA CANCHA.
 //
-// [A REVISAR EN HARDWARE] por que el sensor 1 no responde: cable, conector,
-// altura al piso, o el sensor mismo. Los numeros del 2 y el 3 muestran que el
-// resto del circuito esta sano.
+// PARA CERRARLO, una sola prueba: encender el robot APOYADO EN EL VERDE DE
+// LA CANCHA y leer el banner. Si dice "escape ACTIVADO", los umbrales
+// sirven; si dice "YA LEE BLANCO ESTANDO EN EL VERDE", es el caso B y hay
+// que volver a medir sobre la cancha. Sobre la mesa SIEMPRE va a decir
+// desactivado, porque la cinta es blanca — eso no prueba nada.
 //
-// Los 620 anteriores venian de la mesa del ARQUERO (su verde da 350-468).
-// No servian aca: son otro robot y otra altura de sensores.
-int UMBRAL_LINEA[3] = { 1024, 675, 700 };
+// ---------------------------------------------------------------------
+// HISTORIA (no borrar: es lo que explica de donde salieron los numeros)
+//
+// 2026-08-18, medido en cancha con este robot:
+//     sensor 1: verde 762  blanco 765  -> separacion 3, NO DISTINGUIA
+//     sensor 2: verde 588  blanco 762  -> 174
+//     sensor 3: verde 638  blanco 764  -> 126
+//   El sensor 1 iba en 1024 (inalcanzable para el conversor, que llega a
+//   1023) para que nunca disparara y para que la comprobacion de arranque
+//   dejara de contarlo.
+//
+// Antes de eso los umbrales eran 620, que venian de la mesa del ARQUERO.
+// No servian aca: otro robot y otra altura de sensores. Es la razon por la
+// que ahora se mide siempre en el robot propio.
+// =======================================================================
+int UMBRAL_LINEA[3] = { 542, 546, 608 };
 
 //  Pines: se autodetectan leyendo el pin 32, igual que zirconLib.cpp:52-60.
 const int PIN_VERSION_PLACA = 32;

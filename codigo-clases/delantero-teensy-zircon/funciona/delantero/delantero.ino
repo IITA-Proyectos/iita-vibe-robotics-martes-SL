@@ -434,7 +434,61 @@ const unsigned long MS_ESCAPE_EXTRA = 400;  // sigue 400 ms DESPUES de dejar de 
 // No servian aca: otro robot y otra altura de sensores. Es la razon por la
 // que ahora se mide siempre en el robot propio.
 // =======================================================================
-int UMBRAL_LINEA[3] = { 542, 546, 608 };
+// ===================== MEDIDO EN LA CANCHA, 2026-08-25 (VIGENTE) ===========
+// Estos son los primeros umbrales medidos CON EL ROBOT EN LA CANCHA, a bateria
+// y con los motores andando. Todo lo anterior salio de materiales de la mesa.
+//
+// COMO SE MIDIO SIN CABLE. El cable USB no llega a la cancha, y el banner del
+// arranque se pierde porque el Teensy descarta lo que manda por USB si no hay
+// host escuchando. Se agrego instrumentacion que guarda las lecturas en RAM y
+// las reimprime cada 2 s; se prendio el robot en la cancha, se lo dejo andar, y
+// se lo trajo a la mesa SIN APAGAR LA BATERIA para engancharle el USB.
+//
+//     sensor   verde(cancha)   blanco   umbral   margen a cada lado
+//        1         625          789      707          82
+//        2         381          783      582         201
+//        3         740          850      795          55
+//
+// EL VERDE DE LA CANCHA ES MUCHO MAS REFLECTANTE QUE LA MUESTRA DE LA MESA:
+// 625/381/740 contra 319/330/452. Por eso los umbrales de la mesa (542/546/608)
+// no servian: los sensores 1 y 3 leian el VERDE DE LA CANCHA COMO BLANCO, la
+// autoproteccion los daba por rotos y anulaba el escape en cada arranque — en
+// silencio, porque el aviso salia por un cable que no estaba conectado. Ese fue
+// el bug que costo la tarde del 25/08.
+//
+// ⚠️ EL SENSOR 3 QUEDA JUSTO: 55 puntos de margen a cada lado, y el verde ya
+// vario mas que eso entre dos puntos distintos. Es el de ADELANTE, el que
+// importa cuando patea y se va de la cancha. Si dispara en falso o no dispara,
+// empezar por aca.
+//
+// ⚠️ EL BLANCO NO ESTA LIMPIO. Los maximos salen del acumulador min/max, que
+// sigue acumulando despues de volver a la mesa: durante la lectura se vio a S3
+// trepar de 814 a 850 estando ya en la mesa. O sea que parte de ese blanco
+// puede ser la cinta de la mesa y no la linea de la cancha. El VERDE si esta
+// limpio, porque sale de "arranque", que se congela al encenderse.
+// PARA CERRARLO: congelar el min/max a los ~90 s del arranque y repetir una
+// pasada por la cancha.
+//
+// ---------------------------------------------------------------------
+// HISTORIA (no borrar: explica de donde salio cada numero)
+//
+// 2026-08-25, medido en la MESA (cinta blanca y una muestra de verde):
+//     sensor 1: negro 96  verde 319  blanco 765  -> umbral 542
+//     sensor 2: negro 71  verde 330  blanco 762  -> umbral 546
+//     sensor 3: negro 95  verde 452  blanco 765  -> umbral 608
+//   Con estos el escape disparo bien EN LA MESA (dos veces, sensores 3 y 2) y
+//   nunca en la cancha. La diferencia era el verde.
+//
+// 2026-08-18, medido en cancha con este robot:
+//     sensor 1: verde 762  blanco 765  -> separacion 3, NO DISTINGUIA
+//     sensor 2: verde 588  blanco 762  -> 174
+//     sensor 3: verde 638  blanco 764  -> 126
+//   El sensor 1 iba en 1024 (inalcanzable para el conversor) para anularlo.
+//
+// Antes de eso los umbrales eran 620, que venian de la mesa del ARQUERO. No
+// servian aca: otro robot y otra altura de sensores.
+// =======================================================================
+int UMBRAL_LINEA[3] = { 707, 582, 795 };
 
 //  Pines: se autodetectan leyendo el pin 32, igual que zirconLib.cpp:52-60.
 const int PIN_VERSION_PLACA = 32;

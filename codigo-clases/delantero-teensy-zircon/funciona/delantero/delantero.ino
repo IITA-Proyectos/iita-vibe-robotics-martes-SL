@@ -506,6 +506,17 @@ const int CEROS_PARA_DARLO_POR_CAIDO = 10;
 int  pinLinea[3]  = { A11, A13, A12 };   // Mark1; se corrige en setup()
 const char* versionPlaca = "?";
 bool lineaHabilitada = false;
+
+// INSTRUMENTACION PARA MEDIR EN LA CANCHA SIN CABLE [2026-08-25].
+// El problema: el banner del arranque se PIERDE cuando no hay nadie escuchando
+// el USB — el Teensy descarta lo que manda si no hay host. Y en la cancha no
+// llega el cable. Asi que el robot se guarda los numeros y los sigue mostrando
+// en la telemetria de cada 2 s, para que se puedan leer DESPUES, enchufando el
+// USB en la mesa SIN APAGAR la bateria (si no se corta la energia, el programa
+// sigue corriendo y los numeros siguen ahi).
+int lineaArranque[3] = { -1, -1, -1 };          // lo que leyo al encenderse
+int lineaMin[3] = { 9999, 9999, 9999 };         // minimo visto en toda la corrida
+int lineaMax[3] = { -1, -1, -1 };               // maximo visto en toda la corrida
 int  mascaraLinea = 0;
 unsigned long t_ultimaLinea = 0;
 
@@ -575,7 +586,10 @@ void orbitar(bool sentidoA, int velTrasera) {
 int leerLineas() {
   int m = 0;
   for (int i = 0; i < 3; i++) {
-    if (analogRead(pinLinea[i]) >= UMBRAL_LINEA[i]) m |= (1 << i);
+    int v = analogRead(pinLinea[i]);
+    if (v < lineaMin[i]) lineaMin[i] = v;      // para saber cuanto da el VERDE
+    if (v > lineaMax[i]) lineaMax[i] = v;      // y cuanto da el BLANCO, en cancha
+    if (v >= UMBRAL_LINEA[i]) m |= (1 << i);
   }
   return m;
 }
@@ -865,10 +879,11 @@ void setup() {
     // linea. Si un sensor ya dice "blanco", el umbral esta mal para la luz de
     // hoy — y con el umbral mal el robot escaparia para siempre. Mejor
     // desactivar y avisar que salir corriendo sin motivo.
+    for (int i = 0; i < 3; i++) lineaArranque[i] = analogRead(pinLinea[i]);
     Serial.print("Linea: sensores leen ");
-    Serial.print(analogRead(pinLinea[0])); Serial.print(" / ");
-    Serial.print(analogRead(pinLinea[1])); Serial.print(" / ");
-    Serial.print(analogRead(pinLinea[2]));
+    Serial.print(lineaArranque[0]); Serial.print(" / ");
+    Serial.print(lineaArranque[1]); Serial.print(" / ");
+    Serial.print(lineaArranque[2]);
     Serial.print("   umbrales "); Serial.print(UMBRAL_LINEA[0]);
     Serial.print(" / "); Serial.print(UMBRAL_LINEA[1]);
     Serial.print(" / "); Serial.println(UMBRAL_LINEA[2]);
@@ -1145,6 +1160,22 @@ void loop() {
     Serial.print("  separacion=");
     if (veoArco) Serial.print(fabs(diferencia(angArco, angPelota)), 1); else Serial.print("--");
     if (giroscopoSano()) { Serial.print("  rumbo="); Serial.print(ultimoRumbo, 0); }
+    Serial.println();
+
+    // La linea que permite medir en cancha sin cable. Se lee DESPUES, enchufando
+    // el USB sin cortar la bateria.
+    Serial.print("        linea: ");
+    Serial.print(lineaHabilitada ? "ON " : "OFF");
+    Serial.print("  arranque ");
+    for (int i = 0; i < 3; i++) { Serial.print(lineaArranque[i]); if (i < 2) Serial.print("/"); }
+    Serial.print("  visto ");
+    for (int i = 0; i < 3; i++) {
+      if (lineaMax[i] < 0) Serial.print("--");
+      else { Serial.print(lineaMin[i]); Serial.print(".."); Serial.print(lineaMax[i]); }
+      if (i < 2) Serial.print(" ");
+    }
+    Serial.print("  umbrales ");
+    for (int i = 0; i < 3; i++) { Serial.print(UMBRAL_LINEA[i]); if (i < 2) Serial.print("/"); }
     Serial.println();
 
     unsigned long dt = millis() - t_contadores;

@@ -1,6 +1,7 @@
 /* =====================================================================
    ARQUERO — sigue la pelota de costado y la despeja
-   IITA Salta — taller de los martes — Roboliga 2026 — 2026-08-11
+   IITA Salta — taller de los martes — Roboliga 2026
+   Ultimo cambio: 2026-08-25 (la camara ya habla en centimetros reales)
    =====================================================================
 
    QUE HACE
@@ -10,8 +11,13 @@
         1. Sin pelota a la vista: quieto.
         2. Ve la pelota lejos  -> se corre DE COSTADO para ponerse enfrente
                                   de ella, sin dejar de mirar al frente.
-        3. La pelota se acerca -> DESPEJA: sale 30 cm, la saca, vuelve hasta
-                                  pisar la linea, se endereza, avanza 10 cm.
+        3. La pelota llega a 30 cm -> DESPEJA: sale ~50 cm, la saca, vuelve
+                                  hasta pisar la linea, se endereza, y da
+                                  un empujoncito de 10 cm.
+
+   ⚠️ Sale 50 cm para una pelota que estaba a 30. Queda mas lejos del arco
+   de lo necesario. Achicar la ida es el proximo ajuste pendiente, y es una
+   decision de estrategia de arquero, no una cuenta.
 
    ⚠️ EL SEGUIMIENTO DE COSTADO NO TIENE LIMITE (cambio del 2026-08-18).
    Lo unico que lo detiene es perder de vista la pelota. Antes se frenaba al
@@ -100,6 +106,9 @@
              verde ~356 y ~465 · blanco ~760 · umbral 620
    Distancia 1 cm cada 10 ms a potencia 200, con ~33 ms de arranque
    Camara    9 bytes a 19200 por Serial1. Xp=0 significa NO LA VEO
+             2,87 unidades de camara = 1 cm real (medido el 2026-08-25 con
+             regla, 5 posiciones). La camara esta a ~8 cm del piso, no a
+             los 18,7 para los que la calibraron en 2025.
    ===================================================================== */
 
 #include <Arduino.h>
@@ -141,6 +150,38 @@ bool lateralInvertido = false;
 // suponia el codigo. Por eso va invertido.
 bool camaraYInvertida = true;
 
+
+// ---- 🎯 LA CAMARA NO HABLA EN CENTIMETROS: HAY QUE TRADUCIRLA ----
+//
+// La camara no mide distancia. Ve en que pixel aparecio la mancha naranja y
+// lo traduce a centimetros con una tabla de conversion que quedo escrita en
+// su programa en 2025, calibrada para una camara a 18,7 cm del piso.
+//
+// La camara de ESTE robot esta a ~8 cm. Por eso exagera: dice numeros mucho
+// mas grandes que la distancia real.
+//
+// MEDIDO EN CANCHA EL 2026-08-25, cinco posiciones con regla:
+//
+//       pelota a  10 cm  ->  la camara dice   28     factor 2,80
+//       pelota a  20 cm  ->  la camara dice   58     factor 2,90
+//       pelota a  30 cm  ->  la camara dice   89     factor 2,97
+//       pelota a  40 cm  ->  la camara dice  117     factor 2,93
+//       pelota a  50 cm  ->  la camara dice  142     factor 2,84
+//
+// El factor es PAREJO. Eso es lo que dice que cambio la ALTURA y no la
+// inclinacion: una inclinacion distinta daria un factor que crece con la
+// distancia. Por eso alcanza con dividir, sin tabla ni interpolacion.
+//
+// Confirmacion independiente: despejando la cuenta, la camara tendria que
+// estar a 7,9 cm. Se midio con regla y da 7-8. Cierra.
+//
+// ⚠️ Medido entre 10 y 50 cm. Fuera de ese rango no esta comprobado.
+//
+// 🚨 DE ACA EN ADELANTE, TODO EL PROGRAMA HABLA EN CENTIMETROS REALES.
+// Lo unico en unidades de camara son Xp e Yp, que son lo que llega crudo
+// por el cable.
+const float CAMARA_POR_CM = 2.87;    // unidades de camara por cm real
+
 // ---- seguimiento lateral ----
 // La proporcion 50/50/89 entre las ruedas sale de la geometria del robot;
 // es la que usa el codigo 2025 en ai/adproporcional. Lo que cambia es la
@@ -149,10 +190,21 @@ bool camaraYInvertida = true;
 const int LADO_FRENTE  = 50;     // las dos de adelante
 const int LADO_TRASERA = 89;     // la de atras
 
-float kpLateral   = 4.0;         // PWM por cm de desvio de la pelota
+// 🚨 kpLateral SUBIO DE 4.0 A 11.5 EL 2026-08-25, Y NO ES UN AJUSTE.
+// Es la misma fuerza de antes, escrita en la unidad nueva. Antes el desvio
+// llegaba en unidades de camara; ahora llega en centimetros reales, que son
+// numeros 2,87 veces mas chicos. Para que el robot empuje igual, el numero
+// que los multiplica tiene que ser 2,87 veces mas grande:
+//
+//       4.0 x 2,87 = 11,5
+//
+// Si algun dia alguien "corrige" esto de vuelta a 4, el robot va a seguir la
+// pelota casi tres veces mas flojo y va a parecer que se rompio.
+float kpLateral   = 11.5;        // PWM por cm REAL de desvio de la pelota
 int   pwmMinLateral = 60;        // abajo de esto no se mueve, solo zumba
 int   pwmMaxLateral = 120;
-const float ZONA_MUERTA_PELOTA = 4.0;   // cm: no perseguir migajas
+// 4.0 de camara / 2,87 = 1,4 cm reales. Mismo comportamiento que antes.
+const float ZONA_MUERTA_PELOTA = 1.4;   // cm REALES: no perseguir migajas
 
 // ---- despeje ----
 int potenciaDespeje   = 200;
@@ -165,14 +217,28 @@ int potenciaRetroceso = 110;
 int msAdelante        = 533;     // ~50 cm
 int msAdelanteChico   = 133;     // 10 cm
 int umbralBlanco      = 620;     // medido en cancha el 2026-08-11
-// Historia de este numero, probando en cancha el 2026-08-11:
-//   30 -> 20 -> 48. Se subio para que salga a buscarla mas lejos.
+// Historia de este numero, en UNIDADES DE CAMARA mientras no sabiamos que
+// no eran centimetros:  30 -> 20 -> 48 (2026-08-11).
+//
+// 2026-08-25: ahora esta en CENTIMETROS REALES. Los 48 de camara de antes
+// eran 16,7 cm reales — el robot esperaba a tenerla casi encima. El equipo
+// pidio que salga a buscarla a 30 cm reales.
 //
 // 🚨 REGLA: umbralCm NUNCA puede ser mayor que el alcance de la ida. Si el
-// robot dispara a 48 cm y la ida son 30, frena antes de llegar y no toca
+// robot dispara a 30 cm y la ida son 20, frena antes de llegar y no toca
 // la pelota. Si se cambia uno, hay que mirar el otro.
-int umbralCm          = 48;      // despeja si la pelota esta a esto o menos
-int umbralDesvio      = 15;
+// Hoy: dispara a 30, la ida son ~50. La regla se cumple.
+float umbralCm        = 30.0;    // cm REALES: despeja si esta a esto o menos
+
+// Cuan de frente tiene que estar la pelota para disparar. 15 de camara /
+// 2,87 = 5,2 cm reales: es lo mismo que venia haciendo.
+//
+// ⚠️ Ojo con este al subir umbralCm: 5,2 cm de costado a 16,7 cm de
+// distancia es un angulo ancho, pero los mismos 5,2 cm a 30 cm de distancia
+// son un angulo mucho mas angosto. O sea que disparando de mas lejos el
+// robot se vuelve MAS exigente con la alineacion. Si en cancha se lo ve
+// dudar y no despejar, este es el primer numero a mirar.
+float umbralDesvio    = 5.2;     // cm REALES de desvio tolerado
 
 const unsigned long MS_PAUSA_MEDIO   = 150;
 const unsigned long MS_MAX_RETROCESO = 1200;
@@ -520,7 +586,12 @@ void leerCamara() {
 
       // Un solo cuadro no alcanza para lanzar al robot: cualquier reflejo
       // naranja lo dispararia.
-      if (Xp > 0 && Xp <= umbralCm && abs(Yp) <= umbralDesvio) {
+      //
+      // La comparacion se hace en CENTIMETROS REALES: lo que llega por el
+      // cable son unidades de camara y hay que traducirlo antes de decidir.
+      float dCm    = Xp / CAMARA_POR_CM;
+      float desvCm = fabs((float)Yp) / CAMARA_POR_CM;
+      if (Xp > 0 && dCm <= umbralCm && desvCm <= umbralDesvio) {
         if (vecesSeguidas < VECES_PARA_CREERLE) vecesSeguidas++;
       } else {
         vecesSeguidas = 0;
@@ -532,10 +603,21 @@ void leerCamara() {
 bool veLaPelota()  { return Xp > 0 && (millis() - t_ultimoPaquete < 500); }
 bool hayQueDespejar() { return vecesSeguidas >= VECES_PARA_CREERLE; }
 
-// Desvio de la pelota en cm, con el signo ya corregido: positivo = esta a
-// la derecha del robot.
+// A que distancia esta la pelota, en CENTIMETROS REALES.
+float distanciaPelota() {
+  return Xp / CAMARA_POR_CM;
+}
+
+// Desvio de la pelota en CENTIMETROS REALES, con el signo ya corregido:
+// positivo = esta a la derecha del robot.
+//
+// ⚠️ Al eje Y se le aplica el MISMO factor que al eje X. Bajar la camara
+// achica los dos ejes por igual, asi que en teoria corresponde — pero eso
+// es teoria, NO esta medido. Se mide igual que la distancia: pelota corrida
+// 10, 20 y 30 cm al costado, a distancia fija. Anotado como pendiente.
 float desvioPelota() {
-  return camaraYInvertida ? -(float)Yp : (float)Yp;
+  float y = camaraYInvertida ? -(float)Yp : (float)Yp;
+  return y / CAMARA_POR_CM;
 }
 
 
@@ -574,12 +656,16 @@ void ayuda() {
   Serial.print("  kpLateral="); Serial.print(kpLateral, 1);
   Serial.print("  pwm "); Serial.print(pwmMinLateral);
   Serial.print("-");      Serial.print(pwmMaxLateral);
-  Serial.print("  zona muerta "); Serial.print(ZONA_MUERTA_PELOTA, 0);
-  Serial.println(" cm");
+  Serial.print("  zona muerta "); Serial.print(ZONA_MUERTA_PELOTA, 1);
+  Serial.println(" cm reales");
   Serial.print("  lateralInvertido="); Serial.print(lateralInvertido);
   Serial.print("  camaraYInvertida="); Serial.println(camaraYInvertida);
-  Serial.print("  despeja a <= "); Serial.print(umbralCm);
-  Serial.print(" cm   umbral blanco "); Serial.println(umbralBlanco);
+  Serial.print("  despeja a <= "); Serial.print(umbralCm, 1);
+  Serial.print(" cm REALES (desvio <= "); Serial.print(umbralDesvio, 1);
+  Serial.println(" cm)");
+  Serial.print("  camara: "); Serial.print(CAMARA_POR_CM, 2);
+  Serial.print(" unidades por cm real   umbral blanco ");
+  Serial.println(umbralBlanco);
   Serial.println("=================================================");
 }
 
@@ -658,9 +744,12 @@ void leerConsola() {
       Serial.println(enderezarActivado ? "SI" : "NO");
       break;
 
-    case 'F': kpLateral += 0.5; Serial.print("   kpLateral = ");
+    // El paso subio de 0,5 a 1,5 junto con kpLateral: como el numero es
+    // 2,87 veces mas grande, el paso tambien, y asi ajustar en cancha
+    // cuesta la misma cantidad de teclas que antes.
+    case 'F': kpLateral += 1.5; Serial.print("   kpLateral = ");
               Serial.println(kpLateral, 1); break;
-    case 'f': if (kpLateral > 0.5) kpLateral -= 0.5;
+    case 'f': if (kpLateral > 1.5) kpLateral -= 1.5;
               Serial.print("   kpLateral = "); Serial.println(kpLateral, 1); break;
 
     case 'u': umbralBlanco += 25; Serial.print("   umbral = ");
@@ -668,11 +757,13 @@ void leerConsola() {
     case 'j': if (umbralBlanco > 25) umbralBlanco -= 25;
               Serial.print("   umbral = "); Serial.println(umbralBlanco); break;
 
-    case 'x': umbralCm += 5; Serial.print("   despeja a <= ");
-              Serial.print(umbralCm); Serial.println(" cm"); break;
-    case 'z': if (umbralCm > 5) umbralCm -= 5;
-              Serial.print("   despeja a <= "); Serial.print(umbralCm);
-              Serial.println(" cm"); break;
+    // Pasos de 2 cm REALES. Antes eran de 5 en unidades de camara, que
+    // resultaban ser menos de 2 cm reales: el paso queda parecido.
+    case 'x': umbralCm += 2.0; Serial.print("   despeja a <= ");
+              Serial.print(umbralCm, 1); Serial.println(" cm reales"); break;
+    case 'z': if (umbralCm > 2.0) umbralCm -= 2.0;
+              Serial.print("   despeja a <= "); Serial.print(umbralCm, 1);
+              Serial.println(" cm reales"); break;
 
     case 'L': mostrarLinea(); break;
 
@@ -682,8 +773,10 @@ void leerConsola() {
       } else if (Xp == 0) {
         Serial.println("   la camara anda, pero no ve la pelota");
       } else {
-        Serial.print("   pelota a "); Serial.print(Xp);
-        Serial.print(" cm, Yp crudo "); Serial.print(Yp);
+        Serial.print("   pelota a "); Serial.print(distanciaPelota(), 1);
+        Serial.print(" cm REALES (la camara dice "); Serial.print(Xp);
+        Serial.print(")");
+        Serial.print("   Yp crudo "); Serial.print(Yp);
         Serial.print("  -> la leo como ");
         Serial.print(desvioPelota() > 0 ? "DERECHA" : "IZQUIERDA");
         Serial.print(" ("); Serial.print(fabs(desvioPelota()), 0);
@@ -819,8 +912,8 @@ void loop() {
       parar();
       digitalWrite(LED, ((ahora / 800) % 2) ? HIGH : LOW);
       if (hayQueDespejar()) {
-        Serial.print(">> pelota a "); Serial.print(Xp);
-        Serial.println(" cm — DESPEJANDO");
+        Serial.print(">> pelota a "); Serial.print(distanciaPelota(), 1);
+        Serial.println(" cm reales — DESPEJANDO");
         fase = ADELANTE; t_fase = ahora;
         reiniciarRampaMovimiento();   // arrancar suave: si patina, se tuerce
         reiniciarCorreccion();
@@ -837,8 +930,8 @@ void loop() {
 
       if (hayQueDespejar()) {
         parar();
-        Serial.print(">> pelota a "); Serial.print(Xp);
-        Serial.println(" cm — DESPEJANDO");
+        Serial.print(">> pelota a "); Serial.print(distanciaPelota(), 1);
+        Serial.println(" cm reales — DESPEJANDO");
         fase = ADELANTE; t_fase = ahora;
         reiniciarRampaMovimiento();
         reiniciarCorreccion();

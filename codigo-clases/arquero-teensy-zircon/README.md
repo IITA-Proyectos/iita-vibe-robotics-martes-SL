@@ -45,6 +45,23 @@ Más claro = número más alto. En cancha: verde 356 y 465, línea blanca ~760,
 diferencia sobre el mismo verde. Ver
 [la bitácora del 11/08](bitacora/2026-08-11-sensores-de-linea-y-arquero-completo.md).
 
+### La cámara no habla en centímetros — MEDIDO en cancha el 25/08
+
+**2,87 unidades de cámara = 1 centímetro real.** La cámara de este robot está a **~8 cm del
+piso**, no a los 18,7 cm para los que la calibraron en 2025, y por eso estira todas las
+distancias por un factor parejo.
+
+| Pelota (regla) | 10 cm | 20 cm | 30 cm | 40 cm | 50 cm |
+|---|---|---|---|---|---|
+| Dice la cámara | 28 | 58 | 89 | 117 | 142 |
+
+El factor es **parejo** (2,80 a 2,97), así que se corrige dividiendo — no hace falta tabla. La
+conversión se aplica **en el Teensy**: el programa de la cámara no se toca, porque es el mismo
+que usa el delantero. Ver
+[la bitácora del 25/08](bitacora/2026-08-25-tabla-de-conversion-de-la-camara.md).
+
+⚠️ Medido entre 10 y 50 cm. **El eje Y (desvío lateral) todavía no se midió.**
+
 ⚠️ Los comentarios del código 2025 dicen izquierda/derecha **al revés** — están escritos mirando
 al robot de frente en vez de desde el robot. La tabla de arriba es lo medido. Ver
 [la bitácora de identificación](bitacora/2026-07-28-identificacion-arquero.md).
@@ -69,6 +86,7 @@ al robot de frente en vez de desde el robot. La tabla de arriba es lo medido. Ve
 | [`cuadrado-lento/`](pruebas/cuadrado-lento/) | Con el peso encima, ¿anda derecho? (giros por cronómetro) |
 | [`cuadrado-giroscopo/`](pruebas/cuadrado-giroscopo/) | Lo mismo con lazo cerrado de rumbo |
 | [`calibrar-15cm/`](pruebas/calibrar-15cm/) | ¿Cuánto tiempo de motor es una distancia dada? |
+| [`tabla-camara/`](pruebas/tabla-camara/) | ¿Cuánto exagera la cámara la distancia, y exagera parejo? |
 | [`herramientas/`](pruebas/herramientas/) | Compilar, cargar y hablarle al robot **sin el Arduino IDE** |
 
 ### `funciona/`

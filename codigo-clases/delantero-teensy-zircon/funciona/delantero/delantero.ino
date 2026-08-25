@@ -271,7 +271,9 @@ const float TOL_ANG_ALINEADO = 8.0;  // y el arco a menos de esto de la pelota
 //  LA OBSERVACION, que es un dato y no una impresion: DE LEJOS NO PATEA.
 //  Orbita, no cumple nunca la condicion, y se rinde a los 20 s sin tirar.
 //
-//  LA REGLA: si el arco esta LEJOS, las dos tolerancias pasan a 15 grados.
+//  LA REGLA: si arcoX cae en la banda ARCO_LEJOS_MIN..ARCO_LEJOS_MAX (50 a
+//  200), las dos tolerancias pasan a 15 grados. Fuera de esa banda quedan en 8.
+//  Con el arco NO visible, arcoX() vale 0 y no entra en la banda: queda en 8.
 //  Si esta cerca, quedan en 8 como estaban.
 //
 //  ⚠️ OJO CON LA GEOMETRIA, PORQUE VA AL REVES DE LO QUE PARECE. Un angulo
@@ -303,7 +305,11 @@ const float TOL_ANG_ALINEADO = 8.0;  // y el arco a menos de esto de la pelota
 //  SI HACE CUALQUIER COSA: poner TOLERANCIA_ADAPTATIVA en false y queda como
 //  estaba, en 8 fijo.
 const bool  TOLERANCIA_ADAPTATIVA = true;
-const int   ARCO_LEJOS    = 100;    // arcoX() por encima de esto = "lejos"
+const int   ARCO_LEJOS_MIN = 50;    // la banda de "lejos": desde aca...
+const int   ARCO_LEJOS_MAX = 200;   // ...hasta aca. 200 es el tope que manda
+                                    // la camara (ver XARCO_MAX), asi que en la
+                                    // practica el techo no recorta nada: la
+                                    // banda es "de 50 para arriba".
 const float TOL_ANG_LEJOS = 15.0;   // las dos tolerancias cuando esta lejos
 //
 //           A 100 cm del arco, 8 grados son ~14 cm de desvio. La escalera si
@@ -950,7 +956,8 @@ void setup() {
   Serial.print(" grados de la pelota");
   if (TOLERANCIA_ADAPTATIVA) {
     Serial.print("  (las dos pasan a "); Serial.print(TOL_ANG_LEJOS, 0);
-    Serial.print(" si arcoX > "); Serial.print(ARCO_LEJOS); Serial.print(")");
+    Serial.print(" si arcoX entre "); Serial.print(ARCO_LEJOS_MIN);
+    Serial.print(" y "); Serial.print(ARCO_LEJOS_MAX); Serial.print(")");
   }
   Serial.println();
   Serial.print("orbita: impulso "); Serial.print(VEL_ORB_IMPULSO);
@@ -1101,7 +1108,8 @@ void loop() {
   float angArco   = anguloDe(arcoX(), arcoY());
   // Tolerancia adaptativa: si el arco esta lejos se afloja a TOL_ANG_LEJOS.
   // Ver el bloque "TOLERANCIA ADAPTATIVA POR DISTANCIA AL ARCO" arriba.
-  bool  arcoLejos   = (TOLERANCIA_ADAPTATIVA && arcoX() > ARCO_LEJOS);
+  bool  arcoLejos   = (TOLERANCIA_ADAPTATIVA
+                       && arcoX() >= ARCO_LEJOS_MIN && arcoX() <= ARCO_LEJOS_MAX);
   float tolPelota   = arcoLejos ? TOL_ANG_LEJOS : TOL_ANG_PELOTA;
   float tolAlineado = arcoLejos ? TOL_ANG_LEJOS : TOL_ANG_ALINEADO;
 

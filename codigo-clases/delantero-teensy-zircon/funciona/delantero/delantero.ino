@@ -347,6 +347,27 @@ const bool GIRO_RUMBO_INVERTIDO     = false;  // si al apuntar al cero se aleja,
 //  exactamente lo contrario de sensor3: alejarse de la rueda T. Sale solo,
 //  sin medir ningun angulo.
 const bool LINEA_ACTIVA = true;
+
+//  LA AUTOPROTECCION DEL ARRANQUE — APAGADA el 2026-08-25 a pedido de Maximo.
+//
+//  QUE HACIA. Al arrancar leia los tres sensores y, si alguno ya pasaba su
+//  umbral, daba por malos los umbrales y DESACTIVABA el escape para toda la
+//  corrida. La idea era no salir corriendo sin motivo.
+//
+//  POR QUE SE APAGA. El 25/08 el escape andaba en la mesa pero NO en la
+//  cancha, con el robot arrancando desde cero apoyado en el verde. La
+//  sospecha es que el verde de la cancha lee por encima del umbral y la
+//  autoproteccion lo estaba anulando en cada arranque, en silencio: el aviso
+//  sale por serie, y en la cancha no hay cable que lo lea.
+//
+//  QUE ESPERAR AHORA. Si la sospecha es correcta, el escape va a funcionar.
+//  Si NO lo es y los umbrales estan realmente mal para la cancha, el robot va
+//  a INTENTAR ESCAPAR SIN PARAR, como si estuviera siempre sobre la linea.
+//  Las dos cosas son informacion: es la prueba que separa las dos causas.
+//
+//  El chequeo se sigue imprimiendo en el banner — lo unico que cambia es que
+//  ya no desactiva nada. Para volver atras: poner esto en true.
+const bool PROTECCION_ARRANQUE = false;
 const int  VEL_ESCAPE   = 100;              // el del campeon 2025
 const unsigned long MS_ESCAPE_EXTRA = 400;  // sigue 400 ms DESPUES de dejar de verla
 
@@ -853,13 +874,22 @@ void setup() {
     Serial.print(" / "); Serial.println(UMBRAL_LINEA[2]);
 
     int m = leerLineas();
-    if (m != 0) {
+    if (m != 0 && PROTECCION_ARRANQUE) {
       lineaHabilitada = false;
       Serial.println("!!! YA LEE BLANCO ESTANDO EN EL VERDE -> el umbral esta mal.");
       Serial.println("!!! ESCAPE DE LINEA DESACTIVADO. Corre pruebas/sensores-de-linea/");
     } else {
       lineaHabilitada = true;
-      Serial.println("Linea: OK, escape ACTIVADO (anula todo lo demas).");
+      if (m != 0) {
+        Serial.print("!!! OJO: ya lee blanco al arrancar (sensores");
+        for (int i = 0; i < 3; i++) if (m & (1 << i)) { Serial.print(" "); Serial.print(i + 1); }
+        Serial.println("), pero la autoproteccion esta APAGADA.");
+        Serial.println("!!! El escape queda ACTIVADO igual. Si el robot escapa sin");
+        Serial.println("!!! parar, la causa es esta: los umbrales no sirven para esta");
+        Serial.println("!!! superficie. Volver a medir aca mismo.");
+      } else {
+        Serial.println("Linea: OK, escape ACTIVADO (anula todo lo demas).");
+      }
     }
   } else {
     Serial.println("Linea: apagada por configuracion.");

@@ -18,6 +18,11 @@
 | 🔴 **El segundo escape no se despegó** | 24 s en `!LINEA!` sin salir |
 | 🔴 **El giroscopio sigue sin medir** | pero ahora sabemos que el sensor está vivo |
 | ⚠️ **Duda sin cerrar** | el verde de hoy no es el verde del 18/08 |
+| ✅ **Umbrales RE-medidos EN LA CANCHA** | `{707, 582, 795}` — sección 8 |
+| ✅ **Tolerancia de patada adaptativa** | 15° con el arco lejos — sección 9 |
+| ✅ **Restaurado el golpe de freno** | el de gviollaz del 18/08 — sección 10 |
+| 🔴 **SIGUE SALIÉNDOSE DE LA CANCHA** | al patear. Es lo que queda abierto |
+| 🎁 **La otra mesa resolvió las unidades** | factor 2,87 en el arquero — sección 11 |
 
 ---
 
@@ -288,3 +293,249 @@ firmware distinto al del repo (era el `atan2` corriendo con un `XpBueno` viejo),
 las dos veces el escape se había despegado (sólo la primera). **Las dos veces el error fue
 sacar conclusión de una sola observación.** El loop a 631.000/s y el "ya me despegue" estaban
 los dos en el log; había que leerlos, no inferirlos.
+
+
+---
+---
+
+# SEGUNDA PARTE — lo que siguió después de medir en la mesa
+
+## 8. Los umbrales de la mesa NO servían en la cancha
+
+Con `{542, 546, 608}` el escape andaba **en la mesa** pero **no en la cancha**. Se descartó que
+fuera el reset (el robot arranca desde cero, sin energía previa, apoyado en el verde) y que el
+binario estuviera viejo (se reflasheó y se verificó el hex).
+
+**La hipótesis la puso Máximo:** que la autoprotección del arranque estuviera anulando el
+escape en cada encendido. **Los números se la confirmaron.**
+
+### Cómo se midió en la cancha sin cable
+
+El cable USB no llega a la cancha, y el banner del arranque **se pierde**: el Teensy descarta
+lo que manda por USB si no hay ningún host escuchando. Se agregó instrumentación que guarda
+las lecturas en RAM y las reimprime cada 2 s:
+
+```
+linea: ON   arranque 625/381/740  visto 369..789 311..783 397..850  umbrales 707/582/795
+```
+
+Se prende el robot en la cancha, se lo deja andar, y se lo trae a la mesa **SIN APAGAR LA
+BATERÍA** para engancharle el USB. Si no se corta la energía, el programa sigue corriendo y los
+números siguen ahí.
+
+### El resultado
+
+| sensor | verde de la CANCHA | umbral que tenía | |
+|---|---|---|---|
+| 1 | **625** | 542 | lo superaba por 83 |
+| 2 | 381 | 546 | ok |
+| 3 | **740** | 608 | lo superaba por 132 |
+
+**Dos de los tres sensores leían el verde de la cancha como si fuera blanco.** La autoprotección
+hacía exactamente lo que debía con esa información, y anulaba el escape en cada arranque — **en
+silencio**, porque el aviso sale por serie y en la cancha no hay cable.
+
+El verde de la cancha es **mucho más reflectante** que la muestra de la mesa: 625/381/740 contra
+319/330/452. Los umbrales de la mesa nunca iban a servir allá.
+
+### Lo que quedó cargado
+
+```cpp
+int UMBRAL_LINEA[3] = { 707, 582, 795 };   // punto medio verde-blanco, EN CANCHA
+const bool PROTECCION_ARRANQUE = false;    // apagada a pedido de Máximo
+```
+
+⚠️ **El sensor 3 quedó con 55 puntos de margen a cada lado**, y el verde ya varió más que eso
+entre dos puntos. Es el de ADELANTE. Primer sospechoso si dispara en falso o no dispara.
+
+⚠️ **El blanco no está limpio.** Los máximos vienen del acumulador min/max, que sigue acumulando
+después de volver a la mesa: se vio a S3 trepar de 814 a 850 ya estando en la mesa. El VERDE sí
+está limpio, porque sale de `arranque`, que se congela al encenderse. **Para cerrarlo:** congelar
+el min/max a los ~90 s del arranque y repetir una pasada.
+
+---
+
+## 9. Tolerancia de patada adaptativa por distancia al arco
+
+**Idea de Máximo**, a partir de una observación propia: *de lejos no patea*. Orbita, no cumple
+nunca la condición, y se rinde a los 20 s sin tirar.
+
+```cpp
+const bool  TOLERANCIA_ADAPTATIVA = true;
+const int   ARCO_LEJOS_MIN = 50;
+const int   ARCO_LEJOS_MAX = 200;
+const float TOL_ANG_LEJOS  = 15.0;    // arrancó en 10, se subió a 15
+```
+
+Dentro de esa banda **las dos** tolerancias pasan a 15 grados; fuera quedan en 8.
+
+**Por qué las dos y no sólo la del arco:** se midió en vivo que la que bloquea es la de la
+PELOTA. Se vieron separaciones con el arco de **0,3 y 0,8 grados** (perfectas) con `angPelota` en
+**21 y 29 grados**. Aflojar sola la del arco no cambiaría nada.
+
+⚠️ **La geometría va al revés de la intuición, y quedó dicho en el código.** Un ángulo fijo se
+ABRE con la distancia: 15 grados son 27 cm de desvío a 1 m y **54 cm a 2 m**. Aflojar de lejos
+afloja justo donde ya se es más impreciso. **Se hizo igual por OPORTUNIDAD, no por puntería:** un
+tiro torcido al lado correcto de la cancha le gana a orbitar 20 s y rendirse. Es una apuesta
+consciente.
+
+La telemetría ahora imprime `arcoX=` y `tol=` para poder ajustarlo con datos.
+
+---
+
+## 10. Restaurado el golpe de freno (era de gviollaz, 18/08)
+
+Máximo volvió a ver el síntoma: *"cuando patea y está la línea, la atraviesa y se sale de la
+cancha"*. Es **exactamente** el problema que gviollaz ya había resuelto el 18/08 en `5c38605`,
+revertido ese mismo día como **daño colateral** — se dieron de baja los cuatro cambios del día
+juntos, y el sospechoso principal era el arreglo del giroscopio, no éste. **El freno nunca se
+demostró culpable de nada.**
+
+Se restauró el diseño original sin cambios: `VEL_FRENO = 240`, `MS_FRENO = 150`.
+
+> **La regla, del reglamento nuevo:** cruzar la línea con más de medio cuerpo es **GOL EN
+> CONTRA**. Cancelar la patada no alcanza; hay que matar el envión.
+
+El `cherry-pick` no aplicó limpio (el archivo cambió mucho y duplicaba medio fuente), así que se
+aplicó a mano.
+
+### 🔴 Y AUN ASÍ SE SIGUE SALIENDO
+
+Es lo que queda abierto al cierre de la clase. Ideas ordenadas en "Qué queda pendiente".
+
+---
+
+## 11. 🎁 La otra mesa resolvió las unidades de la cámara
+
+Mientras trabajábamos, la mesa del **arquero** pusheó el hallazgo que cerraba el pendiente que
+veníamos arrastrando: **la cámara exagera por un factor PAREJO de 2,87**, y la causa es que quedó
+montada a **~8 cm del piso** en vez de los 18,7 para los que fue calibrada.
+
+Ver `arquero-teensy-zircon/bitacora/2026-08-25-tabla-de-conversion-de-la-camara.md`. Vale la pena
+leerla entera: **predicen la altura a partir del factor (7,9 cm) y después la confirman con regla
+(7-8 cm)**.
+
+⚠️ **ESE 2,87 ES DEL ARQUERO Y NO SE PUEDE ASUMIR ACÁ.** Otro robot, otra cámara. Ya falló dos
+veces transferir datos entre mesas. Lo que SÍ transfiere es el método y el programa.
+
+### Por qué nos importa tanto
+
+Si acá diera algo parecido:
+
+| Nuestro parámetro | Dice | Serían, en cm reales |
+|---|---|---|
+| `XP_ORBITA = 22` | "orbita a 22 cm" | **7,7 cm** |
+| `ARCO_LEJOS_MIN = 50` | queríamos 50 cm | **17 cm** |
+| `ARCO_LEJOS_MAX = 200` | queríamos 200 cm | **70 cm** |
+
+**Explicaría la patada de una vez.** La órbita tiene radio **fijo de 17,5 cm** por geometría del
+chasis (`R = 2L`, con L = 8,75 cm). Pero el robot empieza a orbitar cuando cree que la pelota
+está a 22, que serían 7,7 cm reales: **orbita alrededor de un punto que cae detrás de la
+pelota.** La pelota no queda en el centro del círculo y sale descentrada — que es exactamente el
+síntoma de 22-34 grados que se viene midiendo hace dos clases. `XP_ORBITA` debería ser
+~17,5 × factor, o sea **~50 y no 22**.
+
+Y la banda `50..200` que se cargó hoy **no significa lo que se quiso**: 200 cm reales serían 574
+unidades de cámara, y la cámara **satura en 200**. Era inalcanzable.
+
+### Ya está portada
+
+`pruebas/tabla-camara/` está copiada al delantero y **compilando**. Mide **sin cable**: guía con
+destellos del LED, el robot se acuerda, y se le pregunta después en la mesa con la tecla `m`.
+Seis posiciones, ~1 min 30. Es portable tal cual porque toca los 9 pines de motor sólo para
+ponerlos en CERO, y los dos robots usan los mismos 9 pines.
+
+**Se le arregló el bug que a ellos les corrió toda la tabla un lugar:** el anuncio de la posición
+1 salía pegado al parpadeo del final de la cuenta inicial. Se agregaron 1500 ms de LED apagado
+antes de contar. **Si a la otra mesa le sirve, que se lo lleven.**
+
+---
+
+## 12. Infraestructura que quedó arreglada
+
+- **PlatformIO andando.** Tres problemas encadenados: Avast intercepta TLS (rompe HTTPS desde
+  Python, y PlatformIO lo enmascara como un `HTTPClientError:` vacío), faltaba el toolchain
+  entero, y `SPI.h` por deriva de versión de Adafruit BusIO.
+- **La carpeta es un clon de git de verdad.** Estaba congelada en el 28/04 con 202 archivos
+  contra 590 del repo.
+- ⚠️ **LA MESA DEL ARQUERO TIENE EL PROBLEMA DEL `SPI.h` SIN ARREGLAR.** Confirmado compilando:
+  `pruebas/cuadrado-giroscopo` y `funciona/seguir-y-despejar` fallan. **Es una línea en cada
+  `platformio.ini`. Hay que avisarles.**
+
+---
+
+## 13. El giroscopio: indicación del profe Gustavo
+
+Guardada para cuando se retome. **No tocar el giroscopio sin esto primero:**
+
+1. **El giroscopio original SE QUEMÓ** (les pasó a los robots que compitieron en 2025).
+2. **El actual es un reemplazo y no se sabe si es el mismo modelo** que el del arquero.
+3. **El programa del 2025 SÍ usaba el giroscopio y funcionaba.** Leer ese código y aprender de
+   ahí, en vez de inventar.
+
+**Deducción del 25/08, sin verificar en hardware:** el chip **se presenta como un BNO055**.
+`Adafruit_BNO055::begin()` devuelve `true` sólo si lee el chip ID `0xA0`, y el banner dice
+"contesta pero da ceros (9/20 lecturas útiles)" — mensaje que está *después* del `begin()`.
+Entonces responde por I2C y se identifica bien, pero **la fusión no corre**. Encaja con un **clon
+barato de BNO055**: se presentan con el ID correcto y traen el firmware de fusión roto.
+
+Eso explicaría por qué el arquero anda con el MISMO código y éste no. **Si es hardware, ninguna
+corrección de software lo va a arreglar** — y el 18/08 ya se perdió una clase persiguiendo
+`setExtCrystalUse(true)` como culpable.
+
+---
+
+## Qué queda pendiente — ORDENADO POR PRIORIDAD
+
+### 🔴 1. SE SIGUE SALIENDO DE LA CANCHA AL PATEAR
+
+Ideas, de mayor a menor impacto esperado:
+
+**a) Acortar la patada. `MS_PATADA = 1000` → ~350 ms.** Es la sospecha más fuerte y el cambio más
+barato. La pelota se va del robot en los primeros ~200 ms; los otros 800 ms de 240 de PWM **ya no
+empujan la pelota: empujan al robot**. Es envión puro, generado después de que la jugada terminó.
+Ataca la causa en vez del síntoma.
+
+**b) Alargar el freno. `MS_FRENO = 150` → 250-300 ms.** 150 ms de contra-empuje contra 1000 ms de
+aceleración es poco. Va de la mano con (a): si se acorta la patada, quizá no haga falta.
+
+**c) Subir `VEL_ESCAPE` de 100.** La huida en sí es lenta. Una vez frenado, cuanto antes se
+despegue, mejor.
+
+**d) MEDIR CUÁNTO SE PASA, en centímetros.** Sigue pendiente desde el 18/08 y **sin ese número
+todo lo anterior es a ciegas**. Marcar dónde está la línea, dejarlo patear hacia ella, medir
+cuánto la cruzó. Con y sin freno. Si se pasa 2 cm no valía la pena; si se pasa 15, es gol en
+contra.
+
+**El encuadre que conviene tener:** un sensor de línea es una señal de *"ya estás ahí"*, no de
+*"estás por llegar"*. **Contra la física no se puede reaccionar** — hay que llegar más despacio o
+no generar esa velocidad. Por eso (a) es mejor que (b) y (c): las dos últimas reaccionan, la
+primera evita.
+
+### 2. Correr `tabla-camara` en el delantero
+Ya está portada y compilando. Da el factor propio y probablemente cierra el problema de la
+patada (ver sección 11).
+
+### 3. Congelar el min/max a los 90 s
+Para tener un blanco de cancha limpio y confirmar los umbrales.
+
+### 4. Avisar a la mesa del arquero del `SPI.h`
+Sus dos programas con BNO055 no compilan.
+
+### 5. El giroscopio
+Con la indicación de la sección 13. No antes.
+
+### 6. Sensor 3: 55 puntos de margen
+Vigilarlo.
+
+## Nota de método
+
+Tres veces hoy afirmé algo de más y los datos me corrigieron: dije que la placa tenía un firmware
+distinto al del repo (era el `atan2` corriendo con un `XpBueno` viejo), dije que las dos veces el
+escape se había despegado (sólo la primera), y propuse el orden de encendido como causa de que
+fallara en cancha (no era). **Las tres veces el error fue sacar conclusión de una sola
+observación.**
+
+Y una que salió bien: **la hipótesis que destrabó la clase la puso Máximo**, no yo. Yo venía
+detrás de la explicación eléctrica y de las superficies; él dijo "es la función del arranque que
+lo anula" y los números le dieron la razón.

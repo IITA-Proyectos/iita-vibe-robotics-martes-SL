@@ -418,6 +418,39 @@ const bool PROTECCION_ARRANQUE = false;
 const int  VEL_ESCAPE   = 100;              // el del campeon 2025
 const unsigned long MS_ESCAPE_EXTRA = 400;  // sigue 400 ms DESPUES de dejar de verla
 
+//  GOLPE DE FRENO AL LLEGAR A LA LINEA VINIENDO DE LA PATADA
+//  [2026-08-18 gviollaz, revertido como dano colateral ese dia; restaurado el
+//   2026-08-25 a pedido de Maximo, que volvio a ver el sintoma en cancha]
+//
+//  LA REGLA, del reglamento nuevo: si el robot cruza la linea con MAS DE MEDIO
+//  CUERPO, es GOL EN CONTRA. Cancelar la patada no alcanza: hay que matar el
+//  envion.
+//
+//  QUE PASABA. La linea ya cancelaba la patada (tiene prioridad absoluta), pero
+//  enseguida escapaba a PWM 100 viniendo de VEL_PATADA = 240: le oponia menos
+//  de la mitad de lo que traia. Y parar() SUELTA las ruedas en vez de trabarlas
+//  (las patas de direccion en 0 = rueda libre), asi que no hay ningun freno
+//  activo en todo el firmware.
+//
+//  QUE HACE. Los primeros MS_FRENO ms del escape van a VEL_FRENO —lo mismo que
+//  traia, se le opone— y despues baja a VEL_ESCAPE. Es la misma forma que el
+//  impulso de la orbita, al reves: fuerte primero.
+//
+//  Frena EMPUJANDO AL REVES, no trabando: cuando el sensor de adelante ve la
+//  linea, la direccion de escape ya apunta hacia la rueda trasera, o sea para
+//  atras. Lo que faltaba era fuerza, no direccion.
+//
+//  SOLO SALIENDO DE PATEA_ADEL, que es el unico estado rapido (avanzar va a 55
+//  y la orbita a 48). Meterle 240 saliendo de un estado lento lo mandaria
+//  disparado contra la linea de enfrente.
+//
+//  [FALTA MEDIR] Cuanto se pasa de largo, en centimetros, con y sin freno.
+//  Marcar donde esta la linea, dejarlo patear hacia ella y medir cuanto la
+//  cruzo. Si se pasa 2 cm no valia la pena; si se pasa 15, es gol en contra.
+//  Sin ese numero no se sabe si 150 ms alcanzan.
+const int VEL_FRENO = 240;                 // igual que la patada: lo que trajo, se le opone
+const unsigned long MS_FRENO = 150;        // cuanto dura el golpe de freno
+
 //  UMBRALES DEL 2025, luz del laboratorio del anio pasado. Ya nos paso con
 //  los umbrales de color: se re-miden con pruebas/sensores-de-linea/ antes
 //  de confiar. Mientras tanto hay una AUTOPROTECCION al arrancar: si un
@@ -607,6 +640,7 @@ const int CEROS_PARA_DARLO_POR_CAIDO = 10;
 int  pinLinea[3]  = { A11, A13, A12 };   // Mark1; se corrige en setup()
 const char* versionPlaca = "?";
 bool lineaHabilitada = false;
+bool frenoFuerte = false;    // entramos al escape viniendo de la patada?
 
 // INSTRUMENTACION PARA MEDIR EN LA CANCHA SIN CABLE [2026-08-25].
 // El problema: el banner del arranque se PIERDE cuando no hay nadie escuchando
@@ -697,7 +731,7 @@ int leerLineas() {
 
 // Escapa de la(s) linea(s) que se estan viendo. Suma las direcciones, asi
 // que las esquinas (dos sensores a la vez) salen solas.
-void escaparDeLinea(int m) {
+void escaparDeLinea(int m, int velocidad) {
   //          IZQ(M1) DER(M2) TRA(M3)
   int v[3] = {   0,      0,      0   };
   if (m & 1) { v[1] -= 1; v[2] += 1; }   // hacia la DI  -> IZQ apagada
@@ -716,7 +750,7 @@ void escaparDeLinea(int m) {
   }
 
   int pwm[3];
-  for (int i = 0; i < 3; i++) pwm[i] = (v[i] * VEL_ESCAPE) / pico;
+  for (int i = 0; i < 3; i++) pwm[i] = (v[i] * velocidad) / pico;
 
   analogWrite(IZQ_PWM, abs(pwm[0]));
   digitalWrite(IZQ_INA, pwm[0] > 0 ? 1 : 0);
@@ -1088,10 +1122,17 @@ void loop() {
       t_ultimaLinea = millis();
       mascaraLinea  = m;
       if (estado != ESCAPA_LINEA) {
+        // Si veniamos pateando, el envion es mucho mas grande: primero freno.
+        frenoFuerte = (estado == PATEA_ADEL);
         Serial.print("!!! LINEA BLANCA (sensores");
         for (int i = 0; i < 3; i++) if (m & (1 << i)) { Serial.print(" "); Serial.print(i + 1); }
         Serial.print(") estando en "); Serial.print(nombreEstado(estado));
-        Serial.println(" -> ESCAPO");
+        if (frenoFuerte) {
+          Serial.print(" -> FRENO A FONDO ("); Serial.print(VEL_FRENO);
+          Serial.print(" x "); Serial.print(MS_FRENO); Serial.println(" ms) y escapo");
+        } else {
+          Serial.println(" -> ESCAPO");
+        }
         cambiarA(ESCAPA_LINEA);
       }
     }
@@ -1122,7 +1163,9 @@ void loop() {
       Serial.println("... ya me despegue de la linea");
       cambiarA(BUSCANDO);
     } else {
-      escaparDeLinea(mascaraLinea);
+      // Los primeros MS_FRENO ms van a fondo SOLO si veniamos pateando.
+      bool frenando = (frenoFuerte && enEstado < MS_FRENO);
+      escaparDeLinea(mascaraLinea, frenando ? VEL_FRENO : VEL_ESCAPE);
     }
   }
 

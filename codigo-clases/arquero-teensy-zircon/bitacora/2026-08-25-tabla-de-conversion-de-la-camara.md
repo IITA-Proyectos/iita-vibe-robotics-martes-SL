@@ -285,7 +285,14 @@ buscan.
    el robot **para y avisa**. Ya no se puede ir caminando. En el peor caso queda quieto en el
    lugar equivocado, que es un problema mucho menor que un robot que se va de la cancha.
 
-⚠️ **Al cierre de la clase esto quedó cargado y en prueba. Falta anotar el resultado.**
+### ✅ Resultado en cancha
+
+**"Funcionó bien."** Con el signo fijo, la lectura suavizada y la protección contra fuga, el
+robot se ubica solo: retrocede hasta la línea, se centra con el arco del rival y se endereza.
+
+⚠️ Lo que **no** se midió, porque la clase se terminó: qué tan centrado quedó en números, y si
+`kpArco = 2,0` y `ZONA_MUERTA_ARCO = 6` son los valores buenos o simplemente alcanzan. Andan;
+no están ajustados. Para eso está `ver-arcos`, que quedó escrito y sin correr.
 
 ---
 
@@ -321,9 +328,12 @@ despejarla.** Se aleja tres veces más de lo necesario y deja el arco solo.
 
 ### 🔴 Lo primero la próxima vez
 
-- ⬜ **Anotar cómo salió la ubicación inicial.** Quedó cargada y en prueba al cierre. Las
-  preguntas: ¿llega al centro y se queda? ¿se pasa y vuelve (`kpArco` alto)? ¿frena corrido
-  (`ZONA_MUERTA_ARCO` alta)? ¿saltó el aviso de "me estoy alejando"?
+- ⬜ **Que el robot pueda contar qué le pasó en la cancha.** Es lo de §9 y es lo que más frena
+  todo lo demás: hoy no hay forma de saber si se centró bien o si se dio por vencido, porque el
+  LED no los distingue y el texto se pierde. Hacen falta dos cosas: **tecla `R` con el resumen de
+  la corrida** guardado en memoria (¿encontró la línea y en cuántos ms?, desvío del arco al
+  empezar y al terminar, ¿saltó la fuga?, ¿vio el arco?, cuántos despejes) y **código de LED para
+  los finales malos** — por ejemplo tres destellos largos repitiéndose.
 - ⬜ **Probar el despeje a 30 cm.** Se cargó pero no se llegó a probar en el día.
 - ⬜ **Achicar el avance del despeje.** Hoy sale ~50 cm para una pelota que está a 30. Es una
   decisión de estrategia de arquero, no una cuenta.

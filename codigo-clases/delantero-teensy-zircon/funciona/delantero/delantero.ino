@@ -257,7 +257,7 @@ const int   RESTA_MAX   = 120;   // tope de la correccion
 // canje deliberado — puntería y no salirse de la cancha, a cambio de alcance.
 // Si queda demasiado corta, subir VEL_PATADA de a 10 antes que alargar el
 // tiempo: alargar el tiempo trae de vuelta los dos problemas.
-const int VEL_PATADA    = 200;
+const int VEL_PATADA    = 215;
 const int MS_PATADA     = 420;
 const int VEL_RETROCESO = 110;
 const int MS_RETROCESO  = 700;

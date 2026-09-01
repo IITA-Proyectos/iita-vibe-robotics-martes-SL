@@ -392,7 +392,15 @@ const int MUESTRAS_MINIMAS_ARCO    = 3;   // menos que esto, no le creo
 //   C2. Elegir para que lado orbitar: el camino MAS CORTO hasta el arco.
 const bool USAR_GIROSCOPO   = true;    // 2026-08-11: ENCENDIDA a pedido de Gustavo
 const bool PATEAR_AL_RUMBO0 = true;    // C1 (solo hace algo si USAR_GIROSCOPO)
-const bool ORBITA_CAMINO_CORTO = false;// C2 — apagada para que el primer flasheo
+// ENCENDIDA el 2026-09-01, despues de MEDIR el signo con pruebas/signos/.
+// Estuvo apagada desde el 11/08 por dos motivos, y hoy cayeron los dos:
+//   - el signo de SENTIDO_ORBITA_INVERTIDO era una hipotesis sin verificar;
+//     ahora esta medido (y estaba al reves: ver ese bloque).
+//   - la rama que elige el lado SIN ver el arco depende de giroscopoSano(),
+//     que devolvia false desde el 11/08 por la verificacion rota.
+// Con el arco a la vista orbita hacia el; sin verlo, hacia el rumbo de
+// arranque por el camino mas corto; y si no hay giroscopo, al lado de siempre.
+const bool ORBITA_CAMINO_CORTO = true; // C2 — antes apagada para que el flasheo
                                        // cambie UNA sola cosa (la patada por angulo).
                                        // Anda con el arco a la vista aunque no haya
                                        // giroscopo; con giroscopo anda tambien a ciegas.

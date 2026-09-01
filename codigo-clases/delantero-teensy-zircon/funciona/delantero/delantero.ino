@@ -407,7 +407,14 @@ const unsigned long MS_APUNTAR_MAX = 6000;
 //  con GIRO_INVERTIDO. Estas dos son lo mismo para lo nuevo: si el robot
 //  gira PARA EL LADO CONTRARIO al que deberia, se da vuelta la que
 //  corresponda. Son un booleano, no una cuenta: se prueban en 2 minutos.
-const bool SENTIDO_ORBITA_INVERTIDO = false;  // si orbita alejandose del arco, ponelo en true
+// MEDIDO el 2026-09-01 con pruebas/signos/. Ya NO es una hipotesis.
+//   1. girando el robot a mano a la DERECHA, el rumbo SUBE
+//   2. orbitar(sentidoA = true) gira hacia la DERECHA
+//   3. con la pelota a la DERECHA, Yp da NEGATIVO
+//      -> para la camara, el angulo POSITIVO esta a la IZQUIERDA
+// El firmware, con el arco en angulo POSITIVO, llama a orbitar(true), que gira
+// a la DERECHA: al reves. Sin invertir, el robot orbitaria ALEJANDOSE del arco.
+const bool SENTIDO_ORBITA_INVERTIDO = true;   // MEDIDO, no supuesto
 const bool GIRO_RUMBO_INVERTIDO     = false;  // si al apuntar al cero se aleja, ponelo en true
 
 //  ---------------------------------------------------------------------

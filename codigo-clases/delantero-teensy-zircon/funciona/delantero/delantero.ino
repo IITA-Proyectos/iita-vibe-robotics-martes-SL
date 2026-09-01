@@ -698,6 +698,26 @@ float ultimoRumbo  = 0;
 // arrancarGiroscopo() para por que ya no se cuentan ceros.
 bool          giroCaido = false;      // lo dice el propio chip, no lo adivinamos
 float         rumboAlPatear = 0;      // rumbo al empezar la patada (heading-hold)
+
+// EL SENTIDO DE LA ORBITA SE DECIDE UNA SOLA VEZ, AL ENTRAR. [2026-09-01]
+//
+// EL BUG QUE ESTO ARREGLA. sentidoParaOrbitar() se llamaba DENTRO del loop, o
+// sea ~17.000 veces por segundo, y decide mirando el SIGNO del angulo al arco.
+// Mientras el robot orbita hacia el arco ese angulo se acerca a cero y lo
+// CRUZA: ahi el signo se da vuelta y el robot invierte el sentido. Enseguida
+// vuelve a cruzar y se invierte otra vez. Queda pataleando alrededor del cruce
+// por cero, arranca para un lado, se va para el otro, y nunca completa la
+// vuelta ni se alinea. Observado en cancha apenas se encendio
+// ORBITA_CAMINO_CORTO el 2026-09-01.
+//
+// "¿Para que lado doy la vuelta?" es una decision que se toma UNA VEZ, al
+// empezar la maniobra — no algo que se replantea a cada instante. Se congela
+// al entrar a ORBITANDO y no se toca hasta salir.
+//
+// Si el sentido elegido resulta el largo, MS_ORBITA_MAX (20 s) lo corta igual,
+// que es como venia funcionando antes.
+bool          sentidoOrbita = false;    // congelado al entrar a ORBITANDO
+bool sentidoParaOrbitar();              // prototipo: cambiarA() lo usa
 unsigned long t_chequeoGiro = 0;      // ultima vez que se le pregunto
 const unsigned long MS_CHEQUEO_GIRO = 500;   // cada cuanto preguntarle
 
@@ -1079,6 +1099,9 @@ void cambiarA(Estado nuevo) {
   // Al empezar a patear se guarda el rumbo actual: es contra ese que se
   // corrige durante el golpe, para no torcerse. Ver "PATADA DERECHA".
   if (nuevo == PATEA_ADEL && giroscopoSano()) rumboAlPatear = rumboActual();
+  // El sentido de la orbita se congela ACA y no se vuelve a mirar. Ver el
+  // bloque "EL SENTIDO DE LA ORBITA SE DECIDE UNA SOLA VEZ".
+  if (nuevo == ORBITANDO) sentidoOrbita = sentidoParaOrbitar();
   estado = nuevo;
   t_entroEstado = millis();
   t_cicloPulso  = millis();
@@ -1335,7 +1358,7 @@ void loop() {
       // inercia. enEstado se reinicia solo en cambiarA(), asi que el golpe se
       // da una vez por orbita y no se repite.
       bool enImpulso = (enEstado < (unsigned long)MS_ORB_IMPULSO);
-      orbitar(sentidoParaOrbitar(), enImpulso ? VEL_ORB_IMPULSO : VEL_ORB_TRASERA);
+      orbitar(sentidoOrbita, enImpulso ? VEL_ORB_IMPULSO : VEL_ORB_TRASERA);
     }
   }
 

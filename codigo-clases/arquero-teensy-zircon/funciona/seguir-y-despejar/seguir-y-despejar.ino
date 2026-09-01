@@ -320,10 +320,75 @@ unsigned long t_rampa = 0;
 int reintentosAcomodo = 0;
 
 
+// ---- UBICACION INICIAL: acomodarse solo en el centro del arco ----
+//
+// El arquero se para con SU arco a la espalda, asi que la camara nunca lo
+// ve. Lo que si ve es el arco del RIVAL, al fondo de la cancha. Y como los
+// dos arcos estan sobre la misma linea central, centrarse con el de
+// enfrente centra al robot en el suyo. Es como pararse en el medio de un
+// pasillo mirando la puerta del fondo.
+//
+// La maniobra son dos movimientos separados, cada uno con su referencia:
+//    para ATRAS  -> hasta pisar la linea (los dos sensores de atras)
+//    de COSTADO  -> hasta que el arco quede al frente (la camara)
+//
+// Va primero el retroceso: moverse de costado no cambia la distancia a la
+// linea, asi que centrarse DESPUES deja la posicion final buena en las dos
+// cosas a la vez.
+//
+// ⚠️ El desvio del arco se maneja en UNIDADES DE CAMARA, no en cm. El arco
+// esta lejisimos, muy fuera de los 10-50 cm donde medimos la conversion, y
+// ademas la camara recorta X en 200. Convertirlo seria inventar precision.
+// Para centrarse no hace falta: solo importa el SIGNO y donde cruza el cero.
+const float ZONA_MUERTA_ARCO = 6.0;    // unidades de camara
+float kpArco = 2.0;                    // PWM por unidad de desvio del arco
+const unsigned long MS_MAX_CENTRADO = 6000;
+const unsigned long MS_ESPERA_ARCO  = 3000;
+
+// ---- EL SIGNO DEL ARCO: MEDIDO EN CANCHA EL 2026-08-25 ----
+//
+// Es el mismo que el de la pelota, tal como se deducia del codigo de la
+// camara: los dos numeros salen de la MISMA funcion y la MISMA matriz, y
+// solo cambia el color que buscan. `arcoInvertido = false` es el bueno.
+//
+// 🚨 COMO SE MIDIO, Y UN ERROR QUE COSTO UNA CORRIDA:
+// La primera version hacia que el robot "tanteara" el signo solo: se movia
+// 600 ms hacia donde creia y comparaba si el desvio habia bajado o subido.
+// En cancha el robot arranco PARA EL LADO CORRECTO y a los 600 ms el
+// tanteo dio vuelta el signo igual, y se fue de lado sin parar.
+//
+// Por que fallaba: el arco esta lejisimos, asi que su posicion en la
+// imagen se mueve MUY POCO cuando el robot se corre 20 cm. Comparar una
+// lectura contra otra, con ese cambio tan chico, es comparar ruido. El
+// test no podia distinguir las dos respuestas — el mismo error que la
+// prueba del freno sobre la mesa el 18/08.
+//
+// La observacion del equipo ("iba para el lado correcto") ES la medicion.
+// Signo fijo, y la tecla 'A' para darlo vuelta si algun dia hace falta.
+bool arcoInvertido = false;
+
+// En vez de tantear, hay una PROTECCION CONTRA FUGA: si el desvio empeora
+// mucho respecto de como arranco, el robot para y avisa en lugar de
+// seguir alejandose. Un arquero mal parado es un problema; un arquero que
+// se va caminando de la cancha es otro mucho peor.
+const float MARGEN_FUGA = 15.0;        // unidades de camara
+
+// El arco esta lejos y su lectura salta. Se suaviza con un promedio que
+// pesa mas lo nuevo (filtro exponencial): saca el temblor sin agregar
+// retardo notable.
+const float SUAVIZADO_ARCO = 0.3;      // cuanto pesa cada lectura nueva
+
+bool  ubicandose      = false;
+bool  centradoIniciado = false;
+float desvioSuave      = 0;
+float desvioAlEmpezar  = 0;
+
+
 // ---- estado ----
 enum Fase { APAGADO, ARMANDOSE, ESPERANDO, SIGUIENDO,
             ADELANTE, PAUSA_MEDIO, ATRAS_HASTA_LINEA, FRENANDO,
             ACOMODANDO, ACOMODO_ASENTAR, ADELANTE_CHICO, ENFRIANDO,
+            UBIC_ATRAS, UBIC_FRENANDO, UBIC_CENTRAR,
             PRUEBA_LATERAL, PRUEBA_FRENO_ATRAS, PRUEBA_FRENO_FRENAR,
             CAL_EMPUJON };
 Fase fase = APAGADO;
@@ -338,7 +403,9 @@ byte paquete[9];
 int  cuantos = 0;
 bool sincronizado = false;
 int  Xp = 0, Yp = 0;
+int  Xaz = 0, Yaz = 0;                 // arco AZUL = el del rival, al frente
 unsigned long t_ultimoPaquete = 0;
+unsigned long t_ultimoArco = 0;
 
 
 // ---------------------------------------------------------------- motores
@@ -582,7 +649,12 @@ void leerCamara() {
     if (paquete[0] == 201 && paquete[3] == 202 && paquete[6] == 203) {
       Xp = paquete[1];
       Yp = paquete[2] - 100;
+      // El paquete son tres grupos de tres: pelota (201), arco amarillo
+      // (202) y arco AZUL (203). Hasta hoy solo leiamos la pelota.
+      Xaz = paquete[7];
+      Yaz = paquete[8] - 100;
       t_ultimoPaquete = millis();
+      if (Xaz > 0) t_ultimoArco = millis();
 
       // Un solo cuadro no alcanza para lanzar al robot: cualquier reflejo
       // naranja lo dispararia.
@@ -620,6 +692,44 @@ float desvioPelota() {
   return y / CAMARA_POR_CM;
 }
 
+bool veElArco() { return Xaz > 0 && (millis() - t_ultimoArco < 500); }
+
+// Desvio del ARCO DEL RIVAL, en unidades de camara (ver arriba por que no
+// se convierte a cm). Positivo = el arco esta a la DERECHA del robot, o
+// sea que el robot esta corrido a la izquierda y tiene que irse a la
+// derecha. Mismo criterio que con la pelota.
+float desvioArco() {
+  float y = camaraYInvertida ? -(float)Yaz : (float)Yaz;
+  return arcoInvertido ? -y : y;
+}
+
+// Se llama al terminar de enderezarse, desde las tres salidas de ACOMODANDO.
+void pasarAEsperar() {
+  fase = ESPERANDO;
+  t_fase = millis();
+  vecesSeguidas = 0;
+}
+
+// Arranca la maniobra de ubicarse solo en el centro del arco.
+void arrancarUbicacion() {
+  ubicandose      = true;
+  centradoIniciado = false;
+  desvioSuave      = 0;
+  desvioAlEmpezar  = 0;
+  reiniciarRampaMovimiento();
+  reiniciarCorreccion();
+  fase = UBIC_ATRAS; t_fase = millis();
+  Serial.println(">> UBICANDOME. Primero atras, hasta pisar la linea.");
+}
+
+// Pasa de la ubicacion al enderezado. Los tres caminos que salen de
+// UBIC_CENTRAR terminan aca, asi que la preparacion esta escrita una vez.
+void pasarAEnderezarse() {
+  parar();
+  fase = ACOMODANDO; t_fase = millis();
+  reintentosAcomodo = 0; pwmAcomodoAplicado = 0; t_rampa = millis();
+}
+
 
 // Adonde ir despues del enderezado. Esta en una funcion y no repetido en
 // cada rama porque hay TRES caminos que salen del enderezado (termino bien,
@@ -627,6 +737,16 @@ float desvioPelota() {
 // respetar el interruptor del empujon final. Cuando estaba escrito tres
 // veces, dos se lo salteaban.
 void terminarDespeje() {
+  // Si lo que acaba de terminar era la UBICACION INICIAL y no un despeje,
+  // no corresponde el empujoncito de 10 cm: el robot ya esta donde tiene
+  // que estar. Se reusa toda la maquinaria de enderezarse, solo cambia
+  // adonde va despues.
+  if (ubicandose) {
+    ubicandose = false;
+    Serial.println(">> UBICADO en el centro. Esperando la pelota.");
+    pasarAEsperar();
+    return;
+  }
   if (empujonFinal) {
     fase = ADELANTE_CHICO; t_fase = millis();
   } else {
@@ -645,7 +765,8 @@ void ayuda() {
   Serial.println(" ARQUERO — sigue la pelota de costado y despeja");
   Serial.println("=================================================");
   Serial.println("  g = ACTIVAR (avisa 10 s)     0 = PARAR");
-  Serial.println("  i = camara      L = sensores de linea");
+  Serial.println("  p = UBICARSE en el centro del arco");
+  Serial.println("  i = camara/pelota  a = arco azul  L = sensores de linea");
   Serial.println("  v = prueba lateral corta    V = invertir lateral");
   Serial.println("  B = retroceder y FRENAR     N = retroceder y SOLTAR");
   Serial.println("  c = solo el empujoncito     e/d = empujon +/- 50 ms");
@@ -765,6 +886,31 @@ void leerConsola() {
               Serial.print("   despeja a <= "); Serial.print(umbralCm, 1);
               Serial.println(" cm reales"); break;
 
+    case 'p':
+      parar();
+      Serial.println(">> ubicandome de nuevo, a pedido");
+      arrancarUbicacion();
+      break;
+
+    case 'a':
+      if (millis() - t_ultimoArco > 1000 || Xaz == 0) {
+        Serial.println("   NO VEO EL ARCO AZUL");
+      } else {
+        Serial.print("   arco azul: Xaz="); Serial.print(Xaz);
+        Serial.print("  Yaz crudo ");       Serial.print(Yaz);
+        Serial.print("  -> lo leo ");
+        Serial.print(desvioArco() > 0 ? "a la DERECHA" : "a la IZQUIERDA");
+        Serial.print(" ("); Serial.print(fabs(desvioArco()), 1);
+        Serial.println(" de camara)");
+      }
+      Serial.print("   arcoInvertido = "); Serial.println(arcoInvertido);
+      break;
+
+    case 'A':
+      arcoInvertido = !arcoInvertido;
+      Serial.print("   arcoInvertido = "); Serial.println(arcoInvertido);
+      break;
+
     case 'L': mostrarLinea(); break;
 
     case 'i':
@@ -859,10 +1005,12 @@ void loop() {
         // apuntando a la cancha. Es el que va a sostener siempre.
         rumboBase = rumboActual();
         reiniciarCorreccion();
-        fase = ESPERANDO; t_fase = ahora; vecesSeguidas = 0;
-        Serial.print(">> ARMADO — mirando. Rumbo base ");
+        Serial.print(">> ARMADO. Rumbo base ");
         if (rumboBase < 0) Serial.println("SIN GIROSCOPIO");
         else Serial.println(rumboBase, 1);
+        // Antes se pasaba derecho a ESPERANDO, o sea que el robot se
+        // quedaba donde lo hubieran apoyado. Ahora primero se ubica.
+        arrancarUbicacion();
       }
       break;
     }
@@ -907,6 +1055,102 @@ void loop() {
         Serial.println("   listo. Fue a la derecha? Si no, apretá 'V'.");
       }
       break;
+
+    // ---------------- ubicacion inicial: al centro del arco ----------------
+
+    case UBIC_ATRAS:
+      // Igual que el regreso del despeje, y por el mismo motivo: la linea
+      // del area es una marca fisica, siempre esta en el mismo lugar.
+      digitalWrite(LED, ((ahora / 200) % 2) ? HIGH : LOW);
+      atrasControlado(potenciaRetroceso);
+      if (algunoDeAtrasVeBlanco()) {
+        frenar();
+        Serial.print("   linea a los "); Serial.print(ahora - t_fase);
+        Serial.println(" ms — FRENANDO");
+        fase = UBIC_FRENANDO; t_fase = ahora;
+        break;
+      }
+      if (ahora - t_fase >= MS_MAX_RETROCESO) {
+        frenar();
+        Serial.println("!! no encontre la linea — me centro igual donde estoy");
+        fase = UBIC_FRENANDO; t_fase = ahora;
+      }
+      break;
+
+    case UBIC_FRENANDO:
+      if (ahora - t_fase >= msFreno) {
+        parar();
+        reiniciarRampaMovimiento();
+        reiniciarCorreccion();
+        fase = UBIC_CENTRAR; t_fase = ahora;
+        Serial.println("   ahora de costado, buscando el arco del rival...");
+      }
+      break;
+
+    case UBIC_CENTRAR: {
+      digitalWrite(LED, ((ahora / 400) % 2) ? HIGH : LOW);
+
+      // Sin arco no se inventa movimiento. Un arquero parado en el lugar
+      // equivocado es mejor que uno que se va a pasear a ciegas.
+      if (!veElArco()) {
+        parar();
+        if (ahora - t_fase >= MS_ESPERA_ARCO) {
+          Serial.println("!! NO VEO EL ARCO AZUL — me quedo donde estoy");
+          pasarAEnderezarse();
+        }
+        break;
+      }
+
+      // Primera lectura de la maniobra: arranca el filtro y guarda contra
+      // que se va a comparar la fuga.
+      if (!centradoIniciado) {
+        centradoIniciado = true;
+        desvioSuave = desvioArco();
+        desvioAlEmpezar = fabs(desvioSuave);
+        Serial.print("   desvio del arco al empezar: ");
+        Serial.println(desvioSuave, 1);
+      } else {
+        desvioSuave = desvioSuave * (1.0 - SUAVIZADO_ARCO)
+                    + desvioArco() * SUAVIZADO_ARCO;
+      }
+      float d = desvioSuave;
+
+      // Proteccion contra fuga: si empeoro mucho, algo esta al reves.
+      // Parar y avisar es mejor que seguir alejandose.
+      if (fabs(d) > desvioAlEmpezar + MARGEN_FUGA) {
+        parar();
+        Serial.print("!! ME ESTOY ALEJANDO ("); Serial.print(desvioAlEmpezar, 1);
+        Serial.print(" -> ");                   Serial.print(fabs(d), 1);
+        Serial.println("). PARO. Probar la tecla 'A' para dar vuelta el signo.");
+        pasarAEnderezarse();
+        break;
+      }
+
+      if (fabs(d) < ZONA_MUERTA_ARCO) {
+        parar();
+        Serial.print("   CENTRADO. Desvio final del arco: ");
+        Serial.println(d, 1);
+        pasarAEnderezarse();
+        break;
+      }
+
+      if (ahora - t_fase >= MS_MAX_CENTRADO) {
+        parar();
+        Serial.print("!! no llegue a centrarme en "); Serial.print(MS_MAX_CENTRADO / 1000);
+        Serial.print(" s. Quedo con desvio "); Serial.println(d, 1);
+        pasarAEnderezarse();
+        break;
+      }
+
+      int fuerza = (int)(fabs(d) * kpArco);
+      if (fuerza > pwmMaxLateral) fuerza = pwmMaxLateral;
+      if (fuerza < pwmMinLateral) fuerza = pwmMinLateral;
+
+      // Arco a la derecha = el robot esta corrido a la izquierda = tiene
+      // que irse a la derecha. Mismo criterio que con la pelota.
+      moverDeCostado(d > 0 ? fuerza : -fuerza);
+      break;
+    }
 
     case ESPERANDO:
       parar();

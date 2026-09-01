@@ -211,6 +211,31 @@ const int VEL_ORB_TRASERA = 48;    // <<< velocidad de la vuelta ya rodando
 const unsigned long MS_ORBITA_MAX = 20000;  // si no encuentra el arco, se rinde
 
 // --- patada ---
+// PATADA DERECHA — heading-hold con el giroscopo [2026-09-01]
+//
+// MEDIDO con pruebas/patada-derecha/, que reproduce la patada exacta y usa el
+// giroscopo para medir cuantos grados se tuerce el robot:
+//
+//     A) sin correccion (como venia):  10.1 grados   (pico 11.3)
+//     B) con heading-hold, KP = 4.0:    4.2 grados   (pico  5.4)
+//
+// El robot CURVA. Diez grados en un segundo a fondo explica por que la pelota
+// sale desviada: el robot ya esta girando mientras la empuja. No era el
+// contacto con la pelota — es la trayectoria.
+//
+// POR QUE CURVA. avanzar() manda el MISMO PWM a las dos ruedas de adelante,
+// pero el mismo PWM no es la misma velocidad: son dos motores distintos. Y la
+// trasera queda SUELTA durante la patada, asi que no hay nada que se oponga al
+// giro. Cualquier desbalance se convierte en curva y nadie la corrige.
+//
+// LA CORRECCION SOLO FRENA, NUNCA ACELERA. A 240 sobre un maximo de 255 no
+// queda lugar para subir: si el lazo pidiera acelerar, saturaria y no haria
+// nada. Restando siempre, funciona a plena potencia.
+//
+// SI TODAVIA SALE TORCIDA: subir KP_PATADA de a 2. Si empieza a zigzaguear,
+// bajarlo. Y evaluar bajar VEL_PATADA a 200, que ademas deja margen al lazo.
+const float KP_PATADA   = 4.0;   // PWM que se resta por grado de desvio
+const int   RESTA_MAX   = 120;   // tope de la correccion
 const int VEL_PATADA    = 240;
 const int MS_PATADA     = 1000;
 const int VEL_RETROCESO = 110;
@@ -636,6 +661,7 @@ float ultimoRumbo  = 0;
 // SALUD DEL GIROSCOPO — reescrito el 2026-09-01. Ver el bloque grande de
 // arrancarGiroscopo() para por que ya no se cuentan ceros.
 bool          giroCaido = false;      // lo dice el propio chip, no lo adivinamos
+float         rumboAlPatear = 0;      // rumbo al empezar la patada (heading-hold)
 unsigned long t_chequeoGiro = 0;      // ultima vez que se le pregunto
 const unsigned long MS_CHEQUEO_GIRO = 500;   // cada cuanto preguntarle
 
@@ -690,6 +716,21 @@ void motoresRotando(bool sentidoA, int vel) {
   analogWrite(IZQ_PWM, vel); digitalWrite(IZQ_INA, a); digitalWrite(IZQ_INB, b);
   analogWrite(DER_PWM, vel); digitalWrite(DER_INA, a); digitalWrite(DER_INB, b);
   analogWrite(TRA_PWM, vel); digitalWrite(TRA_INA, a); digitalWrite(TRA_INB, b);
+}
+
+// Avanza tratando de NO torcerse, corrigiendo con el giroscopo contra el rumbo
+// que tenia al empezar. Ver el bloque "PATADA DERECHA" arriba.
+void avanzarDerecho(int vel, float rumboObjetivo) {
+  int vi = vel, vd = vel;
+  float err = diferencia(rumboObjetivo, rumboActual());
+  int resta = (int)(fabs(err) * KP_PATADA);
+  if (resta > RESTA_MAX) resta = RESTA_MAX;
+  if (err > 0) vd -= resta; else vi -= resta;   // SOLO frena, nunca acelera
+  if (vi < 0) vi = 0;
+  if (vd < 0) vd = 0;
+  analogWrite(IZQ_PWM, vi); digitalWrite(IZQ_INA, 1); digitalWrite(IZQ_INB, 0);
+  analogWrite(DER_PWM, vd); digitalWrite(DER_INA, 0); digitalWrite(DER_INB, 1);
+  analogWrite(TRA_PWM, 0);  digitalWrite(TRA_INA, 0); digitalWrite(TRA_INB, 0);
 }
 
 void avanzar(int vel) {
@@ -999,6 +1040,9 @@ void elegirArcoMirando() {
 }
 
 void cambiarA(Estado nuevo) {
+  // Al empezar a patear se guarda el rumbo actual: es contra ese que se
+  // corrige durante el golpe, para no torcerse. Ver "PATADA DERECHA".
+  if (nuevo == PATEA_ADEL && giroscopoSano()) rumboAlPatear = rumboActual();
   estado = nuevo;
   t_entroEstado = millis();
   t_cicloPulso  = millis();
@@ -1205,7 +1249,9 @@ void loop() {
 
   // ---------- la patada no se interrumpe (salvo por la linea) ----------
   else if (estado == PATEA_ADEL) {
-    avanzar(VEL_PATADA);
+    // Con giroscopo sano se patea DERECHO; si no, como hasta ahora.
+    if (giroscopoSano()) avanzarDerecho(VEL_PATADA, rumboAlPatear);
+    else                 avanzar(VEL_PATADA);
     if (enEstado >= (unsigned long)MS_PATADA) cambiarA(PATEA_ATRAS);
   }
   else if (estado == PATEA_ATRAS) {

@@ -236,8 +236,29 @@ const unsigned long MS_ORBITA_MAX = 20000;  // si no encuentra el arco, se rinde
 // bajarlo. Y evaluar bajar VEL_PATADA a 200, que ademas deja margen al lazo.
 const float KP_PATADA   = 4.0;   // PWM que se resta por grado de desvio
 const int   RESTA_MAX   = 120;   // tope de la correccion
-const int VEL_PATADA    = 240;
-const int MS_PATADA     = 1000;
+// PATADA MAS CORTA Y MENOS BRUTA [2026-09-01, a pedido de Maximo]
+//     240 x 1000 ms  ->  200 x 420 ms
+//
+// POR QUE MAS CORTA. La pelota se va del robot en los primeros ~200 ms. Los
+// otros 800 ms de la patada vieja YA NO EMPUJABAN LA PELOTA: empujaban al
+// ROBOT. Eso es envion generado despues de que la jugada termino, y es lo que
+// lo sacaba de la cancha. 420 ms alcanzan para el golpe con margen.
+//
+// Y ATACA EL REBOTE. El heading-hold vuelve al rumbo en ~700 ms pero se pasa de
+// largo (medido: de +33 se fue a -9.4). Con una patada de 420 ms, el rebote NI
+// SIQUIERA LLEGA A ENTRAR en la ventana de la patada.
+//
+// POR QUE MENOS FUERTE. A 240 sobre un maximo de 255 el lazo casi no tiene
+// margen: solo puede FRENAR una rueda, nunca acelerar. A 200 quedan 55 puntos
+// libres para arriba. Y menos velocidad es menos envion, o sea menos curva que
+// corregir y menos distancia de sobrepaso al llegar a la linea.
+//
+// EL PRECIO, para tenerlo presente: la pelota va a llegar MENOS LEJOS. Es un
+// canje deliberado — puntería y no salirse de la cancha, a cambio de alcance.
+// Si queda demasiado corta, subir VEL_PATADA de a 10 antes que alargar el
+// tiempo: alargar el tiempo trae de vuelta los dos problemas.
+const int VEL_PATADA    = 200;
+const int MS_PATADA     = 420;
 const int VEL_RETROCESO = 110;
 const int MS_RETROCESO  = 700;
 

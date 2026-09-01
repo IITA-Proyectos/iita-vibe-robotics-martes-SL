@@ -633,8 +633,11 @@ Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
 bool  hayGiroscopo = false;
 float rumboCero    = 0;    // hacia donde miraba al encenderse = hacia el arco rival
 float ultimoRumbo  = 0;
-int   contadorCeros = 0;
-const int CEROS_PARA_DARLO_POR_CAIDO = 10;
+// SALUD DEL GIROSCOPO — reescrito el 2026-09-01. Ver el bloque grande de
+// arrancarGiroscopo() para por que ya no se cuentan ceros.
+bool          giroCaido = false;      // lo dice el propio chip, no lo adivinamos
+unsigned long t_chequeoGiro = 0;      // ultima vez que se le pregunto
+const unsigned long MS_CHEQUEO_GIRO = 500;   // cada cuanto preguntarle
 
 // --- sensores de linea ---
 int  pinLinea[3]  = { A11, A13, A12 };   // Mark1; se corrige en setup()
@@ -858,18 +861,23 @@ const char* arcoNombre() { return objetivoEsAmarillo ? "AMARILLO" : "AZUL"; }
 float rumboActual() {
   sensors_event_t evento;
   bno.getEvent(&evento);
-  if (evento.orientation.x == 0.0 && evento.orientation.y == 0.0
-      && evento.orientation.z == 0.0) {
-    if (contadorCeros < CEROS_PARA_DARLO_POR_CAIDO) contadorCeros++;
-  } else {
-    contadorCeros = 0;
+  ultimoRumbo = evento.orientation.x;        // 0..360
+
+  // Cada MS_CHEQUEO_GIRO se le PREGUNTA AL CHIP si su fusion sigue corriendo,
+  // en vez de deducirlo mirando si los angulos dan cero. Ver el bloque de
+  // arrancarGiroscopo(): en ESTE robot el rumbo de reposo cae justo en el
+  // borde 359.9/0.0, y el metodo viejo lo daba por muerto en pleno juego.
+  if (millis() - t_chequeoGiro > MS_CHEQUEO_GIRO) {
+    t_chequeoGiro = millis();
+    uint8_t sys = 0, autotest = 0, err = 0;
+    bno.getSystemStatus(&sys, &autotest, &err);
+    giroCaido = (sys != 5);                  // 5 = algoritmo de fusion corriendo
   }
-  ultimoRumbo = evento.orientation.x;
-  return ultimoRumbo;                        // 0..360
+  return ultimoRumbo;
 }
 
 bool giroscopoSano() {
-  return hayGiroscopo && contadorCeros < CEROS_PARA_DARLO_POR_CAIDO;
+  return hayGiroscopo && !giroCaido;
 }
 
 
@@ -892,23 +900,49 @@ const char* nombreEstado(Estado e) {
 
 // Enciende el BNO055. Devuelve false si no contesta o si contesta puros
 // ceros. NO se cuelga el programa si falla: se sigue sin giroscopo.
+// EL GIROSCOPO NUNCA ESTUVO ROTO. La verificacion estaba mal. [2026-09-01]
+//
+// QUE DECIA EL CODIGO VIEJO. Tomaba 20 lecturas y contaba cuantas traian algun
+// angulo distinto de cero; con menos de 10 buenas daba el sensor por muerto.
+// Sacaba SIEMPRE 9 de 20 y el robot jugaba sin giroscopo desde el 11/08.
+//
+// POR QUE ESTABA MAL. Un rumbo de 0.0 grados es una POSTURA VALIDA, no una
+// falla. Y este robot, apoyado como se lo apoya siempre, arranca justo en el
+// borde: midiendo con pruebas/giroscopo-crudo/ el rumbo en reposo oscila entre
+// 359.9 y 0.0. Cuando cae en 0.0 los tres angulos son cero (esta plano, asi que
+// cabeceo y alabeo tambien son 0) y la lectura se contaba como "sensor caido".
+// Oscilando entre esos dos valores, de 20 lecturas la mitad salen cero: DA 9.
+// Ese "siempre 9 de 20" que se anoto el 18/08 no era la fusion convergiendo —
+// era el rumbo bailando sobre el 0/360. Por eso al arquero le anda el MISMO
+// codigo: su rumbo de arranque no cae ahi.
+//
+// LO QUE SE MIDIO EL 2026-09-01 con pruebas/giroscopo-crudo/:
+//     chip en 0x28, CHIP_ID 0xA0, ACC 0xFB, MAG 0x32, GYR 0x0F  -> BNO055 real
+//     SYS_STATUS = 5 (fusion corriendo), SYS_ERR = 0
+//     giroscopo calibrado 3/3
+//     se giro el robot a mano y el rumbo siguio: RECORRIDO 97.8 grados
+// El sensor esta SANO. Y de paso quedo descartado setExtCrystalUse(true), que
+// era el sospechoso del 18/08: la fusion arranca igual con el cristal externo.
+//
+// COMO SE VERIFICA AHORA. Se le pregunta AL CHIP por su registro de estado del
+// sistema (0x39): 5 = algoritmo de fusion corriendo. Es un dato que el sensor da
+// sobre si mismo, sin ambiguedad, y no se puede confundir con una postura.
 bool arrancarGiroscopo() {
   if (!bno.begin()) return false;
-  delay(700);                      // el BNO tarda en arrancar la fusion
   bno.setExtCrystalUse(true);
-  int buenas = 0;
-  for (int i = 0; i < 20; i++) {
-    sensors_event_t e;
-    bno.getEvent(&e);
-    if (e.orientation.x != 0.0 || e.orientation.y != 0.0 || e.orientation.z != 0.0) buenas++;
-    delay(50);
-  }
-  if (buenas < 10) {
-    Serial.print("   contesta pero da ceros ("); Serial.print(buenas);
-    Serial.println("/20 lecturas utiles) — no lo doy por bueno");
+  delay(700);                      // AHORA despues: setExtCrystalUse reinicia la
+                                   // fusion, asi que esperar antes no servia
+  uint8_t sys = 0, autotest = 0, err = 0;
+  bno.getSystemStatus(&sys, &autotest, &err);
+  if (sys != 5) {
+    Serial.print("   la fusion NO esta corriendo (SYS_STATUS="); Serial.print(sys);
+    Serial.print(", SYS_ERR="); Serial.print(err);
+    Serial.println("). Corre pruebas/giroscopo-crudo/ para ver que pasa.");
     return false;
   }
-  contadorCeros = 0;
+  Serial.print("(fusion corriendo, SYS_STATUS=5) ");
+  giroCaido = false;
+  t_chequeoGiro = millis();
   return true;
 }
 

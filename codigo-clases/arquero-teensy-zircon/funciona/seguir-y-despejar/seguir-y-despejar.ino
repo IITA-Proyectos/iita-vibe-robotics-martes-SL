@@ -291,6 +291,31 @@ Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
 bool hayGiroscopo = false;
 bool enderezarActivado = true;
 
+// ---- AVISO DE "ESTOY SIN GIROSCOPIO" ----
+//
+// Pedido del equipo el 2026-09-01: en cancha el robot no andaba derecho y
+// no habia forma de saber si era porque el giroscopio no estaba
+// funcionando. Ahora avisa con el LED, con un parpadeo MUCHO mas rapido
+// que cualquier otro del programa (10 por segundo), para que no se
+// confunda con las otras senales.
+//
+// ⚠️ El LED del pin 13 es de UN SOLO COLOR: no puede ser rojo. Si quieren
+// una luz roja de verdad, hay que soldar un LED con su resistencia a un
+// pin libre (el 9 o el 10 estan sin usar) y cambiar PIN_AVISO aca abajo.
+// El codigo ya esta preparado: es cambiar este numero y nada mas.
+#define PIN_AVISO 13
+const unsigned long MS_PARPADEO_AVISO = 50;   // 50 encendido + 50 apagado
+
+// Se actualiza adentro de rumboActual(), asi el aviso refleja el estado de
+// verdad sin agregar lecturas extra al bus I2C.
+bool giroscopoRespondiendo = false;
+
+// El robot se acuerda de lo que le paso, porque en la cancha no hay cable.
+// Se pregunta con la tecla 'i' al volver a la mesa.
+int  vecesQueSeCayoElGiro = 0;    // cuantas veces dejo de contestar
+bool anduvoSinGiroscopo   = false; // paso algun rato jugando a ciegas?
+unsigned long t_chequeoGiro = 0;
+
 float rumboBase = -1;            // el rumbo que hay que sostener siempre
 
 // Correccion continua de rumbo (proporcional + acumulada). Los valores
@@ -300,16 +325,44 @@ float rumboBase = -1;            // el rumbo que hay que sostener siempre
 const float KP_RUMBO = 5.0;
 const float KI_RUMBO = 1.5;
 const float LIMITE_INTEGRAL = 30.0;
-const int   MAX_CORRECCION_RUMBO = 70;
+// 2026-09-01: subido de 70 a 100. Con 70, durante el despeje (potencia 200)
+// la correccion era demasiado floja para evitar que el robot se torciera.
+const int   MAX_CORRECCION_RUMBO = 100;
 const float ZONA_MUERTA_RUMBO = 1.0;
 float integralRumbo = 0;
 unsigned long t_ultimoControl = 0;
 
 // Enderezado al terminar el despeje
 const float TOLERANCIA_ACOMODO = 3.0;
+// 🚨 2026-09-01 — EL ENDEREZADO NO TENIA FUERZA PARA GIRAR EL ROBOT.
+//
+// En cancha el robot termino 80 grados torcido y no se enderezaba nunca.
+// El robot SI sabia que estaba torcido: conectado por USB contesto
+// "rumbo 274.6, base 354.7" y "no llego a enderezarse en 3 s". O sea que
+// el giroscopio andaba y el rumbo de referencia estaba bien guardado.
+//
+// El problema era la POTENCIA. La cuenta con 80 grados de error daba:
+//        80 x KP_ACOMODO (1,5) = 120  ->  recortado a PWM_MAX_ACOMODO = 60
+// Y un motor PARADO necesita ~70 de PWM para arrancar (medido en banco).
+// Con 60 las ruedas zumban y no giran. Intentaba 3 segundos, se rendia,
+// reintentaba 3 veces y seguia de largo — 80 grados torcido.
+//
+// El minimo tenia el mismo problema, peor: con 35 no se movia NUNCA, asi
+// que los errores chicos tampoco se corregian jamas.
+//
+// Los dos suben por encima del piso de arranque. Mejor pasarse un poco y
+// que el reintento lo acomode, que no moverse nunca.
 const float KP_ACOMODO = 1.5;
-const int   PWM_MIN_ACOMODO = 35;
-const int   PWM_MAX_ACOMODO = 60;
+// 2026-09-01, segunda pasada: con MAX=110 el robot SI giraba, pero giraba
+// DEMASIADO RAPIDO y se pasaba: oscilaba varias veces antes de quedarse
+// quieto, y a veces terminaba mal acomodado. A pedido del equipo el techo
+// baja a la mitad del cambio (110 -> 85): menos velocidad, menos inercia.
+//
+// ⚠️ EL MINIMO NO SE PUEDE BAJAR. No es una perilla de ajuste fino: es lo
+// que hace que el robot se mueva ALGO. Debajo de ~70 las ruedas zumban y
+// no giran, que era exactamente el bug de antes.
+const int   PWM_MIN_ACOMODO = 75;    // era 35: debajo del piso de arranque
+const int   PWM_MAX_ACOMODO = 85;    // era 60, despues 110
 const unsigned long MS_ASENTAR_ACOMODO = 300;
 const unsigned long MS_TIMEOUT_ACOMODO = 3000;
 const int MAX_REINTENTOS_ACOMODO = 3;
@@ -518,11 +571,20 @@ int rampa(int objetivo) {
 // vez de 0 evita la confusion de siempre: 0.0 es a la vez un rumbo valido
 // y el sintoma de que el chip no contesta.
 float rumboActual() {
-  if (!hayGiroscopo) return -1;
+  if (!hayGiroscopo) { giroscopoRespondiendo = false; return -1; }
   sensors_event_t e;
   bno.getEvent(&e);
   if (e.orientation.x == 0.0 && e.orientation.y == 0.0
-      && e.orientation.z == 0.0) return -1;
+      && e.orientation.z == 0.0) {
+    // Se cayo. Se cuenta solo el FLANCO (la transicion de andar a no
+    // andar), no cada lectura, para que el numero signifique "cuantas
+    // veces se cayo" y no "cuantas veces lo mire mientras estaba caido".
+    if (giroscopoRespondiendo) vecesQueSeCayoElGiro++;
+    giroscopoRespondiendo = false;
+    anduvoSinGiroscopo = true;
+    return -1;
+  }
+  giroscopoRespondiendo = true;
   return e.orientation.x;
 }
 
@@ -934,6 +996,24 @@ void leerConsola() {
         if (r < 0) Serial.println("GIROSCOPIO MUDO");
         else { Serial.print(r, 1); Serial.print("  base ");
                Serial.println(rumboBase, 1); } }
+      // Lo que el robot se acuerda de la corrida. Esto es lo que contesta
+      // la pregunta "¿el giroscopio estaba andando alla en la cancha?",
+      // que desde afuera no se puede saber.
+      Serial.print("   giroscopio: ");
+      if (!hayGiroscopo) {
+        Serial.println("NUNCA APARECIO al encender");
+      } else if (rumboBase < 0) {
+        // La cuenta arranca recien al armarse. Si todavia no se armo, no
+        // hay corrida de la cual informar — y decir "se cayo 0 veces"
+        // sonaria a que ya jugo y anduvo bien, que es peor que no decir nada.
+        Serial.println("todavia no arranco ninguna corrida");
+      } else if (anduvoSinGiroscopo) {
+        Serial.print("SE CAYO "); Serial.print(vecesQueSeCayoElGiro);
+        Serial.println(" vez/veces durante la corrida");
+        Serial.println("   -> hubo tramos jugando a ciegas, sin enderezar");
+      } else {
+        Serial.println("contesto siempre, no se cayo nunca");
+      }
       break;
 
     case '?': ayuda(); break;
@@ -959,15 +1039,42 @@ void setup() {
   Serial.begin(BAUDIOS);
   Serial1.begin(BAUDIOS);
 
-  // Sin giroscopio el robot igual sigue y despeja: lo unico que pierde es
-  // mantenerse derecho. No vale la pena bloquear todo por una mejora.
-  hayGiroscopo = bno.begin();
+  // 🚨 2026-09-01 — EL ARRANQUE DEL GIROSCOPIO ES UNA CARRERA, Y SE PERDIA.
+  //
+  // Antes aca habia UNA sola linea: `hayGiroscopo = bno.begin();`. Se
+  // preguntaba una vez y, si contestaba que no, no se volvia a preguntar
+  // nunca mas.
+  //
+  // El problema: cuando se prende la bateria, el Teensy arranca en
+  // milisegundos pero el BNO055 tarda casi un segundo en estar listo para
+  // contestar por I2C. Si el Teensy pregunta antes, recibe "no estoy" —
+  // y queda `hayGiroscopo = false` para TODA la corrida. Sin correccion de
+  // rumbo en ningun movimiento.
+  //
+  // Se noto porque dos corridas seguidas del MISMO programa dieron
+  // distinto: la primera el robot no anduvo derecho y termino en cualquier
+  // lado; la segunda anduvo bien. Mismo codigo, dos resultados = algo que
+  // a veces sale bien y a veces mal. Era esta carrera.
+  //
+  // Ahora insiste: hasta 10 intentos separados por 300 ms (3 segundos en
+  // total), que sobra para que el sensor despierte.
+  int intentos = 0;
+  while (!hayGiroscopo && intentos < 10) {
+    intentos++;
+    hayGiroscopo = bno.begin();
+    if (!hayGiroscopo) delay(300);
+  }
   if (hayGiroscopo) {
     delay(1000);
     bno.setExtCrystalUse(true);
-    Serial.println(">> giroscopio OK");
+    Serial.print(">> giroscopio OK (contesto al intento ");
+    Serial.print(intentos); Serial.println(")");
   } else {
-    Serial.println("!! sin giroscopio — se mueve igual pero no se endereza");
+    // ⚠️ Este aviso sale por el cable USB, que en la cancha NO esta. Si el
+    // giroscopio no aparece, el robot juega ciego y nadie se entera. Queda
+    // pendiente decidir si en ese caso conviene que directamente no arranque.
+    Serial.println("!! SIN GIROSCOPIO despues de 10 intentos");
+    Serial.println("!! el robot se mueve igual pero NO se endereza");
   }
 
   ayuda();
@@ -1005,6 +1112,12 @@ void loop() {
         // apuntando a la cancha. Es el que va a sostener siempre.
         rumboBase = rumboActual();
         reiniciarCorreccion();
+        // La cuenta de caidas arranca ACA, no antes. Mientras el sensor se
+        // despierta despues de encender, contesta ceros un rato — y eso no
+        // es una caida, es el arranque normal. Si no se borrara aca, el
+        // robot iba a decir "jugue a ciegas" en todas las corridas.
+        vecesQueSeCayoElGiro = 0;
+        anduvoSinGiroscopo   = false;
         Serial.print(">> ARMADO. Rumbo base ");
         if (rumboBase < 0) Serial.println("SIN GIROSCOPIO");
         else Serial.println(rumboBase, 1);
@@ -1193,6 +1306,12 @@ void loop() {
       // esto el robot tiembla persiguiendo el ruido de la camara.
       if (fabs(desvio) < ZONA_MUERTA_PELOTA) {
         parar();
+        // 🚨 2026-09-01: FALTABA ESTO, y era una fuente de torceduras.
+        // Sin reiniciar la rampa, el proximo arranque salia A FONDO DE
+        // GOLPE — justo lo que hace patinar las ruedas y torcer al robot.
+        // Y pasa muchas veces por minuto, cada vez que la pelota entra y
+        // sale de la zona muerta.
+        reiniciarRampaMovimiento();
         break;
       }
 
@@ -1294,11 +1413,12 @@ void loop() {
       }
       float error = diferencia(rumboBase, r);
       if (fabs(error) <= TOLERANCIA_ACOMODO) {
-        parar(); fase = ACOMODO_ASENTAR; t_fase = ahora;
+        // FRENAR, no soltar: llego al punto y hay que clavarlo ahi mismo.
+        frenar(); fase = ACOMODO_ASENTAR; t_fase = ahora;
         break;
       }
       if (ahora - t_fase >= MS_TIMEOUT_ACOMODO) {
-        parar();
+        frenar();
         Serial.println("   no llego a enderezarse en 3 s");
         fase = ACOMODO_ASENTAR; t_fase = ahora;
         break;
@@ -1319,8 +1439,17 @@ void loop() {
     }
 
     case ACOMODO_ASENTAR: {
-      // Frenar y esperar que pase la inercia ANTES de volver a medir. Sin
-      // esta pausa el robot cree que llego cuando todavia esta girando.
+      // Esperar que pase la inercia ANTES de volver a medir. Sin esta pausa
+      // el robot cree que llego cuando todavia esta girando.
+      //
+      // 🚨 2026-09-01: ACA HABIA UN parar() Y ESO ERA PARTE DEL PROBLEMA.
+      // parar() SUELTA los motores: el robot llegaba al punto, se cortaba
+      // la corriente, y la inercia lo seguia llevando de largo. Por eso se
+      // pasaba y despues tenia que volver — la oscilacion.
+      // Ahora se sostiene el FRENO ELECTRICO (cortocircuita los motores y
+      // se frenan solos) los primeros msFreno, y recien despues se sueltan.
+      // Es el mismo freno que se midio el 18/08 para el regreso del despeje.
+      if (ahora - t_fase < msFreno) { frenar(); break; }
       parar();
       if (ahora - t_fase < MS_ASENTAR_ACOMODO) break;
       float error = diferencia(rumboBase, rumboActual());
@@ -1362,5 +1491,30 @@ void loop() {
         fase = ESPERANDO; t_fase = ahora;
       }
       break;
+  }
+
+  // ------------------------------------------------------------------
+  // AVISO: "ESTOY SIN GIROSCOPIO"
+  // ------------------------------------------------------------------
+  // Va DESPUES del switch a proposito: asi PISA el LED que haya puesto la
+  // fase. Cuando no hay rumbo, esta senal manda sobre todas las demas.
+  //
+  // Parpadeo de 10 por segundo — el mas rapido de todo el programa. El que
+  // le sigue es de 5 por segundo (las cuentas regresivas), asi que se
+  // distingue: este se ve casi como una luz temblando.
+  //
+  // Se chequea el sensor cada 200 ms y no en cada vuelta, para no cargar
+  // el bus I2C al pedo.
+  if (ahora - t_chequeoGiro >= 200) {
+    t_chequeoGiro = ahora;
+    rumboActual();                 // actualiza giroscopoRespondiendo
+  }
+
+  bool sinRumbo = (!hayGiroscopo)
+               || (!giroscopoRespondiendo)
+               || (fase != ARMANDOSE && rumboBase < 0);
+
+  if (sinRumbo && fase != APAGADO) {
+    digitalWrite(PIN_AVISO, ((ahora / MS_PARPADEO_AVISO) % 2) ? HIGH : LOW);
   }
 }

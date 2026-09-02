@@ -415,14 +415,29 @@ const unsigned long MS_APUNTAR_MAX = 6000;
 //  con GIRO_INVERTIDO. Estas dos son lo mismo para lo nuevo: si el robot
 //  gira PARA EL LADO CONTRARIO al que deberia, se da vuelta la que
 //  corresponda. Son un booleano, no una cuenta: se prueban en 2 minutos.
-// MEDIDO el 2026-09-01 con pruebas/signos/. Ya NO es una hipotesis.
-//   1. girando el robot a mano a la DERECHA, el rumbo SUBE
-//   2. orbitar(sentidoA = true) gira hacia la DERECHA
-//   3. con la pelota a la DERECHA, Yp da NEGATIVO
+// MEDIDO el 2026-09-01 con pruebas/signos/, y despues CORREGIDO EN CANCHA.
+//
+// Lo que midio la prueba, y sigue siendo cierto:
+//   1. girando el robot a mano a la DERECHA, el rumbo SUBE       (+20.6 gr)
+//   2. orbitar(sentidoA = true) gira hacia la DERECHA            (+38.2 gr)
+//   3. con la pelota a la DERECHA, Yp da NEGATIVO                (-14)
 //      -> para la camara, el angulo POSITIVO esta a la IZQUIERDA
-// El firmware, con el arco en angulo POSITIVO, llama a orbitar(true), que gira
-// a la DERECHA: al reves. Sin invertir, el robot orbitaria ALEJANDOSE del arco.
-const bool SENTIDO_ORBITA_INVERTIDO = true;   // MEDIDO, no supuesto
+//
+// ⚠️ PERO LA REGLA QUE SE DEDUJO DE ESO ESTABA MAL, y se puso en true por eso.
+// Probado en cancha: orbitaba para el lado equivocado. Vuelve a false.
+//
+// EL ERROR DE RAZONAMIENTO, que conviene entender para no repetirlo: se asumio
+// que "orbitar hacia el arco" es girar hacia el lado donde esta el arco. Es AL
+// REVES. Para patear, el robot tiene que quedar con la PELOTA ENTRE EL Y EL
+// ARCO — o sea, del lado OPUESTO de la pelota respecto del arco. Si el arco
+// esta a la izquierda, el robot tiene que rodear la pelota hacia la DERECHA
+// para quedar detras de ella y empujarla hacia alla.
+//
+// ORBITAR PARA ALINEARSE ES IRSE AL LADO CONTRARIO AL ARCO, no hacia el arco.
+//
+// La medicion de los tres signos no tuvo la culpa: fue la composicion de esos
+// tres datos en una regla geometrica lo que estuvo mal.
+const bool SENTIDO_ORBITA_INVERTIDO = false;  // corregido en cancha el 01/09
 const bool GIRO_RUMBO_INVERTIDO     = false;  // si al apuntar al cero se aleja, ponelo en true
 
 //  ---------------------------------------------------------------------

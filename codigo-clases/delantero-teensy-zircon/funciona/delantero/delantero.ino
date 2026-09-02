@@ -494,6 +494,31 @@ const bool PROTECCION_ARRANQUE = false;
 const int  VEL_ESCAPE   = 100;              // el del campeon 2025
 const unsigned long MS_ESCAPE_EXTRA = 400;  // sigue 400 ms DESPUES de dejar de verla
 
+//  COMPROMISO CON LA DIRECCION DE ESCAPE [2026-09-01, a pedido de Maximo]
+//
+//  EL PROBLEMA. mascaraLinea se reescribia en CADA vuelta del loop mientras
+//  algun sensor viera blanco. Asi que si durante el escape otro sensor pisaba
+//  la linea, la direccion se daba vuelta EN PLENO ESCAPE. El robot podia quedar
+//  rebotando entre dos direcciones sin despegarse nunca.
+//
+//  NO ES HIPOTETICO: el 25/08 se registro un escape que se quedo 24 SEGUNDOS
+//  dentro de !LINEA! sin poder salir (ver la bitacora de ese dia, seccion 2).
+//
+//  EL ARREGLO. Los primeros MS_ESCAPE_COMPROMISO ms la mascara queda CONGELADA
+//  con la que disparo el escape, y los demas sensores se ignoran. El robot se
+//  compromete con una direccion y le da tiempo a alejarse de verdad.
+//
+//  DESPUES de esa ventana la mascara vuelve a actualizarse, asi que las esquinas
+//  (dos sensores a la vez) siguen funcionando como antes si el robot realmente
+//  sigue sobre una linea.
+//
+//  Es el mismo patron que el sentido de la orbita: una decision que hay que
+//  tomar UNA VEZ, no replantear a cada instante.
+//
+//  SI SE SIGUE QUEDANDO PEGADO: subir de a 100. Si en cambio se pasa de largo
+//  y cruza la linea de enfrente, bajarlo.
+const unsigned long MS_ESCAPE_COMPROMISO = 400;
+
 //  GOLPE DE FRENO AL LLEGAR A LA LINEA VINIENDO DE LA PATADA
 //  [2026-08-18 gviollaz, revertido como dano colateral ese dia; restaurado el
 //   2026-08-25 a pedido de Maximo, que volvio a ver el sintoma en cancha]
@@ -1272,7 +1297,22 @@ void loop() {
     int m = leerLineas();
     if (m != 0) {
       t_ultimaLinea = millis();
-      mascaraLinea  = m;
+
+      // La direccion se CONGELA los primeros MS_ESCAPE_COMPROMISO ms del
+      // escape: durante esa ventana los otros sensores se ignoran, para que
+      // el robot alcance a alejarse. Ver el bloque "COMPROMISO CON LA
+      // DIRECCION DE ESCAPE".
+      bool comprometido = (estado == ESCAPA_LINEA
+                           && millis() - t_entroEstado < MS_ESCAPE_COMPROMISO);
+      if (!comprometido) {
+        if (estado == ESCAPA_LINEA && m != mascaraLinea) {
+          Serial.print("    (sigo en la linea, cambio de direccion: sensores");
+          for (int i = 0; i < 3; i++) if (m & (1 << i)) { Serial.print(" "); Serial.print(i + 1); }
+          Serial.println(")");
+        }
+        mascaraLinea = m;
+      }
+
       if (estado != ESCAPA_LINEA) {
         // Si veniamos pateando, el envion es mucho mas grande: primero freno.
         frenoFuerte = (estado == PATEA_ADEL);

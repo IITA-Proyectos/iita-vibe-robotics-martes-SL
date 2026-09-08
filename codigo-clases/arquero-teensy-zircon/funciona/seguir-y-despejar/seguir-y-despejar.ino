@@ -339,7 +339,15 @@ const unsigned long MS_PRUEBA_LATERAL = 400;
 
 // 🚨 Con esto en true y sin computadora, la unica forma de pararlo es la
 // llave de la bateria.
-const bool ARRANCA_SOLO = true;
+// 🚨🚨 OJO: HOY ESTA EN false — MODO OBSERVACION 🚨🚨
+// (2026-09-08) El equipo pidio una carga que NO se mueva, para mirar los
+// numeros en la mesa. Con false el robot arranca APAGADO y con el monitor
+// prendido: imprime todo y no toca los motores.
+//
+// ⚠️ PARA JUGAR EN LA CANCHA HAY QUE VOLVER A PONERLO EN true, y poner
+// monitorCamara en false. Si se lo lleva a la cancha asi, el robot no va
+// a hacer absolutamente nada y va a parecer que esta roto.
+const bool ARRANCA_SOLO = false;
 
 
 // ---- giroscopio: mantenerlo derecho ----
@@ -1174,7 +1182,9 @@ void terminarDespeje() {
 //
 // Sale 5 veces por segundo y no las 26 que manda la camara, porque a 26
 // no se puede leer. Igual cada linea usa el ultimo dato que llego.
-bool monitorCamara = false;
+// 🚨 HOY ARRANCA PRENDIDO (2026-09-08), junto con ARRANCA_SOLO = false.
+// Es el "modo observacion" que pidio el equipo. Para jugar, false.
+bool monitorCamara = true;
 unsigned long t_monitor = 0;
 const unsigned long MS_MONITOR = 200;
 
@@ -1611,7 +1621,18 @@ void setup() {
     Serial.println(">> ARMANDOSE — 10 segundos. Para pararlo: la bateria.");
   } else {
     fase = APAGADO;
-    Serial.println("APAGADO. Mandá 'g'.");
+    Serial.println();
+    Serial.println("=================================================");
+    Serial.println(" MODO OBSERVACION — el robot NO se mueve");
+    Serial.println("=================================================");
+    Serial.println(" Move la pelota con la mano y mira los numeros.");
+    Serial.println(" 'g' lo hace arrancar (¡se mueve!).  'M' apaga esto.");
+    Serial.println("=================================================");
+  }
+
+  if (monitorCamara) {
+    encabezadoMonitor();
+    t_monitor = millis();
   }
 }
 

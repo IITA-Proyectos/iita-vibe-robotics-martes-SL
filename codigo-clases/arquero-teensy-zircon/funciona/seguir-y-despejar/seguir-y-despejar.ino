@@ -240,6 +240,62 @@ float umbralCm        = 30.0;    // cm REALES: despeja si esta a esto o menos
 // dudar y no despejar, este es el primer numero a mirar.
 float umbralDesvio    = 5.2;     // cm REALES de desvio tolerado
 
+
+// ---- 🎯 PERSEGUIR LA PELOTA DURANTE EL DESPEJE (2026-09-08) ----
+//
+// EL PROBLEMA, contado por el equipo:
+//   "cuando la pelota viene rapido en diagonal, el robot despeja pero la
+//    pelota a veces pasa de largo, porque el robot se movio hacia adelante
+//    en un eje QUE YA QUEDO ANTIGUO"
+//
+// Tenian razon y se ve en el codigo. La fase ADELANTE era una sola linea:
+//        adelanteControlado(potenciaDespeje);
+// Ni menciona la camara. El robot decidia UNA vez y despues manejaba 533 ms
+// con los ojos cerrados. Una pelota rapida se corre muchisimo en medio
+// segundo, asi que el robot llegaba al lugar donde la pelota ESTABA.
+//
+// LA SOLUCION: que no vaya a ciegas. Este robot es un omni de tres ruedas,
+// asi que puede AVANZAR Y CORRERSE AL MISMO TIEMPO. Ahora, mientras carga,
+// sigue mirando la pelota 26 veces por segundo y se va corriendo hacia
+// donde ella este. En vez de ir a un punto viejo, PERSIGUE.
+//
+// Se eligio esto antes que "calcular la velocidad y predecir" porque
+// predecir es apostar una vez: si la pelota cambia de direccion, erraste.
+// Corregir todo el tiempo no le tiene que acertar a nada.
+//
+// Es el mismo truco de sumar movimientos independientes que ya usa todo el
+// programa. Ahora son tres sumandos en vez de dos:
+//        avanzar + correrse hacia la pelota + no girar
+// 🚨 APAGADO A PROPOSITO EL 2026-09-08. Esto (la "opcion B") quedo escrito
+// y compilado pero SIN PROBAR: el equipo decidio probar primero la
+// prediccion (la "opcion A") por separado, para no mezclar dos cosas
+// nuevas en la misma corrida y no saber cual hizo que.
+// Se prende con la tecla 'P', o cambiando este false por true.
+bool perseguirEnElDespeje = false;  // tecla 'P' para comparar en el banco
+
+// PWM de costado por cada cm REAL que la pelota esta desviada.
+// 6.0 -> con la pelota 5 cm al costado empuja 30; con 10 cm, 60 (el tope).
+// ⚠️ PUESTO A OJO, primera version. Se ajusta mirando al robot.
+float kpPersecucion = 6.0;
+
+// Tope del empujon lateral. No es solo por prolijidad:
+//
+// 🚨 CUIDADO CON QUEDARSE SIN MOTOR. El maximo que aguanta una rueda es
+// 255. Durante el despeje ya se le esta pidiendo 200 para avanzar, mas la
+// correccion de rumbo. Si el costado pide mucho mas, la cuenta se pasa de
+// 255, la rueda se queda corta, y el robot no hace bien NINGUNA de las dos
+// cosas — ni avanza derecho ni se corre.
+// Si en cancha se lo ve flojo o raro justo cuando persigue fuerte, el
+// primer sospechoso es ese: la salida es BAJAR potenciaDespeje para
+// dejarle lugar al volantazo.
+const int PWM_MAX_PERSECUCION = 60;
+
+// El robot se acuerda de si pudo ver la pelota mientras cargaba. Contesta
+// la pregunta que no sabemos: ¿la camara la sigue viendo de cerca, o se
+// mete en la zona muerta y manda Xp=0? Se pregunta con la tecla 'i'.
+int cuadrosViendoEnElAvance = 0;
+int cuadrosCiegosEnElAvance = 0;
+
 const unsigned long MS_PAUSA_MEDIO   = 150;
 const unsigned long MS_MAX_RETROCESO = 1200;
 
@@ -283,7 +339,15 @@ const unsigned long MS_PRUEBA_LATERAL = 400;
 
 // 🚨 Con esto en true y sin computadora, la unica forma de pararlo es la
 // llave de la bateria.
-const bool ARRANCA_SOLO = true;
+// 🚨🚨 OJO: HOY ESTA EN false — MODO OBSERVACION 🚨🚨
+// (2026-09-08) El equipo pidio una carga que NO se mueva, para mirar los
+// numeros en la mesa. Con false el robot arranca APAGADO y con el monitor
+// prendido: imprime todo y no toca los motores.
+//
+// ⚠️ PARA JUGAR EN LA CANCHA HAY QUE VOLVER A PONERLO EN true, y poner
+// monitorCamara en false. Si se lo lleva a la cancha asi, el robot no va
+// a hacer absolutamente nada y va a parecer que esta roto.
+const bool ARRANCA_SOLO = false;
 
 
 // ---- giroscopio: mantenerlo derecho ----
@@ -459,6 +523,120 @@ int  Xp = 0, Yp = 0;
 int  Xaz = 0, Yaz = 0;                 // arco AZUL = el del rival, al frente
 unsigned long t_ultimoPaquete = 0;
 unsigned long t_ultimoArco = 0;
+
+
+// ---- 🎯 PREDECIR ADONDE VA LA PELOTA (2026-09-08) ----
+//
+// La camara dice DONDE ESTA la pelota. Pero al robot le sirve mas saber
+// DONDE VA A ESTAR, porque para cuando termina de reaccionar la pelota ya
+// se movio. Eso es lo que noto el equipo: el robot apuntaba a un lugar
+// "que ya quedo antiguo".
+//
+// COMO SE SACA LA VELOCIDAD, que es mas simple de lo que suena:
+// la camara manda 26 veces por segundo. Si en un cuadro la pelota estaba
+// a 10 cm a la derecha y en el siguiente a 12, se corrio 2 cm en ~38 ms.
+// Dividiendo, la velocidad. Nada mas que eso: cuanto cambio, dividido el
+// tiempo que paso.
+//
+//        velocidad = (donde esta ahora - donde estaba antes) / tiempo
+//
+// Y despues, para adivinar el futuro:
+//
+//        donde va a estar = donde esta + velocidad x tiempo de adelanto
+//
+// Es lo mismo que hace un arquero de verdad cuando se tira ANTES de que
+// la pelota llegue: no se tira a donde la ve, se tira a donde calcula que
+// va a pasar.
+//
+// ⚠️ POR QUE HAY QUE SUAVIZAR. Restar dos lecturas seguidas es la forma
+// mas ruidosa de medir que existe: si cada lectura tiene un error chico,
+// la resta se lleva los dos errores juntos y ademas se divide por un
+// tiempo muy corto, lo que agranda la equivocacion. Por eso la velocidad
+// no se usa cruda: se promedia con las anteriores, pesando mas lo nuevo.
+bool  predecirTrayectoria = true;
+float velocidadLateral    = 0;      // cm reales por segundo, + = a la derecha
+float velocidadAcercamiento = 0;    // cm/s, + = se viene encima del robot
+float velocidadMaximaVista = 0;     // para saber que tan rapido va la pelota
+const float SUAVIZADO_VELOCIDAD = 0.3;
+
+
+// ---- 🎯 DESPEJE EN DIAGONAL (2026-09-08) ----
+//
+// PEDIDO DEL EQUIPO, textual:
+//   "el robot cuando despeja va recto y a veces la pelota la pierde, o si
+//    esta muy cerca hace mal el despeje. Nos parecia buena idea que
+//    despeje usando el giroscopio EN DIAGONAL si es necesario,
+//    PREDICIENDO EL ANGULO con el que debe salir a despejar."
+//
+// La idea, y es mejor que corregir sobre la marcha: en el instante de
+// disparar, con la pelota todavia bien a la vista, el robot calcula
+// ADONDE SE VAN A ENCONTRAR los dos, saca de ahi el angulo, y se lanza
+// comprometido con esa diagonal. Despues no necesita ver nada mas.
+//
+// Por que importa que no necesite ver: la camara PIERDE la pelota justo
+// cuando la tiene encima (manda Xp = 0 tanto si no la ve como si la tiene
+// pegada). Un despeje que depende de mirar se queda sin datos en el peor
+// momento. Este no.
+//
+// LA CUENTA, en castellano:
+//   1. ¿En cuanto tiempo nos encontramos? La pelota se me viene encima y
+//      yo voy hacia ella, asi que la distancia se cierra con la SUMA de
+//      las dos velocidades.
+//          tiempo = distancia / (mi velocidad + la de acercamiento de ella)
+//   2. ¿Donde va a estar de costado en ese momento?
+//          desvio_final = desvio_ahora + velocidad_lateral x tiempo
+//   3. ¿Que tan rapido me tengo que correr para llegar ahi?
+//          velocidad_lateral_necesaria = desvio_final / tiempo
+//   4. Si esa velocidad es mas de lo que puedo, NO SALGO. Decision del
+//      equipo: un arquero que sale y no llega queda fuera de posicion Y
+//      ademas le hacen el gol. Mejor quedarse y seguir acomodandose.
+//
+// El giroscopio no dirige nada: IMPIDE QUE EL ROBOT GIRE. Eso es lo que
+// hace que la diagonal salga recta y no curva, y que el robot llegue
+// mirando al frente.
+bool despejeEnDiagonal = true;
+
+// MEDIDO el 2026-08-04 con regla: a potencia 200 el robot hace 1 cm cada
+// 10 ms. O sea 100 cm por segundo.
+const float VEL_ROBOT_CM_S = 100.0;
+
+// ⚠️ ESTE NUMERO NO ESTA MEDIDO — es el agujero del diseno.
+// Cuantos cm/s se corre el robot de costado por cada punto de PWM.
+// Para adelante esta medido: 100 cm/s con 200 de PWM = 0,5 por punto.
+// De costado un omni de tres ruedas rinde menos, porque parte del empuje
+// de cada rueda se va para donde no sirve. 0,35 es una estimacion.
+// Teclas 'l' y 'L2'... no: se ajusta mirando (ver mas abajo).
+float cmPorPwmLateral = 0.35;
+
+// Tope del costado en la diagonal. No es prolijidad: es el limite fisico.
+// Una rueda no pasa de 255 y el avance ya pide 200. Con lateral 70 la
+// rueda mas cargada queda en 200 + 35 + correccion ≈ 235: entra justo.
+// Si se sube mucho mas, la rueda se recorta y el robot no hace bien NI el
+// avance NI el costado.
+const int PWM_MAX_DIAGONAL = 70;
+
+// El costado que se decidio para ESTE despeje. Se guarda para poder
+// volver por la MISMA diagonal, que es lo que pidio el equipo: si sali
+// torcido para alla, vuelvo torcido para aca y caigo donde arranque.
+int lateralDelDespeje = 0;
+
+// El robot se acuerda, porque en la cancha no hay cable.
+int despejesAbortados = 0;      // veces que decidio NO salir por no llegar
+int ultimoLateralUsado = 0;
+float ultimoTiempoEncuentro = 0;
+
+// Cuanto adelanto. Es EL TIEMPO QUE TARDA EL ROBOT EN REACCIONAR, sumando:
+//    ~115 ms  -> los 3 cuadros seguidos que exige antes de creerle
+//    ~135 ms  -> arrancar los motores y que la rampa suba
+// ⚠️ ESTIMADO. Si el robot se adelanta de mas (queda del otro lado de la
+// pelota), este numero esta alto. Teclas 'n' y 'N'.
+float msAnticipacion = 250;
+
+// Para la cuenta de la velocidad hay que acordarse de la lectura anterior.
+float desvioAnterior = 0;
+float distanciaAnterior = 0;
+unsigned long t_desvioAnterior = 0;
+bool  hayDesvioAnterior = false;
 
 
 // ---------------------------------------------------------------- motores
@@ -688,6 +866,31 @@ void adelanteControlado(int potencia) {
   aplicar(+p + c, -p + c, 0 + c);
 }
 
+// AVANZAR PERSIGUIENDO: avanzar y correrse de costado a la vez.
+//
+// Es adelanteControlado() con un sumando mas. Las tres cosas se calculan
+// por separado y se suman, que es como esta armado todo el programa:
+//
+//     avanzar          ->  (+p, -p,  0)     las dos de adelante opuestas
+//     correrse         ->  (fr, fr, -tr)    la proporcion 50/50/89
+//     no girar         ->  ( c,  c,  c)     las tres parejas
+//
+// `lateral` positivo = correrse a la DERECHA del robot, igual criterio que
+// moverDeCostado().
+//
+// El costado NO pasa por la rampa, por el mismo motivo que la correccion
+// de rumbo: tiene que actuar en el acto, y es chico al lado del avance.
+void avanzarPersiguiendo(int potencia, int lateral) {
+  if (lateralInvertido) lateral = -lateral;
+
+  int p  = rampa(potencia);
+  int c  = correccionDeRumbo();
+  int fr = (lateral * LADO_FRENTE)  / 100;
+  int tr = (lateral * LADO_TRASERA) / 100;
+
+  aplicar(+p + fr + c, -p + fr + c, -tr + c);
+}
+
 void atrasControlado(int potencia) {
   int p = rampa(potencia);
   int c = correccionDeRumbo();
@@ -723,8 +926,51 @@ void leerCamara() {
       //
       // La comparacion se hace en CENTIMETROS REALES: lo que llega por el
       // cable son unidades de camara y hay que traducirlo antes de decidir.
-      float dCm    = Xp / CAMARA_POR_CM;
-      float desvCm = fabs((float)Yp) / CAMARA_POR_CM;
+      float dCm  = Xp / CAMARA_POR_CM;
+      float dLat = (camaraYInvertida ? -(float)Yp : (float)Yp) / CAMARA_POR_CM;
+
+      // ---- velocidad lateral de la pelota ----
+      // Se actualiza ACA, con cada paquete nuevo, que es cuando hay dato
+      // fresco. Hacerlo en el loop() daria lecturas repetidas y una
+      // velocidad falsa de cero.
+      if (Xp > 0) {
+        unsigned long t = millis();
+        if (hayDesvioAnterior) {
+          float dt = (t - t_desvioAnterior) / 1000.0;
+          // dt muy chico agranda cualquier error; dt muy grande quiere
+          // decir que se perdio la pelota en el medio. Los dos se tiran.
+          if (dt > 0.005 && dt < 0.5) {
+            float v = (dLat - desvioAnterior) / dt;
+            velocidadLateral = velocidadLateral * (1.0 - SUAVIZADO_VELOCIDAD)
+                             + v * SUAVIZADO_VELOCIDAD;
+            if (fabs(velocidadLateral) > velocidadMaximaVista)
+              velocidadMaximaVista = fabs(velocidadLateral);
+
+            // Y la velocidad de ACERCAMIENTO, igual pero con la distancia.
+            // Positiva = se viene encima. Se saca al reves que la lateral
+            // (antes menos ahora) porque la distancia BAJA al acercarse.
+            float va = (distanciaAnterior - dCm) / dt;
+            velocidadAcercamiento = velocidadAcercamiento * (1.0 - SUAVIZADO_VELOCIDAD)
+                                  + va * SUAVIZADO_VELOCIDAD;
+          }
+        }
+        desvioAnterior    = dLat;
+        distanciaAnterior = dCm;
+        t_desvioAnterior  = t;
+        hayDesvioAnterior = true;
+      } else {
+        // Sin pelota a la vista, la velocidad vieja no vale nada: cuando
+        // reaparezca puede estar en cualquier lado.
+        hayDesvioAnterior = false;
+        velocidadLateral  = 0;
+        velocidadAcercamiento = 0;
+      }
+
+      // Para decidir el despeje se usa DONDE VA A ESTAR, no donde esta.
+      float dLatPredicho = predecirTrayectoria
+                         ? dLat + velocidadLateral * (msAnticipacion / 1000.0)
+                         : dLat;
+      float desvCm = fabs(dLatPredicho);
       if (Xp > 0 && dCm <= umbralCm && desvCm <= umbralDesvio) {
         if (vecesSeguidas < VECES_PARA_CREERLE) vecesSeguidas++;
       } else {
@@ -752,6 +998,75 @@ float distanciaPelota() {
 float desvioPelota() {
   float y = camaraYInvertida ? -(float)Yp : (float)Yp;
   return y / CAMARA_POR_CM;
+}
+
+// Adonde VA A ESTAR la pelota dentro de msAnticipacion, en cm reales.
+// Es la posicion de ahora mas lo que se va a mover en ese rato.
+// Si la prediccion esta apagada, devuelve la posicion de ahora y listo.
+float desvioPredicho() {
+  if (!predecirTrayectoria) return desvioPelota();
+  return desvioPelota() + velocidadLateral * (msAnticipacion / 1000.0);
+}
+
+// ¿Con que angulo tengo que salir, y llego?
+//
+// Devuelve true si el despeje es posible, y deja en `lateral` el empuje de
+// costado que hay que sumarle al avance. Si devuelve false, NO HAY QUE
+// SALIR: la pelota se va a escapar igual y el robot queda fuera del arco.
+bool calcularDiagonal(int &lateral) {
+  lateral = 0;
+  if (!despejeEnDiagonal) return true;     // modo viejo: sale derecho
+  if (!veLaPelota())      return true;     // sin datos, sale derecho
+
+  float dist = distanciaPelota();
+  float des  = desvioPelota();
+
+  // 1. ¿En cuanto nos encontramos? La distancia se cierra con la suma de
+  //    las dos velocidades: yo voy hacia ella y ella viene hacia mi.
+  //    Si la pelota se ALEJA (velocidad negativa) la resta puede dar muy
+  //    poco o negativo, asi que se le pone un piso.
+  float velCierre = VEL_ROBOT_CM_S + velocidadAcercamiento;
+  if (velCierre < 20.0) velCierre = 20.0;
+  float t = dist / velCierre;              // segundos
+
+  // El retardo mecanico de arranque, medido el 04/08: los primeros 33 ms
+  // el robot todavia no se movio, pero la pelota si.
+  t += 0.033;
+  ultimoTiempoEncuentro = t;
+
+  // 2. ¿Donde va a estar de costado cuando lleguemos?
+  float desFinal = des + velocidadLateral * t;
+
+  // 3. ¿Que tan rapido me tengo que correr para estar ahi?
+  float velLateralNecesaria = desFinal / t;
+
+  // 4. ¿Lo puedo hacer?
+  int pwm = (int)(fabs(velLateralNecesaria) / cmPorPwmLateral);
+  if (pwm > PWM_MAX_DIAGONAL) {
+    // No llego. Decision del equipo: NO SALIR.
+    return false;
+  }
+  lateral = (desFinal > 0) ? pwm : -pwm;
+  return true;
+}
+
+// Volver por la MISMA diagonal por la que salio, que es lo que pidio el
+// equipo: si me fui torcido para alla, vuelvo torcido para aca y caigo
+// donde arranque.
+//
+// Se invierten LAS DOS cosas: el avance pasa a retroceso y el costado
+// cambia de lado. Y el costado se achica en la misma proporcion en que se
+// achico la potencia (la ida va a 200 y la vuelta a 110), para que el
+// ANGULO sea el mismo y no solo el sentido.
+void atrasEnDiagonal(int potencia, int lateral) {
+  if (lateralInvertido) lateral = -lateral;
+
+  int p  = rampa(potencia);
+  int c  = correccionDeRumbo();
+  int fr = (lateral * LADO_FRENTE)  / 100;
+  int tr = (lateral * LADO_TRASERA) / 100;
+
+  aplicar(-p + fr + c, +p + fr + c, -tr + c);
 }
 
 bool veElArco() { return Xaz > 0 && (millis() - t_ultimoArco < 500); }
@@ -798,6 +1113,44 @@ void pasarAEnderezarse() {
 // estaba desactivado, o el giroscopio estaba mudo) y los tres tienen que
 // respetar el interruptor del empujon final. Cuando estaba escrito tres
 // veces, dos se lo salteaban.
+// Se llama cuando la camara ya dijo 3 cuadros seguidos que la pelota esta
+// cerca y de frente. Aca se decide el ANGULO y, sobre todo, SI SALIR.
+// Devuelve true si arranco el despeje.
+bool intentarDespejar(unsigned long ahora) {
+  int lateral = 0;
+
+  if (!calcularDiagonal(lateral)) {
+    // La cuenta dice que no llego. Decision del equipo: no salir.
+    // Un arquero que sale y no llega queda fuera de posicion Y ademas le
+    // hacen el gol: es lo peor de los dos mundos.
+    despejesAbortados++;
+    vecesSeguidas = 0;          // que vuelva a juntar cuadros desde cero
+    Serial.println(">> NO SALGO: no llego a la pelota. Me sigo acomodando.");
+    return false;
+  }
+
+  lateralDelDespeje  = lateral;
+  ultimoLateralUsado = lateral;
+
+  Serial.print(">> pelota a "); Serial.print(distanciaPelota(), 1);
+  Serial.print(" cm — DESPEJANDO");
+  if (lateral == 0) {
+    Serial.println(" derecho");
+  } else {
+    Serial.print(" en DIAGONAL hacia la ");
+    Serial.print(lateral > 0 ? "DERECHA" : "IZQUIERDA");
+    Serial.print(" (costado "); Serial.print(abs(lateral));
+    Serial.print(", nos encontramos en ");
+    Serial.print(ultimoTiempoEncuentro * 1000, 0);
+    Serial.println(" ms)");
+  }
+
+  fase = ADELANTE; t_fase = ahora;
+  reiniciarRampaMovimiento();   // arrancar suave: si patina, se tuerce
+  reiniciarCorreccion();
+  return true;
+}
+
 void terminarDespeje() {
   // Si lo que acaba de terminar era la UBICACION INICIAL y no un despeje,
   // no corresponde el empujoncito de 10 cm: el robot ya esta donde tiene
@@ -821,6 +1174,80 @@ void terminarDespeje() {
 
 // ---------------------------------------------------------------- consola
 
+// ------------------------------------------------- monitor en vivo
+//
+// Imprime una linea por vez con TODO lo que el robot esta viendo y
+// decidiendo. Es para mirar EN LA MESA, con el cable puesto: en la cancha
+// no sirve para nada porque no hay USB.
+//
+// Sale 5 veces por segundo y no las 26 que manda la camara, porque a 26
+// no se puede leer. Igual cada linea usa el ultimo dato que llego.
+// 🚨 HOY ARRANCA PRENDIDO (2026-09-08), junto con ARRANCA_SOLO = false.
+// Es el "modo observacion" que pidio el equipo. Para jugar, false.
+bool monitorCamara = true;
+unsigned long t_monitor = 0;
+const unsigned long MS_MONITOR = 200;
+
+// Imprime un numero ocupando siempre el mismo ancho, para que las
+// columnas queden derechas y se pueda leer de un vistazo.
+void col(float v, int dec) {
+  float a = fabs(v);
+  if (a < 100) Serial.print(" ");
+  if (a < 10)  Serial.print(" ");
+  if (v >= 0)  Serial.print(" ");
+  Serial.print(v, dec);
+  Serial.print("  ");
+}
+
+void encabezadoMonitor() {
+  Serial.println();
+  Serial.println("  t(s)    dist   desvio    vel   predic  fuerza seg disp");
+  Serial.println("  ------------------------------------------------------");
+}
+
+void lineaMonitor() {
+  col(millis() / 1000.0, 1);
+
+  if (!veLaPelota()) {
+    Serial.println("  --- no veo la pelota (Xp = 0) ---");
+    return;
+  }
+
+  float dist = distanciaPelota();
+  float des  = desvioPelota();
+  float pre  = desvioPredicho();
+
+  col(dist, 1);
+  col(des, 1);
+  col(velocidadLateral, 1);
+  col(pre, 1);
+
+  // La fuerza lateral que aplicaria AHORA, con la misma cuenta que usa
+  // la fase SIGUIENDO. Asi se ve por que se mueve o por que no.
+  if (fabs(pre) < ZONA_MUERTA_PELOTA) {
+    Serial.print("  quieto ");
+  } else {
+    int f = (int)(fabs(pre) * kpLateral);
+    if (f > pwmMaxLateral) f = pwmMaxLateral;
+    if (f < pwmMinLateral) f = pwmMinLateral;
+    Serial.print(pre > 0 ? "  DER " : "  IZQ ");
+    Serial.print(f);
+    if (f < 100) Serial.print(" ");
+  }
+
+  // Cuantos cuadros seguidos lleva cumpliendo las dos condiciones.
+  Serial.print("  "); Serial.print(vecesSeguidas);
+
+  // Y si en ESTE cuadro cumple para disparar. Hacen falta 3 seguidos.
+  bool cerca  = dist <= umbralCm;
+  bool derecho = fabs(pre) <= umbralDesvio;
+  Serial.print("  ");
+  if (cerca && derecho)  Serial.println("SI");
+  else if (!cerca)       Serial.println("lejos");
+  else                   Serial.println("torcida");
+}
+
+
 void ayuda() {
   Serial.println();
   Serial.println("=================================================");
@@ -834,6 +1261,11 @@ void ayuda() {
   Serial.println("  c = solo el empujoncito     e/d = empujon +/- 50 ms");
   Serial.println("  Y = invertir signo camara   k = enderezarse si/no");
   Serial.println("  f/F = fuerza del seguimiento -/+");
+  Serial.println("  M = MONITOR en vivo (y frena el robot)");
+  Serial.println("  T = predecir adonde va la pelota si/no");
+  Serial.println("  w/W = anticipacion de la prediccion -/+");
+  Serial.println("  P = perseguir la pelota al despejar si/no");
+  Serial.println("  o/O = fuerza de la persecucion -/+");
   Serial.println("  u/j = umbral blanco +/-     x/z = despeja a +/- cm");
   Serial.println("-------------------------------------------------");
   Serial.print("  kpLateral="); Serial.print(kpLateral, 1);
@@ -973,6 +1405,72 @@ void leerConsola() {
       Serial.print("   arcoInvertido = "); Serial.println(arcoInvertido);
       break;
 
+    // Para comparar EN EL BANCO como despeja con y sin persecucion. En la
+    // cancha no sirve: no hay cable para apretarla.
+    case 'P':
+      perseguirEnElDespeje = !perseguirEnElDespeje;
+      Serial.print("   perseguir la pelota en el despeje: ");
+      Serial.println(perseguirEnElDespeje ? "SI" : "NO (avanza derecho)");
+      break;
+
+    case 'M':
+      monitorCamara = !monitorCamara;
+      if (monitorCamara) {
+        // El robot se APAGA al encender el monitor: la idea es mirar los
+        // numeros en la mesa moviendo la pelota con la mano, sin que el
+        // robot salga corriendo. Para que ande, 'g' despues.
+        parar();
+        fase = APAGADO;
+        digitalWrite(LED, LOW);
+        Serial.println(">> MONITOR ENCENDIDO — y el robot QUIETO (apagado).");
+        Serial.println("   Move la pelota con la mano y mira los numeros.");
+        Serial.println("   'M' apaga el monitor. 'g' lo hace arrancar.");
+        Serial.println("   dist y desvio en cm REALES. vel en cm/s.");
+        Serial.println("   predic = adonde va a estar dentro de la anticipacion.");
+        Serial.println("   fuerza = lo que le mandaria a los motores AHORA.");
+        Serial.println("   seg = cuadros seguidos cumpliendo (necesita 3).");
+        encabezadoMonitor();
+        t_monitor = millis();
+      } else {
+        Serial.println(">> monitor apagado");
+      }
+      break;
+
+    case 'D':
+      despejeEnDiagonal = !despejeEnDiagonal;
+      Serial.print("   despeje en diagonal: ");
+      Serial.println(despejeEnDiagonal ? "SI" : "NO (sale derecho siempre)");
+      break;
+
+    // Ajuste del unico numero que NO esta medido: cuantos cm/s se corre el
+    // robot de costado por punto de PWM. Si sale muy corto de costado,
+    // subirlo con 'S'; si se pasa, bajarlo con 's'.
+    case 'S': cmPorPwmLateral += 0.05; Serial.print("   cm/s por PWM lateral = ");
+              Serial.println(cmPorPwmLateral, 2); break;
+    case 's': if (cmPorPwmLateral > 0.1) cmPorPwmLateral -= 0.05;
+              Serial.print("   cm/s por PWM lateral = ");
+              Serial.println(cmPorPwmLateral, 2); break;
+
+    case 'T':
+      predecirTrayectoria = !predecirTrayectoria;
+      Serial.print("   predecir adonde va la pelota: ");
+      Serial.println(predecirTrayectoria ? "SI" : "NO (va a donde esta)");
+      break;
+
+    // w/W y no n/N: la 'N' ya la usaba la prueba del freno. Dos ramas con
+    // la misma letra compilan igual y la segunda no se ejecuta nunca.
+    case 'W': msAnticipacion += 50; Serial.print("   anticipacion = ");
+              Serial.print(msAnticipacion, 0); Serial.println(" ms"); break;
+    case 'w': if (msAnticipacion > 50) msAnticipacion -= 50;
+              Serial.print("   anticipacion = "); Serial.print(msAnticipacion, 0);
+              Serial.println(" ms"); break;
+
+    case 'O': kpPersecucion += 1.0; Serial.print("   kpPersecucion = ");
+              Serial.println(kpPersecucion, 1); break;
+    case 'o': if (kpPersecucion > 1.0) kpPersecucion -= 1.0;
+              Serial.print("   kpPersecucion = ");
+              Serial.println(kpPersecucion, 1); break;
+
     case 'L': mostrarLinea(); break;
 
     case 'i':
@@ -1013,6 +1511,44 @@ void leerConsola() {
         Serial.println("   -> hubo tramos jugando a ciegas, sin enderezar");
       } else {
         Serial.println("contesto siempre, no se cayo nunca");
+      }
+      // ¿Pudo ver la pelota mientras cargaba? Esto contesta si la camara
+      // la sigue viendo de cerca o se le mete en la zona muerta.
+      // La velocidad de la pelota y adonde el robot cree que va a estar.
+      Serial.print("   pelota se mueve a ");
+      Serial.print(velocidadLateral, 1);
+      Serial.print(" cm/s de costado  (maxima vista ");
+      Serial.print(velocidadMaximaVista, 1); Serial.println(")");
+      Serial.print("   prediccion: ");
+      if (!predecirTrayectoria) {
+        Serial.println("APAGADA (tecla T)");
+      } else {
+        Serial.print("va a estar en "); Serial.print(desvioPredicho(), 1);
+        Serial.print(" cm dentro de ");  Serial.print(msAnticipacion, 0);
+        Serial.print(" ms   (ahora esta en ");
+        Serial.print(desvioPelota(), 1); Serial.println(")");
+      }
+      Serial.print("   despeje en diagonal: ");
+      if (!despejeEnDiagonal) {
+        Serial.println("APAGADO (tecla D) — sale siempre derecho");
+      } else {
+        Serial.print("SI. Ultimo angulo: costado ");
+        Serial.print(ultimoLateralUsado);
+        Serial.print("   NO SALI "); Serial.print(despejesAbortados);
+        Serial.println(" vez/veces por no llegar");
+      }
+      Serial.print("   persecucion: ");
+      if (!perseguirEnElDespeje) {
+        Serial.println("DESACTIVADA (tecla P)");
+      } else if (cuadrosViendoEnElAvance + cuadrosCiegosEnElAvance == 0) {
+        Serial.println("todavia no hubo ningun despeje");
+      } else {
+        int total = cuadrosViendoEnElAvance + cuadrosCiegosEnElAvance;
+        Serial.print("vio la pelota en "); Serial.print(cuadrosViendoEnElAvance);
+        Serial.print(" de ");              Serial.print(total);
+        Serial.print(" cuadros del avance  (");
+        Serial.print((100L * cuadrosViendoEnElAvance) / total);
+        Serial.println("%)");
       }
       break;
 
@@ -1085,7 +1621,18 @@ void setup() {
     Serial.println(">> ARMANDOSE — 10 segundos. Para pararlo: la bateria.");
   } else {
     fase = APAGADO;
-    Serial.println("APAGADO. Mandá 'g'.");
+    Serial.println();
+    Serial.println("=================================================");
+    Serial.println(" MODO OBSERVACION — el robot NO se mueve");
+    Serial.println("=================================================");
+    Serial.println(" Move la pelota con la mano y mira los numeros.");
+    Serial.println(" 'g' lo hace arrancar (¡se mueve!).  'M' apaga esto.");
+    Serial.println("=================================================");
+  }
+
+  if (monitorCamara) {
+    encabezadoMonitor();
+    t_monitor = millis();
   }
 }
 
@@ -1269,12 +1816,7 @@ void loop() {
       parar();
       digitalWrite(LED, ((ahora / 800) % 2) ? HIGH : LOW);
       if (hayQueDespejar()) {
-        Serial.print(">> pelota a "); Serial.print(distanciaPelota(), 1);
-        Serial.println(" cm reales — DESPEJANDO");
-        fase = ADELANTE; t_fase = ahora;
-        reiniciarRampaMovimiento();   // arrancar suave: si patina, se tuerce
-        reiniciarCorreccion();
-        digitalWrite(LED, HIGH);
+        if (intentarDespejar(ahora)) digitalWrite(LED, HIGH);
       } else if (veLaPelota()) {
         fase = SIGUIENDO; t_fase = ahora;
         reiniciarRampaMovimiento();
@@ -1286,13 +1828,13 @@ void loop() {
       digitalWrite(LED, HIGH);
 
       if (hayQueDespejar()) {
+        // Si la cuenta dice que no llega, intentarDespejar() no cambia de
+        // fase y el robot sigue en SIGUIENDO, acomodandose. No sale a
+        // perderse.
+        int faseAntes = fase;
         parar();
-        Serial.print(">> pelota a "); Serial.print(distanciaPelota(), 1);
-        Serial.println(" cm reales — DESPEJANDO");
-        fase = ADELANTE; t_fase = ahora;
-        reiniciarRampaMovimiento();
-        reiniciarCorreccion();
-        break;
+        intentarDespejar(ahora);
+        if (fase != faseAntes) break;
       }
       if (!veLaPelota()) {
         parar();
@@ -1300,7 +1842,9 @@ void loop() {
         break;
       }
 
-      float desvio = desvioPelota();
+      // 2026-09-08: ahora se sigue ADONDE VA A ESTAR la pelota, no donde
+      // esta. Asi el robot llega a tiempo en vez de correr siempre atras.
+      float desvio = desvioPredicho();
 
       // Zona muerta: si la pelota esta casi enfrente, quedarse quieto. Sin
       // esto el robot tiembla persiguiendo el ruido de la camara.
@@ -1354,12 +1898,38 @@ void loop() {
       break;
     }
 
-    case ADELANTE:
-      adelanteControlado(potenciaDespeje);
+    case ADELANTE: {
+      // Antes esto era una sola linea que ni miraba la camara: el robot
+      // manejaba 533 ms con los ojos cerrados. Ahora persigue.
+      // El angulo YA se decidio al salir, con la pelota bien a la vista.
+      // El robot se compromete con esa diagonal y el giroscopio se la
+      // sostiene derecha. No necesita seguir viendo la pelota — que es lo
+      // bueno, porque justo cuando la tiene encima la camara la pierde.
+      int lateral = lateralDelDespeje;
+
+      // Se cuenta igual si la ve o no, para saber cuanto dura la vista de
+      // cerca. Eso mide el pendiente de la zona muerta de la camara.
+      if (veLaPelota()) cuadrosViendoEnElAvance++;
+      else              cuadrosCiegosEnElAvance++;
+
+      // Ademas del angulo fijo, la version de corregir sobre la marcha.
+      // Apagada por defecto: se prueba una cosa por vez.
+      if (perseguirEnElDespeje && veLaPelota()) {
+        float d = desvioPelota();          // cm reales, + = a la derecha
+        if (fabs(d) > ZONA_MUERTA_PELOTA) {
+          lateral = (int)(d * kpPersecucion);
+          if (lateral >  PWM_MAX_PERSECUCION) lateral =  PWM_MAX_PERSECUCION;
+          if (lateral < -PWM_MAX_PERSECUCION) lateral = -PWM_MAX_PERSECUCION;
+        }
+      }
+
+      avanzarPersiguiendo(potenciaDespeje, lateral);
+
       if (ahora - t_fase >= (unsigned long)msAdelante) {
         parar(); fase = PAUSA_MEDIO; t_fase = ahora;
       }
       break;
+    }
 
     case PAUSA_MEDIO:
       parar();
@@ -1370,8 +1940,19 @@ void loop() {
       }
       break;
 
-    case ATRAS_HASTA_LINEA:
-      atrasControlado(potenciaRetroceso);
+    case ATRAS_HASTA_LINEA: {
+      // 2026-09-08, pedido del equipo: VOLVER POR LA MISMA DIAGONAL.
+      // Si la ida fue torcida y la vuelta fuera derecha, el robot
+      // terminaria corrido de costado y fuera del centro del arco.
+      //
+      // El costado se achica en la misma proporcion en que se achica la
+      // potencia (la ida va a 200 y la vuelta a 110) para que el ANGULO
+      // sea el mismo, no solo el sentido. Y va con el signo cambiado,
+      // porque se esta desandando el camino.
+      int lateralVuelta = -(lateralDelDespeje * potenciaRetroceso)
+                          / potenciaDespeje;
+      atrasEnDiagonal(potenciaRetroceso, lateralVuelta);
+
       if (algunoDeAtrasVeBlanco()) {
         // FRENAR, no soltar. Antes aca iba parar(), y el robot seguia de
         // largo y se pasaba de la linea: quedaba en un lugar distinto cada
@@ -1392,6 +1973,7 @@ void loop() {
         fase = FRENANDO; t_fase = ahora;
       }
       break;
+    }
 
     case FRENANDO:
       // El freno se sostiene un ratito y despues se sueltan los motores:
@@ -1505,6 +2087,12 @@ void loop() {
   //
   // Se chequea el sensor cada 200 ms y no en cada vuelta, para no cargar
   // el bus I2C al pedo.
+  // Monitor en vivo, para mirar en la mesa con el cable puesto.
+  if (monitorCamara && ahora - t_monitor >= MS_MONITOR) {
+    t_monitor = ahora;
+    lineaMonitor();
+  }
+
   if (ahora - t_chequeoGiro >= 200) {
     t_chequeoGiro = ahora;
     rumboActual();                 // actualiza giroscopoRespondiendo

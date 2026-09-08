@@ -668,8 +668,35 @@ const unsigned long MS_FRENO = 150;        // cuanto dura el golpe de freno
 //
 // Antes de eso los umbrales eran 620, que venian de la mesa del ARQUERO. No
 // servian aca: otro robot y otra altura de sensores.
+//
+// 2026-09-08, medido EN CANCHA con pruebas/grabar-linea/ (152 s de traza,
+// verde en 3 puntos + blanco por sensor). Los {707,582,795} tenian DOS
+// fallas, una en cada direccion:
+//
+//   sensor 2: el verde de cancha llegaba a 566 contra un umbral de 582.
+//             16 cuentas de margen, con un verde que se mueve 115 entre
+//             puntos. DISPARABA EN FALSO. Es el "falso blanco" reportado.
+//
+//   sensor 3: umbral 795, pero NINGUN sensor de este robot pasa de ~766.
+//             Medido cuatro veces, incluso con la linea blanca pegada
+//             abajo y 54.117 muestras. NUNCA PODIA DISPARAR: el sensor de
+//             adelante estuvo ciego desde el 25/08. Es el que tendria que
+//             frenar al robot cuando patea y se va de la cancha.
+//             Ese 795 salio de un blanco de 850 que era la cinta de la
+//             MESA, no la linea de la cancha — el acumulador min/max siguio
+//             corriendo despues de volver. La bitacora del 25/08 ya avisaba
+//             que ese blanco estaba sucio.
+//
+//     sensor 1: verde hasta 563  blanco 763  -> umbral 663 (margen 100)
+//     sensor 2: verde hasta 566  blanco 757  -> umbral 661 (margen  95)
+//     sensor 3: verde hasta 689  blanco 762  -> umbral 725 (margen  36)
+//
+// ⚠ El sensor 3 sigue flojo: 36 cuentas de margen contra un verde que se
+//   mueve 115. Ahora al menos PUEDE disparar, pero el arreglo de fondo es
+//   subirlo unos milimetros — al sensor 1 le paso lo mismo y paso de 3
+//   cuentas de separacion a 446 cuando lo levantaron.
 // =======================================================================
-int UMBRAL_LINEA[3] = { 707, 582, 795 };
+int UMBRAL_LINEA[3] = { 663, 661, 725 };
 
 //  Pines: se autodetectan leyendo el pin 32, igual que zirconLib.cpp:52-60.
 const int PIN_VERSION_PLACA = 32;

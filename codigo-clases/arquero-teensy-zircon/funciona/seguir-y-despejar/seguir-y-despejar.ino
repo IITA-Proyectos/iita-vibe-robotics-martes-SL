@@ -240,6 +240,57 @@ float umbralCm        = 30.0;    // cm REALES: despeja si esta a esto o menos
 // dudar y no despejar, este es el primer numero a mirar.
 float umbralDesvio    = 5.2;     // cm REALES de desvio tolerado
 
+
+// ---- 🎯 PERSEGUIR LA PELOTA DURANTE EL DESPEJE (2026-09-08) ----
+//
+// EL PROBLEMA, contado por el equipo:
+//   "cuando la pelota viene rapido en diagonal, el robot despeja pero la
+//    pelota a veces pasa de largo, porque el robot se movio hacia adelante
+//    en un eje QUE YA QUEDO ANTIGUO"
+//
+// Tenian razon y se ve en el codigo. La fase ADELANTE era una sola linea:
+//        adelanteControlado(potenciaDespeje);
+// Ni menciona la camara. El robot decidia UNA vez y despues manejaba 533 ms
+// con los ojos cerrados. Una pelota rapida se corre muchisimo en medio
+// segundo, asi que el robot llegaba al lugar donde la pelota ESTABA.
+//
+// LA SOLUCION: que no vaya a ciegas. Este robot es un omni de tres ruedas,
+// asi que puede AVANZAR Y CORRERSE AL MISMO TIEMPO. Ahora, mientras carga,
+// sigue mirando la pelota 26 veces por segundo y se va corriendo hacia
+// donde ella este. En vez de ir a un punto viejo, PERSIGUE.
+//
+// Se eligio esto antes que "calcular la velocidad y predecir" porque
+// predecir es apostar una vez: si la pelota cambia de direccion, erraste.
+// Corregir todo el tiempo no le tiene que acertar a nada.
+//
+// Es el mismo truco de sumar movimientos independientes que ya usa todo el
+// programa. Ahora son tres sumandos en vez de dos:
+//        avanzar + correrse hacia la pelota + no girar
+bool perseguirEnElDespeje = true;   // tecla 'P' para comparar en el banco
+
+// PWM de costado por cada cm REAL que la pelota esta desviada.
+// 6.0 -> con la pelota 5 cm al costado empuja 30; con 10 cm, 60 (el tope).
+// ⚠️ PUESTO A OJO, primera version. Se ajusta mirando al robot.
+float kpPersecucion = 6.0;
+
+// Tope del empujon lateral. No es solo por prolijidad:
+//
+// 🚨 CUIDADO CON QUEDARSE SIN MOTOR. El maximo que aguanta una rueda es
+// 255. Durante el despeje ya se le esta pidiendo 200 para avanzar, mas la
+// correccion de rumbo. Si el costado pide mucho mas, la cuenta se pasa de
+// 255, la rueda se queda corta, y el robot no hace bien NINGUNA de las dos
+// cosas — ni avanza derecho ni se corre.
+// Si en cancha se lo ve flojo o raro justo cuando persigue fuerte, el
+// primer sospechoso es ese: la salida es BAJAR potenciaDespeje para
+// dejarle lugar al volantazo.
+const int PWM_MAX_PERSECUCION = 60;
+
+// El robot se acuerda de si pudo ver la pelota mientras cargaba. Contesta
+// la pregunta que no sabemos: ¿la camara la sigue viendo de cerca, o se
+// mete en la zona muerta y manda Xp=0? Se pregunta con la tecla 'i'.
+int cuadrosViendoEnElAvance = 0;
+int cuadrosCiegosEnElAvance = 0;
+
 const unsigned long MS_PAUSA_MEDIO   = 150;
 const unsigned long MS_MAX_RETROCESO = 1200;
 
@@ -688,6 +739,31 @@ void adelanteControlado(int potencia) {
   aplicar(+p + c, -p + c, 0 + c);
 }
 
+// AVANZAR PERSIGUIENDO: avanzar y correrse de costado a la vez.
+//
+// Es adelanteControlado() con un sumando mas. Las tres cosas se calculan
+// por separado y se suman, que es como esta armado todo el programa:
+//
+//     avanzar          ->  (+p, -p,  0)     las dos de adelante opuestas
+//     correrse         ->  (fr, fr, -tr)    la proporcion 50/50/89
+//     no girar         ->  ( c,  c,  c)     las tres parejas
+//
+// `lateral` positivo = correrse a la DERECHA del robot, igual criterio que
+// moverDeCostado().
+//
+// El costado NO pasa por la rampa, por el mismo motivo que la correccion
+// de rumbo: tiene que actuar en el acto, y es chico al lado del avance.
+void avanzarPersiguiendo(int potencia, int lateral) {
+  if (lateralInvertido) lateral = -lateral;
+
+  int p  = rampa(potencia);
+  int c  = correccionDeRumbo();
+  int fr = (lateral * LADO_FRENTE)  / 100;
+  int tr = (lateral * LADO_TRASERA) / 100;
+
+  aplicar(+p + fr + c, -p + fr + c, -tr + c);
+}
+
 void atrasControlado(int potencia) {
   int p = rampa(potencia);
   int c = correccionDeRumbo();
@@ -834,6 +910,8 @@ void ayuda() {
   Serial.println("  c = solo el empujoncito     e/d = empujon +/- 50 ms");
   Serial.println("  Y = invertir signo camara   k = enderezarse si/no");
   Serial.println("  f/F = fuerza del seguimiento -/+");
+  Serial.println("  P = perseguir la pelota al despejar si/no");
+  Serial.println("  o/O = fuerza de la persecucion -/+");
   Serial.println("  u/j = umbral blanco +/-     x/z = despeja a +/- cm");
   Serial.println("-------------------------------------------------");
   Serial.print("  kpLateral="); Serial.print(kpLateral, 1);
@@ -973,6 +1051,20 @@ void leerConsola() {
       Serial.print("   arcoInvertido = "); Serial.println(arcoInvertido);
       break;
 
+    // Para comparar EN EL BANCO como despeja con y sin persecucion. En la
+    // cancha no sirve: no hay cable para apretarla.
+    case 'P':
+      perseguirEnElDespeje = !perseguirEnElDespeje;
+      Serial.print("   perseguir la pelota en el despeje: ");
+      Serial.println(perseguirEnElDespeje ? "SI" : "NO (avanza derecho)");
+      break;
+
+    case 'O': kpPersecucion += 1.0; Serial.print("   kpPersecucion = ");
+              Serial.println(kpPersecucion, 1); break;
+    case 'o': if (kpPersecucion > 1.0) kpPersecucion -= 1.0;
+              Serial.print("   kpPersecucion = ");
+              Serial.println(kpPersecucion, 1); break;
+
     case 'L': mostrarLinea(); break;
 
     case 'i':
@@ -1013,6 +1105,21 @@ void leerConsola() {
         Serial.println("   -> hubo tramos jugando a ciegas, sin enderezar");
       } else {
         Serial.println("contesto siempre, no se cayo nunca");
+      }
+      // ¿Pudo ver la pelota mientras cargaba? Esto contesta si la camara
+      // la sigue viendo de cerca o se le mete en la zona muerta.
+      Serial.print("   persecucion: ");
+      if (!perseguirEnElDespeje) {
+        Serial.println("DESACTIVADA (tecla P)");
+      } else if (cuadrosViendoEnElAvance + cuadrosCiegosEnElAvance == 0) {
+        Serial.println("todavia no hubo ningun despeje");
+      } else {
+        int total = cuadrosViendoEnElAvance + cuadrosCiegosEnElAvance;
+        Serial.print("vio la pelota en "); Serial.print(cuadrosViendoEnElAvance);
+        Serial.print(" de ");              Serial.print(total);
+        Serial.print(" cuadros del avance  (");
+        Serial.print((100L * cuadrosViendoEnElAvance) / total);
+        Serial.println("%)");
       }
       break;
 
@@ -1354,12 +1461,36 @@ void loop() {
       break;
     }
 
-    case ADELANTE:
-      adelanteControlado(potenciaDespeje);
+    case ADELANTE: {
+      // Antes esto era una sola linea que ni miraba la camara: el robot
+      // manejaba 533 ms con los ojos cerrados. Ahora persigue.
+      int lateral = 0;
+
+      if (perseguirEnElDespeje && veLaPelota()) {
+        cuadrosViendoEnElAvance++;
+        float d = desvioPelota();          // cm reales, + = a la derecha
+        // Misma zona muerta que el seguimiento: no perseguir el ruido de
+        // la camara, que ademas aca le sacaria fuerza al avance.
+        if (fabs(d) > ZONA_MUERTA_PELOTA) {
+          lateral = (int)(d * kpPersecucion);
+          if (lateral >  PWM_MAX_PERSECUCION) lateral =  PWM_MAX_PERSECUCION;
+          if (lateral < -PWM_MAX_PERSECUCION) lateral = -PWM_MAX_PERSECUCION;
+        }
+      } else if (perseguirEnElDespeje) {
+        // No la ve. Puede ser que la perdio de verdad, o que la tiene tan
+        // encima que se le metio en la zona muerta de la camara (Xp = 0
+        // significa las dos cosas). En cualquiera de los dos casos sigue
+        // derecho, que es lo unico razonable sin informacion.
+        cuadrosCiegosEnElAvance++;
+      }
+
+      avanzarPersiguiendo(potenciaDespeje, lateral);
+
       if (ahora - t_fase >= (unsigned long)msAdelante) {
         parar(); fase = PAUSA_MEDIO; t_fase = ahora;
       }
       break;
+    }
 
     case PAUSA_MEDIO:
       parar();

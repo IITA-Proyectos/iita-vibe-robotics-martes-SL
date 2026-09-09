@@ -494,6 +494,12 @@ const bool PROTECCION_ARRANQUE = false;
 const int  VEL_ESCAPE   = 100;              // el del campeon 2025
 const unsigned long MS_ESCAPE_EXTRA = 400;  // sigue 400 ms DESPUES de dejar de verla
 
+// Cuanto tiene que verse la linea SEGUIDA para que cuente. Ver el bloque
+// "FILTRO DE CONFIRMACION" en el loop. 5 ms a la velocidad del robot son
+// menos de 2 mm: no se pierde ninguna linea de verdad, y se descartan los
+// picos sueltos que disparaban escapes fantasma. [2026-09-08]
+const unsigned long MS_LINEA_CONFIRMA = 5;
+
 //  COMPROMISO CON LA DIRECCION DE ESCAPE [2026-09-01, a pedido de Maximo]
 //
 //  EL PROBLEMA. mascaraLinea se reescribia en CADA vuelta del loop mientras
@@ -695,8 +701,33 @@ const unsigned long MS_FRENO = 150;        // cuanto dura el golpe de freno
 //   mueve 115. Ahora al menos PUEDE disparar, pero el arreglo de fondo es
 //   subirlo unos milimetros — al sensor 1 le paso lo mismo y paso de 3
 //   cuentas de separacion a 446 cuando lo levantaron.
+//
+// 2026-09-08, MAS TARDE. Con {663,661,725} el robot SEGUIA dando falsos
+// blancos, asi que se volvio a medir el verde en CINCO puntos de cancha
+// (pruebas/grabar-verde/, mesetas 3 a 7 de la traza):
+//
+//     sensor 1: verde 451..576   umbral 663 -> margen +87   no disparo nunca
+//     sensor 2: verde 449..577   umbral 661 -> margen +84   no disparo nunca
+//     sensor 3: verde 625..751   umbral 725 -> margen -26   DISPARO EN 2 DE 5
+//
+// O sea que el cambio arreglo los sensores 1 y 2, y TODOS los falsos
+// blancos que quedaban eran el sensor 3.
+//
+// 🔴 EL SENSOR 3 NO TIENE ARREGLO POR NUMERO:
+//     verde peor punto 751   blanco 762   ->  11 cuentas de separacion
+//     y el verde se mueve 126 cuentas entre puntos.
+//   No existe umbral que quepa ahi. Esta DEMASIADO CERCA DEL PISO: a esa
+//   distancia el verde le refleja casi como el blanco. Es identico a lo
+//   que le pasaba al sensor 1 el 18/08 (verde 762, blanco 765, 3 cuentas)
+//   y que se arreglo subiendolo unos milimetros.
+//
+//   Mientras no se lo suba, el 757 de abajo es un PARCHE: queda arriba
+//   del peor verde medido (751) y abajo del blanco (762). Corta los
+//   falsos blancos, pero le deja 6 cuentas de margen para cada lado, asi
+//   que puede fallar en cualquier punto de cancha que no hayamos pisado.
+//   NO es una calibracion: es una curita hasta subir el sensor.
 // =======================================================================
-int UMBRAL_LINEA[3] = { 663, 661, 725 };
+int UMBRAL_LINEA[3] = { 663, 661, 757 };
 
 //  Pines: se autodetectan leyendo el pin 32, igual que zirconLib.cpp:52-60.
 const int PIN_VERSION_PLACA = 32;
@@ -806,6 +837,7 @@ int lineaMin[3] = { 9999, 9999, 9999 };         // minimo visto en toda la corri
 int lineaMax[3] = { -1, -1, -1 };               // maximo visto en toda la corrida
 int  mascaraLinea = 0;
 unsigned long t_ultimaLinea = 0;
+unsigned long t_lineaCruda  = 0;   // desde cuando se ve linea SEGUIDA (filtro)
 
 enum Estado { BUSCANDO, CENTRANDO, AVANZANDO, ORBITANDO,
               APUNTA_RUMBO0, PATEA_ADEL, PATEA_ATRAS, ESCAPA_LINEA };
@@ -1162,10 +1194,60 @@ void elegirArcoMirando() {
   Serial.print("   *** ATACO EL ARCO "); Serial.print(arcoNombre()); Serial.println(" ***");
 }
 
+// ================= RAMPA DE ARRANQUE DE LA PATADA =================
+// 2026-09-08, a pedido del equipo: el robot PATINA al patear y se va
+// torcido.
+//
+// La idea es de la mesa del ARQUERO, que ya la tiene probada en cancha.
+// Su comentario describe exactamente este sintoma:
+//   "arrancando de golpe a potencia 200, las ruedas PATINAN. Y no patinan
+//    igual las dos — una agarra antes que la otra, y ese instante de
+//    diferencia tuerce al robot."
+//   (arquero-teensy-zircon/funciona/seguir-y-despejar/:711-719)
+//
+// Coincide con lo medido acá el 01/09: la patada torcia 10,1 grados, y la
+// causa anotada fue que avanzar() manda el mismo PWM a las dos ruedas de
+// adelante, pero el mismo PWM no es la misma velocidad.
+//
+// ⚠ SE PORTA LA LOGICA, NO LOS NUMEROS. El arquero sube 10 cada 10 ms:
+//   200 ms hasta el fondo. Acá la patada dura MS_PATADA = 420 ms y la
+//   pelota se va en los primeros ~200, asi que esa rampa se comeria media
+//   patada. Esta sube 15 cada 5 ms: llega a 215 en ~75 ms, o sea antes de
+//   que la pelota se despegue, pero sin el tiron de golpe.
+//   (Y ademas los dos robots estan cableados distinto: copiar numeros de
+//    la otra mesa ya fallo dos veces. Ver la bitacora del 18/08.)
+//
+// Bajar puede ser de golpe: pedir MENOS fuerza nunca hace patinar.
+const int           RAMPA_PATADA_PASO = 15;
+const unsigned long RAMPA_PATADA_MS   = 5;
+
+int           pwmRampaPatada = 0;
+unsigned long t_rampaPatada  = 0;
+
+void reiniciarRampaPatada() {
+  pwmRampaPatada = 0;
+  t_rampaPatada  = millis();
+}
+
+// Devuelve la potencia que corresponde AHORA, subiendo de a escalones.
+int rampaPatada(int objetivo) {
+  unsigned long ahora = millis();
+  if (objetivo < pwmRampaPatada) {
+    pwmRampaPatada = objetivo;
+  } else if (ahora - t_rampaPatada >= RAMPA_PATADA_MS) {
+    t_rampaPatada = ahora;
+    pwmRampaPatada += RAMPA_PATADA_PASO;
+    if (pwmRampaPatada > objetivo) pwmRampaPatada = objetivo;
+  }
+  return pwmRampaPatada;
+}
+
 void cambiarA(Estado nuevo) {
   // Al empezar a patear se guarda el rumbo actual: es contra ese que se
   // corrige durante el golpe, para no torcerse. Ver "PATADA DERECHA".
   if (nuevo == PATEA_ADEL && giroscopoSano()) rumboAlPatear = rumboActual();
+  // Y la rampa arranca de cero, para que el golpe no sea un tiron.
+  if (nuevo == PATEA_ADEL) reiniciarRampaPatada();
   // El sentido de la orbita se congela ACA y no se vuelve a mirar. Ver el
   // bloque "EL SENTIDO DE LA ORBITA SE DECIDE UNA SOLA VEZ".
   if (nuevo == ORBITANDO) sentidoOrbita = sentidoParaOrbitar();
@@ -1231,7 +1313,9 @@ void setup() {
     Serial.print(lineaArranque[2]);
     Serial.print("   umbrales "); Serial.print(UMBRAL_LINEA[0]);
     Serial.print(" / "); Serial.print(UMBRAL_LINEA[1]);
-    Serial.print(" / "); Serial.println(UMBRAL_LINEA[2]);
+    Serial.print(" / "); Serial.print(UMBRAL_LINEA[2]);
+    Serial.print("   confirma "); Serial.print(MS_LINEA_CONFIRMA);
+    Serial.println(" ms");
 
     int m = leerLineas();
     if (m != 0 && PROTECCION_ARRANQUE) {
@@ -1321,7 +1405,29 @@ void loop() {
   // Va antes que cualquier otra cosa y anula el estado en curso, incluida la
   // patada. Salir de la cancha es peor que perder una jugada.
   if (lineaHabilitada) {
-    int m = leerLineas();
+    int mCrudo = leerLineas();
+
+    // ---------- FILTRO DE CONFIRMACION ----------
+    // leerLineas() se llama ~17.300 veces por segundo, y hasta hoy UNA
+    // sola lectura por encima del umbral alcanzaba para disparar un
+    // escape de ~800 ms (400 de compromiso + 400 de MS_ESCAPE_EXTRA).
+    // O sea: una muestra espuria entre 17.300 y el robot se iba.
+    //
+    // Ahora la linea tiene que verse SEGUIDA durante MS_LINEA_CONFIRMA
+    // para que cuente. Para la linea de verdad no cambia nada: a la
+    // velocidad a la que anda el robot, en 5 ms se mueve menos de 2 mm.
+    // Para un pico aislado es imposible de sostener.
+    //
+    // Esto NO reemplaza a los umbrales: contra un verde que esta POR
+    // ENCIMA del umbral de forma sostenida, ningun filtro ayuda. Ataca
+    // los cruces transitorios, que es lo que quedo despues de subir el
+    // umbral del sensor 3 a 757. [2026-09-08]
+    if (mCrudo == 0)            t_lineaCruda = 0;
+    else if (t_lineaCruda == 0) t_lineaCruda = millis();
+
+    int m = (mCrudo != 0 && millis() - t_lineaCruda >= MS_LINEA_CONFIRMA)
+            ? mCrudo : 0;
+
     if (m != 0) {
       t_ultimaLinea = millis();
 
@@ -1390,9 +1496,14 @@ void loop() {
 
   // ---------- la patada no se interrumpe (salvo por la linea) ----------
   else if (estado == PATEA_ADEL) {
+    // La rampa sube la potencia de a escalones para que las ruedas no
+    // patinen al arrancar. Ver "RAMPA DE ARRANQUE DE LA PATADA".
+    // El heading-hold corrige SOBRE el valor rampeado, asi que sigue
+    // enderezando desde el primer milisegundo del golpe.
+    int vel = rampaPatada(VEL_PATADA);
     // Con giroscopo sano se patea DERECHO; si no, como hasta ahora.
-    if (giroscopoSano()) avanzarDerecho(VEL_PATADA, rumboAlPatear);
-    else                 avanzar(VEL_PATADA);
+    if (giroscopoSano()) avanzarDerecho(vel, rumboAlPatear);
+    else                 avanzar(vel);
     if (enEstado >= (unsigned long)MS_PATADA) cambiarA(PATEA_ATRAS);
   }
   else if (estado == PATEA_ATRAS) {

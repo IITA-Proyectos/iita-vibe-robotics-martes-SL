@@ -201,7 +201,7 @@ void setup() {
   Serial.print(UMBRAL_ACTUAL[1]); Serial.print(" / ");
   Serial.println(UMBRAL_ACTUAL[2]);
   Serial.println();
-  Serial.println("Sensor 1 = izquierdo   2 = centro   3 = adelante");
+  Serial.println("Sensor 1 = DERECHO   2 = IZQUIERDO   3 = DELANTERO   (MEDIDO 2026-09-15)");
   Serial.println("Se mide en la CANCHA, no en la mesa.");
   Serial.println("===================================================");
 }
@@ -300,7 +300,7 @@ void loop() {
 
     Serial.println();
     Serial.print("---- SENSOR "); Serial.print(i + 1);
-    Serial.print(i == 0 ? "  (izquierdo)" : (i == 1 ? "  (centro)" : "  (adelante)"));
+    Serial.print(i == 0 ? "  (DERECHO)" : (i == 1 ? "  (IZQUIERDO)" : "  (DELANTERO)"));
     Serial.println(" ----");
 
     // Trampa 4: sin muestras no hay veredicto.

@@ -127,7 +127,7 @@ void volcar() {
   Serial.print("Grabados "); Serial.print(nBloques);
   Serial.print(" bloques de 100 ms = ");
   Serial.print(nBloques / 10.0, 1); Serial.println(" segundos");
-  Serial.println("Sensor 1 = izquierdo   2 = centro   3 = adelante");
+  Serial.println("Sensor 1 = DERECHO   2 = IZQUIERDO   3 = DELANTERO   (MEDIDO 2026-09-15)");
 
   if (nBloques < BLOQUES_MINIMOS) {
     Serial.println();
@@ -236,7 +236,7 @@ void volcar() {
   for (int i = 0; i < 3; i++) {
     Serial.println();
     Serial.print("---- SENSOR "); Serial.print(i + 1);
-    Serial.println(i == 0 ? "  (izquierdo) ----" : (i == 1 ? "  (centro) ----" : "  (adelante) ----"));
+    Serial.println(i == 0 ? "  (DERECHO) ----" : (i == 1 ? "  (IZQUIERDO) ----" : "  (DELANTERO) ----"));
     Serial.print("  verde: "); Serial.print(verdeBajo[i]); Serial.print("..");
     Serial.print(verdeAlto[i]);
     Serial.print("   (se movio "); Serial.print(verdeAlto[i] - verdeBajo[i]);

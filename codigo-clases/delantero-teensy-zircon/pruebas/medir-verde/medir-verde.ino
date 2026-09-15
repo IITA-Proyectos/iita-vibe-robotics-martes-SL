@@ -168,7 +168,7 @@ void setup() {
   Serial.print(UMBRAL_ACTUAL[1]); Serial.print(" / ");
   Serial.println(UMBRAL_ACTUAL[2]);
   Serial.println("Un ! al lado de la lectura = ese sensor YA dispararia.");
-  Serial.println("Sensor 1 = izquierdo   2 = centro   3 = adelante");
+  Serial.println("Sensor 1 = DERECHO   2 = IZQUIERDO   3 = DELANTERO   (MEDIDO 2026-09-15)");
   Serial.println("===================================================");
 }
 
@@ -204,7 +204,7 @@ void loop() {
 
     Serial.println();
     Serial.print("---- SENSOR "); Serial.print(i + 1);
-    Serial.println(i == 0 ? "  (izquierdo) ----" : (i == 1 ? "  (centro) ----" : "  (adelante) ----"));
+    Serial.println(i == 0 ? "  (DERECHO) ----" : (i == 1 ? "  (IZQUIERDO) ----" : "  (DELANTERO) ----"));
 
     if (n < MUESTRAS_MINIMAS * PUNTOS) {
       Serial.println("  SIN DATO - no junte muestras suficientes.");

@@ -28,13 +28,20 @@
    3. Llevalo a la cancha y hace esta secuencia, DEJANDOLO QUIETO unos
       5 segundos en cada posicion y MOVIENDOLO entre una y otra:
 
-         VERDE   punto 1        (quieto 5 s)
-         VERDE   punto 2        (quieto 5 s)   lejos del anterior
-         VERDE   punto 3        (quieto 5 s)   lo mas lejos que puedas
-         BLANCO  sensor 1 izq   (quieto 5 s)
-         BLANCO  sensor 2 centro(quieto 5 s)
-         BLANCO  sensor 3 adel. (quieto 5 s)
-         NEGRO   los tres       (quieto 5 s)
+         VERDE   x5 puntos BIEN separados   (quieto 5 s cada uno)
+         BLANCO  sobre la linea             (quieto 5 s, 2 o 3 veces)
+         NEGRO   los tres                   (quieto 5 s)
+
+      El verde va en CINCO puntos y no en tres: el 08/09 se midio en tres
+      y quedaron puntos mas claros sin ver, asi que el robot siguio
+      escapando en falso. El umbral tiene que aguantar el punto PEOR, no
+      el promedio — buscá a proposito donde el verde se vea mas claro o
+      donde pegue la luz.
+
+      🛑 NO LO APOYES EN LAS RAMPITAS DEL BORDE. Son de otro material y
+         encima el robot queda inclinado, asi que los sensores cambian de
+         altura y leen cualquier cosa. Eso no es ni verde ni blanco: es
+         una cuarta superficie que ensucia la medicion.
 
       El programa no sabe cual es cual — las reconoce como MESETAS y las
       numera en orden. El orden lo pones vos con la secuencia de arriba.
@@ -64,7 +71,18 @@ const int PIN_LED     = 13;
 int  pinLinea[3];
 const char* versionPlaca = "?";
 
-const int UMBRAL_ACTUAL[3] = { 707, 582, 795 };
+// Lo que el robot tiene cargado AHORA. Sirve para que el volcado marque
+// que mesetas ya dispararian con el firmware de hoy.
+//
+// 2026-09-15: CANCHA NUEVA. Otro material (como tela), el verde MAS
+// OSCURO, y la linea blanca distinta. Todo lo medido el 08/09 quedo sin
+// valor: esos numeros eran de la cancha vieja. Hay que medir de cero.
+//
+// Ojo con una cosa buena: si el verde es mas oscuro, el sensor 3 gana
+// separacion contra el blanco. El 08/09 tenia 11 cuentas (verde 751,
+// blanco 762) y por eso no habia umbral posible. Con un verde mas oscuro
+// puede volver a entrar en rango sin tocarle la altura.
+const int UMBRAL_ACTUAL[3] = { 663, 661, 757 };
 
 // ---- la traza ----
 // Un bloque cada 100 ms con minimo, maximo y promedio de cada sensor.
@@ -94,6 +112,26 @@ bool yaVolque = false;
 const int  QUIETO_MAX      = 45;   // cuentas de variacion dentro del bloque
 const int  DERIVA_MAX      = 45;   // cuanto puede correrse entre bloques
 const int  BLOQUES_MINIMOS = 20;   // 20 x 100 ms = 2 segundos
+
+// ---- clasificacion automatica de mesetas (2026-09-15) ----
+// Hasta hoy el volcado tiraba las mesetas en crudo y habia que decidir a
+// ojo cual era verde y cual blanco. En la cancha VIEJA no habia otra: el
+// verde llegaba a 751 y el blanco era 762, pegados.
+//
+// En la cancha de TELA el verde da 41..107 y el blanco ~730-750: hay 600
+// cuentas de hueco. Con esa distancia el programa clasifica solo, y deja
+// de depender de que alguien recuerde en que orden hizo las cosas.
+//
+// Lo que cae en el MEDIO se marca "?" y NO se usa para nada. Es a
+// proposito: una lectura a medio camino puede ser el sensor pisando la
+// linea por la mitad, o el robot subido a una rampita. No se adivina.
+const int CORTE_VERDE  = 300;   // por debajo de esto: verde
+const int CORTE_BLANCO = 600;   // por encima de esto: blanco
+
+int verdeAlto[3]  = { -1, -1, -1 };
+int blancoBajo[3] = { 32767, 32767, 32767 };
+int nVerde[3]     = { 0, 0, 0 };
+int nBlanco[3]    = { 0, 0, 0 };
 
 void arrancarBloque() {
   nMuestras = 0;
@@ -140,7 +178,7 @@ void volcar() {
   Serial.print("Grabados "); Serial.print(nBloques);
   Serial.print(" bloques de 100 ms = ");
   Serial.print(nBloques / 10.0, 1); Serial.println(" segundos");
-  Serial.println("Sensor 1 = izquierdo   2 = centro   3 = adelante");
+  Serial.println("Sensor 1 = DERECHO   2 = IZQUIERDO   3 = DELANTERO   (MEDIDO 2026-09-15)");
 
   if (nBloques < BLOQUES_MINIMOS) {
     Serial.println();
@@ -215,8 +253,25 @@ void volcar() {
       Serial.print(".."); Serial.print(hi[i]);
       Serial.print(", pico "); Serial.print(hi[i] - prom);
       Serial.print(" arriba)");
+
+      // Clasificacion: se usa el PROMEDIO para decidir que es, pero
+      // despues se acumulan los EXTREMOS (el verde mas alto, el blanco
+      // mas bajo). El umbral tiene que aguantar el peor caso, no el
+      // promedio.
+      if (prom < CORTE_VERDE) {
+        Serial.print("   VERDE");
+        nVerde[i]++;
+        if (hi[i] > verdeAlto[i]) verdeAlto[i] = hi[i];
+      } else if (prom > CORTE_BLANCO) {
+        Serial.print("   BLANCO");
+        nBlanco[i]++;
+        if (lo[i] < blancoBajo[i]) blancoBajo[i] = lo[i];
+      } else {
+        Serial.print("   ?  (ni una cosa ni la otra: no la uso)");
+      }
+
       // aviso: con el umbral de hoy, esta meseta ya dispararia
-      if (hi[i] >= UMBRAL_ACTUAL[i]) Serial.print("   <<< YA CRUZA EL UMBRAL DE HOY");
+      if (hi[i] >= UMBRAL_ACTUAL[i]) Serial.print("   <<< CRUZA EL UMBRAL DE HOY");
       Serial.println();
     }
     Serial.println();
@@ -229,9 +284,78 @@ void volcar() {
     Serial.println("nada estable que medir. Repetir apoyandolo.");
   } else {
     Serial.print("Total: "); Serial.print(meseta); Serial.println(" mesetas.");
-    Serial.println("Si hiciste la secuencia completa tendrian que ser 7.");
-    Serial.println("Mas de 7 = alguna posicion quedo partida en dos, o sobra");
-    Serial.println("una parada de paso. Menos = alguna no quedo quieta.");
+    Serial.println();
+
+    // ---------------- VEREDICTO ----------------
+    Serial.println("===================================================");
+    Serial.println("                   VEREDICTO");
+    Serial.println("===================================================");
+    Serial.print("Verde = promedio < "); Serial.print(CORTE_VERDE);
+    Serial.print("   Blanco = promedio > "); Serial.println(CORTE_BLANCO);
+    Serial.println("Se toma el PEOR de cada lado: el verde mas ALTO y el");
+    Serial.println("blanco mas BAJO. El umbral tiene que aguantar el peor");
+    Serial.println("caso, no el promedio.");
+
+    int  propuesto[3];
+    bool todosOk = true;
+
+    for (int i = 0; i < 3; i++) {
+      propuesto[i] = -1;
+      Serial.println();
+      Serial.print("---- SENSOR "); Serial.print(i + 1);
+      Serial.println(i == 0 ? "  (DERECHO) ----" : (i == 1 ? "  (IZQUIERDO) ----" : "  (DELANTERO) ----"));
+
+      if (nVerde[i] == 0 || nBlanco[i] == 0) {
+        Serial.print("  SIN DATO - mesetas de verde: "); Serial.print(nVerde[i]);
+        Serial.print(", de blanco: "); Serial.println(nBlanco[i]);
+        Serial.println("  Falta pasarle una de las dos superficies por encima.");
+        Serial.println("  NO propongo umbral.");
+        todosOk = false;
+        continue;
+      }
+
+      Serial.print("  verde hasta  "); Serial.print(verdeAlto[i]);
+      Serial.print("   ("); Serial.print(nVerde[i]); Serial.println(" mesetas)");
+      Serial.print("  blanco desde "); Serial.print(blancoBajo[i]);
+      Serial.print("   ("); Serial.print(nBlanco[i]); Serial.println(" mesetas)");
+
+      int sep = blancoBajo[i] - verdeAlto[i];
+      Serial.print("  separacion: "); Serial.println(sep);
+
+      if (sep <= 0) {
+        Serial.println("  >>> NO SIRVE: el verde llega al blanco. Ningun umbral");
+        Serial.println("      los separa. Es altura de sensor, no es un numero.");
+        todosOk = false;
+        continue;
+      }
+
+      propuesto[i] = verdeAlto[i] + sep / 2;
+      Serial.print("  UMBRAL PROPUESTO: "); Serial.print(propuesto[i]);
+      Serial.print("   (margen "); Serial.print(sep / 2); Serial.println(" para cada lado)");
+
+      Serial.print("  umbral de hoy "); Serial.print(UMBRAL_ACTUAL[i]);
+      if (UMBRAL_ACTUAL[i] >= blancoBajo[i]) {
+        Serial.println("  >>> INALCANZABLE: esta ARRIBA del blanco.");
+        Serial.println("      Con el firmware de hoy este sensor NO VE LA LINEA NUNCA.");
+      } else if (UMBRAL_ACTUAL[i] <= verdeAlto[i]) {
+        Serial.println("  >>> DISPARA EN FALSO: esta ABAJO del verde.");
+      } else {
+        Serial.println("  (queda en rango, pero mira los margenes)");
+      }
+    }
+
+    Serial.println();
+    Serial.println("===================================================");
+    if (todosOk) {
+      Serial.println("Para pegar en funciona/delantero/delantero.ino:");
+      Serial.print("int UMBRAL_LINEA[3] = { ");
+      Serial.print(propuesto[0]); Serial.print(", ");
+      Serial.print(propuesto[1]); Serial.print(", ");
+      Serial.print(propuesto[2]); Serial.println(" };");
+    } else {
+      Serial.println("NO doy linea para copiar: al menos un sensor no cerro.");
+      Serial.println("Un umbral inventado es peor que ninguno.");
+    }
   }
 
   Serial.println("===================================================");

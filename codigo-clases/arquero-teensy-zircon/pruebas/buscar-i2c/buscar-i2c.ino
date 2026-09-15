@@ -121,26 +121,71 @@ void mirarLosCables() {
 }
 
 
-// ---- PASO 2: preguntarle a las 127 direcciones ----
-void escanear() {
-  int encontrados = 0;
-  bool estaElGiroscopo = false;
+// ---- QUE PLACA ZIRCON ES ESTA ----
+//
+// 🎯 2026-09-15 — EL HALLAZGO QUE CAMBIO TODO.
+//
+// Lo encontro el equipo mirando el programa con el que compitieron en
+// 2025. La libreria zirconLib construye el giroscopio DISTINTO segun la
+// version de la placa:
+//
+//     Mark1    ->  Adafruit_BNO055(55, 0x28, &Wire)     pines 18/19
+//     Naveen1  ->  Adafruit_BNO055(55, 0x28, &Wire2)    pines 24/25
+//
+// ¡Y el Teensy 4.1 tiene TRES buses I2C! Nosotros veniamos escaneando
+// solamente el primero. Si esta placa es Naveen1, el giroscopio esta vivo
+// en otros pines y le estuvimos hablando al lugar equivocado.
+//
+// La libreria distingue las dos placas leyendo el PIN 32, asi que aca se
+// hace lo mismo.
+void versionDeLaPlaca() {
+  pinMode(32, INPUT_PULLDOWN);
+  delay(5);
+  int p32 = digitalRead(32);
+  Serial.print("  placa: pin32="); Serial.print(p32 ? "ALTO" : "BAJO");
+  if (p32 == LOW) {
+    Serial.println("  -> ZIRCON \"Mark1\"   (el giroscopio deberia ir en Wire, 18/19)");
+  } else {
+    Serial.println("  -> ZIRCON \"Naveen1\" (el giroscopio deberia ir en Wire2, 24/25)");
+  }
+}
 
+// ---- PASO 2: preguntarle a las 127 direcciones, EN LOS TRES BUSES ----
+int escanearUnBus(TwoWire &bus, const char* nombre, const char* pines,
+                  bool &estaElGiroscopo) {
+  int encontrados = 0;
   for (byte dir = 1; dir < 127; dir++) {
-    Wire.beginTransmission(dir);
-    byte error = Wire.endTransmission();
+    bus.beginTransmission(dir);
+    byte error = bus.endTransmission();
     if (error == 0) {
       encontrados++;
       if (dir == 0x28 || dir == 0x29) estaElGiroscopo = true;
-      Serial.print("  ENCONTRADO en 0x");
+      Serial.print("  "); Serial.print(nombre);
+      Serial.print(" (");  Serial.print(pines);
+      Serial.print("): ENCONTRADO en 0x");
       if (dir < 16) Serial.print("0");
       Serial.print(dir, HEX);
       Serial.println(quienEs(dir));
     }
   }
+  if (encontrados == 0) {
+    Serial.print("  "); Serial.print(nombre);
+    Serial.print(" (");  Serial.print(pines);
+    Serial.println("): vacio");
+  }
+  return encontrados;
+}
+
+void escanear() {
+  bool estaElGiroscopo = false;
+  int encontrados = 0;
+
+  encontrados += escanearUnBus(Wire,  "Wire ", "18/19", estaElGiroscopo);
+  encontrados += escanearUnBus(Wire1, "Wire1", "16/17", estaElGiroscopo);
+  encontrados += escanearUnBus(Wire2, "Wire2", "24/25", estaElGiroscopo);
 
   if (encontrados == 0) {
-    Serial.println("  NO HAY NADA EN EL BUS. Ni un solo aparato contesta.");
+    Serial.println("  NO HAY NADA EN NINGUNO DE LOS TRES BUSES.");
   }
 
   if (estaElGiroscopo) {
@@ -171,6 +216,8 @@ void setup() {
 
   Serial.begin(BAUDIOS);
   Wire.begin();
+  Wire1.begin();      // el giroscopio puede estar en cualquiera de los
+  Wire2.begin();      // tres buses, segun la version de la placa Zircon
   delay(500);
 
   Serial.println();
@@ -196,6 +243,7 @@ void loop() {
   Serial.println();
   Serial.print("========== ESCANEO "); Serial.print(vuelta);
   Serial.println(" ==========");
+  versionDeLaPlaca();
   mirarLosCables();
   escanear();
   delay(MS_ENTRE_ESCANEOS);

@@ -61,6 +61,20 @@
    4. 🚨 VOLVER CON LA BATERIA PRENDIDA. Si se corta, se borra todo.
    5. Enchufar el USB, abrir `mirar.bat` y apretar la tecla 'm'.
 
+   ---------------------------------------------------------------------
+   EL LED TE DICE QUE ESTA VIENDO, EN VIVO
+   ---------------------------------------------------------------------
+        cuanto MAS CLARO ve, MAS RAPIDO parpadea
+
+          sobre el verde  -> lento, casi un latido
+          sobre el blanco -> rapidisimo, casi temblando
+
+   No necesita ningun umbral, asi que se puede usar para guiarse ANTES de
+   haber medido nada. Sirve para confirmar que el robot esta apoyado donde
+   uno cree, y sobre todo para ver si DE VERDAD distingue las dos
+   superficies: si el parpadeo cambia poco entre el verde y el blanco, los
+   sensores no las separan, y conviene enterarse ahi mismo.
+
    TECLAS
         m = mostrar el dibujo y el umbral que sugiere
         r = borrar y empezar de nuevo
@@ -277,6 +291,35 @@ void loop() {
   }
   muestras++;
 
-  // Latido lento, por si alguna vez se llega a ver el LED.
-  digitalWrite(LED, ((ahora % 2000) < 100) ? HIGH : LOW);
+  // ------------------------------------------------------------------
+  // EL LED CUENTA QUE ESTAN VIENDO LOS SENSORES DE ATRAS, EN VIVO
+  // ------------------------------------------------------------------
+  // El equipo aviso que el LED se ve "un poquito", asi que la señal tiene
+  // que ser GRUESA: nada de contar destellos.
+  //
+  //      cuanto MAS CLARO ve, MAS RAPIDO parpadea
+  //
+  //        verde  -> lento, casi un latido       (~1 por segundo)
+  //        blanco -> rapidisimo, casi temblando  (~10 por segundo)
+  //
+  // 🎯 Y lo mejor: NO NECESITA UN UMBRAL. Es justo lo que venimos a medir,
+  // asi que no podiamos usarlo para guiarnos — seria pedirle la respuesta
+  // antes de la pregunta. El ritmo es proporcional y no decide nada.
+  //
+  // Sirve para dos cosas en la cancha, sin cable:
+  //   1. confirmar que el robot esta apoyado donde ustedes creen;
+  //   2. 🚨 VER SI DE VERDAD DISTINGUE las dos superficies. Si el parpadeo
+  //      cambia poco entre el verde y el blanco, los sensores no las
+  //      separan bien — y eso hay que saberlo ahi mismo, no al volver.
+  //
+  // Se usa el MAS CLARO de los dos de atras, porque el despeje frena con
+  // cualquiera de los dos.
+  int izq = analogRead(LINEA_ATRAS_IZQ);
+  int der = analogRead(LINEA_ATRAS_DER);
+  int claro = (izq > der) ? izq : der;
+
+  // 0 -> 1200 ms de periodo (lento).  1023 -> 100 ms (rapidisimo).
+  unsigned long periodo = 1200 - ((unsigned long)claro * 1100) / 1023;
+  if (periodo < 100) periodo = 100;
+  digitalWrite(LED, ((ahora / (periodo / 2)) % 2) ? HIGH : LOW);
 }

@@ -214,9 +214,44 @@ int potenciaRetroceso = 110;
 // junto con umbralCm.
 // Calibrado 2026-08-04 con regla: distancia_cm = tiempo_ms/10 - 3.3
 //     50 cm -> (50 + 3.3) * 10 = 533 ms
-int msAdelante        = 533;     // ~50 cm
+// 2026-09-15, DOS PASADAS EN LA MISMA CLASE:
+//
+//   533 ms (~50 cm) -> 333 (~30) : la cancha nueva es mas chica y salir
+//                                  medio metro dejaba el arco muy solo.
+//   333 ms (~30 cm) -> 433 (~40) : PROBADO EN CANCHA y quedaba CORTO,
+//                                  "ni llegaba a tocar la pelota".
+//
+// La cuenta sale de la calibracion con regla del 04/08:
+//        distancia_cm = tiempo_ms / 10 - 3,3
+//        40 cm  ->  (40 + 3,3) x 10 = 433 ms
+//
+// 🎯 POR QUE QUEDABA CORTO, Y POR QUE AHORA CIERRA. Con la ida en 30 y el
+// disparo tambien en 30, el robot llegaba JUSTO a donde estaba la pelota
+// y no le sobraba ni un centimetro para empujarla. Ahora dispara a 20 y
+// avanza 40: le sobran 20 cm de empuje. La regla vuelve a cumplirse con
+// margen, que era lo que faltaba.
+int msAdelante        = 433;     // ~40 cm
 int msAdelanteChico   = 133;     // 10 cm
-int umbralBlanco      = 620;     // medido en cancha el 2026-08-11
+// 🚨 2026-09-15 — CANCHA NUEVA, UMBRAL NUEVO. Era 620.
+//
+// La cancha cambio: mas chica, el verde MUCHO mas oscuro, las lineas
+// blancas mas angostas. Medido con `pruebas/calibrar-linea`, 79.000
+// muestras:
+//
+//              cancha vieja      cancha nueva
+//     verde     356 / 465          60 a 95
+//     blanco       ~760              ~755
+//
+// El blanco quedo igual y el verde se oscurecio muchisimo, asi que el
+// contraste MEJORO. El punto medio entre 97 y 753 da 425.
+//
+// ⚠️ Y hay un motivo mas fuerte que la cuenta para bajarlo tanto. El mismo
+// sensor, sobre la misma linea, dio 557 o 763 segun que tan centrado
+// estaba. El robot vuelve del despeje EN MOVIMIENTO y muchas veces en
+// diagonal, asi que nunca cruza perfectamente centrado: el umbral tiene
+// que aguantar una lectura mediocre. Con 620, una pasada floja no
+// disparaba y el robot se pasaba de largo.
+int umbralBlanco      = 425;     // medido en cancha el 2026-09-15
 // Historia de este numero, en UNIDADES DE CAMARA mientras no sabiamos que
 // no eran centimetros:  30 -> 20 -> 48 (2026-08-11).
 //
@@ -228,7 +263,10 @@ int umbralBlanco      = 620;     // medido en cancha el 2026-08-11
 // robot dispara a 30 cm y la ida son 20, frena antes de llegar y no toca
 // la pelota. Si se cambia uno, hay que mirar el otro.
 // Hoy: dispara a 30, la ida son ~50. La regla se cumple.
-float umbralCm        = 30.0;    // cm REALES: despeja si esta a esto o menos
+// 2026-09-15: BAJADO DE 30 A 20 a pedido del equipo despues de probar en
+// cancha — que salga a despejar con la pelota mas cerca. En la cancha
+// nueva, que es mas chica, salir a buscarla a 30 cm era salir demasiado.
+float umbralCm        = 20.0;    // cm REALES: despeja si esta a esto o menos
 
 // Cuan de frente tiene que estar la pelota para disparar. 15 de camara /
 // 2,87 = 5,2 cm reales: es lo mismo que venia haciendo.
@@ -461,6 +499,41 @@ const int   PWM_MAX_ACOMODO = 85;    // era 60, despues 110
 const unsigned long MS_ASENTAR_ACOMODO = 300;
 const unsigned long MS_TIMEOUT_ACOMODO = 3000;
 const int MAX_REINTENTOS_ACOMODO = 3;
+
+// ---- 🎯 ENDEREZARSE TAMBIEN CUANDO NO VE LA PELOTA (2026-09-15) ----
+//
+// LO QUE NOTO EL EQUIPO EN CANCHA:
+//   "el robot hace las correcciones cuando esta viendo la pelota. Si no la
+//    esta viendo o la perdio, queremos que mire hacia adelante, porque a
+//    veces queda viendo al lateral y la pelota esta en otro lado y por
+//    estar mirando al costado no entra en su campo de vision."
+//
+// Tenian razon y es un circulo vicioso feo: el robot quedaba torcido, y
+// justamente POR estar torcido no volvia a ver la pelota — y sin ver la
+// pelota no hacia nada que lo enderezara. Se quedaba trabado mirando al
+// costado para siempre.
+//
+// Por que pasaba: la correccion de rumbo viaja SUMADA al movimiento, asi
+// que solo actua cuando el robot se esta moviendo. En ESPERANDO el robot
+// hace parar() — motores apagados — y ahi no se corrige nada.
+//
+// Ahora, mientras espera, si se da cuenta de que esta torcido se endereza
+// solo y vuelve a esperar. Reusa la misma maniobra del final del despeje.
+//
+// ⚠️ LOS DOS NUMEROS SON DISTINTOS A PROPOSITO: se endereza hasta quedar a
+// menos de 3 grados (TOLERANCIA_ACOMODO), pero no vuelve a arrancar hasta
+// pasarse de 8. Si los dos fueran iguales, el robot estaria todo el dia
+// corrigiendo de a un grado, temblando en el arco.
+const float TOLERANCIA_ESPERA = 8.0;          // grados para decidir enderezarse
+const unsigned long MS_CHEQUEO_ESPERA = 300;  // no preguntarle al sensor a cada rato
+unsigned long t_chequeoEspera = 0;
+// Descanso obligatorio entre intentos de enderezarse esperando. Mientras
+// descansa, el robot vuelve a mirar la pelota. Sin esto puede quedarse
+// reintentando una maniobra que no converge y no atajar nunca.
+const unsigned long MS_DESCANSO_ENDEREZAR = 6000;
+unsigned long t_ultimoIntentoEnderezar = 0;
+bool enderezandoEnEspera = false;
+int  vecesQueSeEnderezoEsperando = 0;
 const int RAMPA_PASO = 3;
 const unsigned long RAMPA_MS = 15;
 int pwmAcomodoAplicado = 0;
@@ -488,6 +561,20 @@ int reintentosAcomodo = 0;
 // esta lejisimos, muy fuera de los 10-50 cm donde medimos la conversion, y
 // ademas la camara recorta X en 200. Convertirlo seria inventar precision.
 // Para centrarse no hace falta: solo importa el SIGNO y donde cruza el cero.
+// 2026-09-15, segunda pasada: SE VUELVE A PRENDER. Se habia apagado a la
+// manana para probar el despeje sin el arco de por medio; ahora el equipo
+// pidio dejarlo listo para el amistoso, y ya sabe elegir solo entre el
+// arco azul y el amarillo.
+// Con esto en false, la ubicacion inicial NO usa el arco del rival: el
+// robot retrocede hasta pisar la linea, se endereza, y ahi se queda
+// esperando la pelota. Se saltea solamente el centrado de costado.
+//
+// Lo demas de la ubicacion (buscar la linea y enderezarse) sigue, porque
+// no tiene nada que ver con el arco y sirve igual.
+//
+// Tecla 'C' para volver a prenderlo.
+bool usarArcoParaCentrarse = true;
+
 const float ZONA_MUERTA_ARCO = 6.0;    // unidades de camara
 float kpArco = 2.0;                    // PWM por unidad de desvio del arco
 const unsigned long MS_MAX_CENTRADO = 6000;
@@ -551,9 +638,51 @@ byte paquete[9];
 int  cuantos = 0;
 bool sincronizado = false;
 int  Xp = 0, Yp = 0;
-int  Xaz = 0, Yaz = 0;                 // arco AZUL = el del rival, al frente
+int  Xaz = 0, Yaz = 0;                 // arco AZUL
+int  Xam = 0, Yam = 0;                 // arco AMARILLO
+unsigned long t_ultimoAzul = 0;
+unsigned long t_ultimoAmarillo = 0;
+
+
+// ---- 🎯 ¿CUAL ARCO ES EL DEL RIVAL? (2026-09-15) ----
+//
+// PEDIDO DEL EQUIPO, pensando en el amistoso de la clase que viene:
+//   "queda pendiente centrarse segun el arco del frente. A veces sera
+//    azul, otras veces sera amarillo, segun el lado de la cancha que nos
+//    toque."
+//
+// Tienen razon y es un problema real de partido: el lado se sortea, y no
+// se puede recompilar el robot entre partido y partido.
+//
+// COMO LO RESUELVE: el robot lo decide SOLO, mirando.
+//
+// Durante los 10 segundos de la cuenta de arranque —cuando ya esta
+// apoyado, quieto y mirando la cancha— cuenta cuantos cuadros ve cada
+// arco. El que mas vio es el del rival, porque el propio lo tiene a la
+// ESPALDA y la camara no lo puede ver. Al armarse se queda con ese y no
+// lo cambia mas en toda la corrida.
+//
+// 🎯 Lo bueno: no hay que configurar nada ni acordarse de apretar una
+// tecla antes de cada partido. Se apoya el robot mirando la cancha y listo.
+//
+// Y no cambia de opinion a mitad del partido, que seria peor que
+// equivocarse: decide una vez, con el robot quieto y bien apuntado.
+//
+// ⚠️ EL AMARILLO ES MAS DIFICIL DE VER. El programa de la camara le exige
+// una mancha de 600 pixeles al arco amarillo y solo 300 al azul. Si toca
+// el lado amarillo y el robot no lo reconoce, ese es el primer sospechoso
+// — y la salida es forzarlo a mano con la tecla 'b'.
+enum ArcoElegido { ARCO_AUTO, ARCO_AZUL, ARCO_AMARILLO };
+ArcoElegido arcoPreferido = ARCO_AUTO;   // lo que pidio el humano con 'b'
+ArcoElegido arcoEnUso     = ARCO_AZUL;   // lo que quedo decidido
+int vistoAzul = 0, vistoAmarillo = 0;    // cuadros contados en ARMANDOSE
+
+const char* nombreArco(ArcoElegido a) {
+  if (a == ARCO_AMARILLO) return "AMARILLO";
+  if (a == ARCO_AZUL)     return "AZUL";
+  return "automatico";
+}
 unsigned long t_ultimoPaquete = 0;
-unsigned long t_ultimoArco = 0;
 
 
 // ---- 🎯 PREDECIR ADONDE VA LA PELOTA (2026-09-08) ----
@@ -625,7 +754,19 @@ const float SUAVIZADO_VELOCIDAD = 0.3;
 // El giroscopio no dirige nada: IMPIDE QUE EL ROBOT GIRE. Eso es lo que
 // hace que la diagonal salga recta y no curva, y que el robot llegue
 // mirando al frente.
-bool despejeEnDiagonal = true;
+// 🚨 2026-09-15: APAGADA, PORQUE EL GIROSCOPIO ESTA MUERTO.
+//
+// Sin giroscopio la diagonal es PEOR que ir derecho: la mezcla lateral
+// 50/50/89 genera una rotacion parasita chica, y el que la corrige es
+// justamente el giroscopio. Sin el, el robot sale en diagonal Y GIRANDO,
+// y encima despues no se puede enderezar.
+//
+// Ir derecho sin giroscopio es lo que el robot venia haciendo en agosto:
+// no es ideal, pero es predecible.
+//
+// ⚠️ APENAS EL GIROSCOPIO VUELVA, PRENDER ESTO (tecla 'D' o poner true).
+// La diagonal esta escrita, compilada y sin probar.
+bool despejeEnDiagonal = false;
 
 // MEDIDO el 2026-08-04 con regla: a potencia 200 el robot hace 1 cm cada
 // 10 ms. O sea 100 cm por segundo.
@@ -972,10 +1113,21 @@ void leerCamara() {
       Yp = paquete[2] - 100;
       // El paquete son tres grupos de tres: pelota (201), arco amarillo
       // (202) y arco AZUL (203). Hasta hoy solo leiamos la pelota.
-      Xaz = paquete[7];
+      Xam = paquete[4];              // arco AMARILLO
+      Yam = paquete[5] - 100;
+      Xaz = paquete[7];              // arco AZUL
       Yaz = paquete[8] - 100;
+      if (Xaz > 0) t_ultimoAzul     = millis();
+      if (Xam > 0) t_ultimoAmarillo = millis();
+
+      // Mientras cuenta los 10 segundos de arranque, el robot esta quieto
+      // y mirando la cancha: es el mejor momento para fijarse cual arco
+      // tiene enfrente. El propio lo tiene a la espalda y no lo ve.
+      if (fase == ARMANDOSE) {
+        if (Xaz > 0) vistoAzul++;
+        if (Xam > 0) vistoAmarillo++;
+      }
       t_ultimoPaquete = millis();
-      if (Xaz > 0) t_ultimoArco = millis();
 
       // Un solo cuadro no alcanza para lanzar al robot: cualquier reflejo
       // naranja lo dispararia.
@@ -1150,14 +1302,45 @@ void atrasEnDiagonal(int potencia, int lateral) {
   aplicar(-p + fr + c, +p + fr + c, -tr + c);
 }
 
-bool veElArco() { return Xaz > 0 && (millis() - t_ultimoArco < 500); }
+// Decide cual arco es el del rival. Se llama UNA vez, al armarse.
+void elegirArco() {
+  if (arcoPreferido != ARCO_AUTO) {
+    arcoEnUso = arcoPreferido;
+    Serial.print(">> arco del rival FORZADO A MANO: ");
+    Serial.println(nombreArco(arcoEnUso));
+    return;
+  }
+  if (vistoAzul == 0 && vistoAmarillo == 0) {
+    arcoEnUso = ARCO_AZUL;
+    Serial.println("!! no vi NINGUN arco en la cuenta. Me quedo con el AZUL");
+    Serial.println("!! si toca el lado amarillo, forzalo con la tecla 'b'");
+    return;
+  }
+  arcoEnUso = (vistoAmarillo > vistoAzul) ? ARCO_AMARILLO : ARCO_AZUL;
+  Serial.print(">> el arco del rival es el ");
+  Serial.print(nombreArco(arcoEnUso));
+  Serial.print("   (lo vi "); Serial.print(vistoAmarillo > vistoAzul ? vistoAmarillo : vistoAzul);
+  Serial.print(" cuadros contra ");
+  Serial.print(vistoAmarillo > vistoAzul ? vistoAzul : vistoAmarillo);
+  Serial.println(" del otro)");
+}
+
+bool veElArco() {
+  if (arcoEnUso == ARCO_AMARILLO)
+    return Xam > 0 && (millis() - t_ultimoAmarillo < 500);
+  return Xaz > 0 && (millis() - t_ultimoAzul < 500);
+}
 
 // Desvio del ARCO DEL RIVAL, en unidades de camara (ver arriba por que no
 // se convierte a cm). Positivo = el arco esta a la DERECHA del robot, o
 // sea que el robot esta corrido a la izquierda y tiene que irse a la
 // derecha. Mismo criterio que con la pelota.
 float desvioArco() {
-  float y = camaraYInvertida ? -(float)Yaz : (float)Yaz;
+  // El desvio del arco que quedo elegido. Los dos vienen de la MISMA
+  // funcion de la camara y la MISMA matriz, asi que el signo es el mismo
+  // para los dos: lo que se midio con el azul vale igual para el amarillo.
+  int cruda = (arcoEnUso == ARCO_AMARILLO) ? Yam : Yaz;
+  float y = camaraYInvertida ? -(float)cruda : (float)cruda;
   return arcoInvertido ? -y : y;
 }
 
@@ -1241,6 +1424,14 @@ bool intentarDespejar(unsigned long ahora) {
 }
 
 void terminarDespeje() {
+  // Si lo que acaba de terminar fue un enderezado de los que se hace solo
+  // mientras espera, vuelve a esperar y listo: ni empujoncito ni cuenta de
+  // despeje. No despejo nada, solo se acomodo.
+  if (enderezandoEnEspera) {
+    enderezandoEnEspera = false;
+    pasarAEsperar();
+    return;
+  }
   // Si lo que acaba de terminar era la UBICACION INICIAL y no un despeje,
   // no corresponde el empujoncito de 10 cm: el robot ya esta donde tiene
   // que estar. Se reusa toda la maquinaria de enderezarse, solo cambia
@@ -1352,6 +1543,7 @@ void ayuda() {
   Serial.println("  Y = invertir signo camara   k = enderezarse si/no");
   Serial.println("  f/F = fuerza del seguimiento -/+");
   Serial.println("  M = MONITOR en vivo (y frena el robot)");
+  Serial.println("  b = arco del rival: auto / azul / amarillo");
   Serial.println("  T = predecir adonde va la pelota si/no");
   Serial.println("  w/W = anticipacion de la prediccion -/+");
   Serial.println("  P = perseguir la pelota al despejar si/no");
@@ -1477,11 +1669,19 @@ void leerConsola() {
       break;
 
     case 'a':
-      if (millis() - t_ultimoArco > 1000 || Xaz == 0) {
-        Serial.println("   NO VEO EL ARCO AZUL");
+      Serial.print("   el arco del rival es el ");
+      Serial.print(nombreArco(arcoEnUso));
+      Serial.print("   (en la cuenta vi azul ");   Serial.print(vistoAzul);
+      Serial.print(" / amarillo ");                 Serial.print(vistoAmarillo);
+      Serial.println(")");
+      if (!veElArco()) {
+        Serial.print("   AHORA NO LO VEO (");
+        Serial.print(nombreArco(arcoEnUso)); Serial.println(")");
       } else {
-        Serial.print("   arco azul: Xaz="); Serial.print(Xaz);
-        Serial.print("  Yaz crudo ");       Serial.print(Yaz);
+        int xa = (arcoEnUso == ARCO_AMARILLO) ? Xam : Xaz;
+        int ya = (arcoEnUso == ARCO_AMARILLO) ? Yam : Yaz;
+        Serial.print("   arco: X="); Serial.print(xa);
+        Serial.print("  Y crudo ");  Serial.print(ya);
         Serial.print("  -> lo leo ");
         Serial.print(desvioArco() > 0 ? "a la DERECHA" : "a la IZQUIERDA");
         Serial.print(" ("); Serial.print(fabs(desvioArco()), 1);
@@ -1524,6 +1724,23 @@ void leerConsola() {
       } else {
         Serial.println(">> monitor apagado");
       }
+      break;
+
+    // Cicla: automatico -> azul -> amarillo -> automatico.
+    // Solo hace falta si el automatico se equivoca.
+    case 'b':
+      if      (arcoPreferido == ARCO_AUTO)  arcoPreferido = ARCO_AZUL;
+      else if (arcoPreferido == ARCO_AZUL)  arcoPreferido = ARCO_AMARILLO;
+      else                                   arcoPreferido = ARCO_AUTO;
+      Serial.print("   arco del rival: ");
+      Serial.print(nombreArco(arcoPreferido));
+      Serial.println("   (se aplica al armarse, con 'g' o al prender)");
+      break;
+
+    case 'C':
+      usarArcoParaCentrarse = !usarArcoParaCentrarse;
+      Serial.print("   centrarse con el arco del rival: ");
+      Serial.println(usarArcoParaCentrarse ? "SI" : "NO (solo busca la linea)");
       break;
 
     case 'D':
@@ -1598,6 +1815,17 @@ void leerConsola() {
       if (armoSinGiroscopo) {
         Serial.println("   !! y NUNCA lo dio: me arme sin rumbo");
       }
+      // 🎯 EL NUMERO QUE DISTINGUE LAS DOS CAUSAS POSIBLES de que el robot
+      // se quede mirando a la pared:
+      //   0 veces  -> el chequeo NUNCA disparo. El problema es que no entra
+      //               a ESPERANDO, o que no se da cuenta de que esta torcido.
+      //   varias   -> SI disparo, pero no logro girar. Ahi el problema es
+      //               que le falta fuerza para romper el rozamiento de esta
+      //               cancha (PWM_MAX_ACOMODO esta en 85, y el piso de
+      //               arranque se midio en la cancha VIEJA).
+      Serial.print("   me enderece esperando: ");
+      Serial.print(vecesQueSeEnderezoEsperando);
+      Serial.println(" veces");
       Serial.print("   giroscopio: ");
       if (!hayGiroscopo) {
         Serial.println("NUNCA APARECIO al encender");
@@ -1794,6 +2022,7 @@ void loop() {
         // robot iba a decir "jugue a ciegas" en todas las corridas.
         vecesQueSeCayoElGiro = 0;
         anduvoSinGiroscopo   = false;
+        elegirArco();       // ¿azul o amarillo? Decidido con lo que vio recien
         Serial.print(">> ARMADO. Rumbo base ");
         if (rumboBase < 0) Serial.println("SIN GIROSCOPIO");
         else Serial.println(rumboBase, 1);
@@ -1871,6 +2100,13 @@ void loop() {
         parar();
         reiniciarRampaMovimiento();
         reiniciarCorreccion();
+        if (!usarArcoParaCentrarse) {
+          // Sin arco de referencia: se queda donde encontro la linea y
+          // pasa derecho a enderezarse.
+          Serial.println("   sin centrado por arco (tecla C lo prende)");
+          pasarAEnderezarse();
+          break;
+        }
         fase = UBIC_CENTRAR; t_fase = ahora;
         Serial.println("   ahora de costado, buscando el arco del rival...");
       }
@@ -1944,6 +2180,39 @@ void loop() {
     case ESPERANDO:
       parar();
       digitalWrite(LED, ((ahora / 800) % 2) ? HIGH : LOW);
+
+      // 🎯 ENDEREZARSE MIENTRAS ESPERA (2026-09-15).
+      // Si quedo torcido, se acomoda solo aunque no vea la pelota. Sin
+      // esto se quedaba mirando al costado para siempre: torcido no veia
+      // la pelota, y sin ver la pelota no hacia nada que lo enderezara.
+      //
+      // Va ANTES de mirar la pelota: si esta torcido, primero se acomoda.
+      // De todos modos no pierde nada — si la pelota aparece mientras se
+      // endereza, la va a ver apenas termine, que son menos de 2 segundos.
+      //
+      // 🚨 CON DESCANSO OBLIGATORIO ENTRE INTENTOS. Sin esto quedaba un
+      // lazo feo: si el enderezado no llegaba a converger, volvia a
+      // ESPERANDO todavia torcido, medía de nuevo, y disparaba la MISMA
+      // maniobra que acababa de fracasar — sin tope y sin descanso. Y como
+      // este bloque corta antes de mirar la pelota, un robot atrapado ahi
+      // SE QUEDA SIN ATAJAR. Con el descanso, en el peor caso pierde unos
+      // segundos y despues vuelve a jugar.
+      if (enderezarActivado && rumboBase >= 0
+          && ahora - t_chequeoEspera >= MS_CHEQUEO_ESPERA
+          && ahora - t_ultimoIntentoEnderezar >= MS_DESCANSO_ENDEREZAR) {
+        t_chequeoEspera = ahora;
+        float r = rumboActual();
+        if (r >= 0 && fabs(diferencia(rumboBase, r)) > TOLERANCIA_ESPERA) {
+          t_ultimoIntentoEnderezar = ahora;
+          Serial.print(">> estoy torcido ");
+          Serial.print(diferencia(rumboBase, r), 1);
+          Serial.println(" grados y no veo la pelota — me acomodo");
+          vecesQueSeEnderezoEsperando++;
+          enderezandoEnEspera = true;
+          pasarAEnderezarse();
+          break;
+        }
+      }
       if (hayQueDespejar()) {
         if (intentarDespejar(ahora)) digitalWrite(LED, HIGH);
       } else if (veLaPelota()) {

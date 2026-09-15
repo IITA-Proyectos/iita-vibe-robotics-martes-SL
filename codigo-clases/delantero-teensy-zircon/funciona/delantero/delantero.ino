@@ -95,7 +95,25 @@ const int TOL_ENTRA = 10;
 const int TOL_SALE  = 5;
 
 // --- distancias ---
-const int XP_ORBITA = 22;   // mas cerca que esto -> empieza a orbitar
+// 2026-09-15: subido de 22 a 34. El equipo reporto que al llegar a la
+// distancia de orbita CHOCA CON LA PELOTA: entraba a orbitar demasiado
+// encima y la empujaba en vez de rodearla.
+//
+// Por que ahora y no antes: el mismo dia se subio VEL_AVANCE de 55 a 95.
+// Llega mas rapido, asi que para cuando el estado cambia ya se comio la
+// distancia que le quedaba. Subir el umbral es empezar a rodearla ANTES.
+//
+// ⚠ ESTE NUMERO ESTA EN UNIDADES DESCONOCIDAS. El factor de escala de la
+// camara nunca se midio — pruebas/tabla-camara/ esta escrita desde el
+// 25/08 y nunca se corrio. No sabemos cuantos centimetros son 34, asi que
+// esto es tanteo, no calculo. La orbita gira alrededor de un punto a
+// R = 2*L = 17,5 cm adelante del centro del robot: si Xp fuera cm, el
+// umbral tendria que estar comodamente por encima de eso.
+//
+// Sigue debajo de XP_SUELTA = 55, que es lo unico que no se puede cruzar:
+// si XP_ORBITA llegara a XP_SUELTA, el robot entraria y saldria de la
+// orbita sin parar.
+const int XP_ORBITA = 34;   // 22 -> 34 -> 38 -> 34. Mas cerca que esto -> orbita
 const int XP_SUELTA = 55;   // si se le aleja mas que esto, vuelve a avanzar
 const int XP_MAX    = 150;  // arriba de esto no le creo A LA PELOTA (la camara recorta en 200)
 
@@ -127,7 +145,21 @@ const int MS_PULSO_CENT  = 32;
 const int MS_ESPERA_CENT = 320;
 
 // --- avance ---
-const int VEL_AVANCE = 55;
+// 2026-09-15: subido de 55 a 95, a pedido del equipo — y con motivo.
+//
+// 55 estaba POR DEBAJO del piso de arranque (~70 desde quieto). Y a
+// AVANZANDO se entra desde CENTRANDO, que usa rotarPulsado() y por lo
+// tanto deja el robot PARADO entre pulso y pulso: o sea que arrancaba a
+// avanzar desde quieto con 55, que no deberia alcanzarle. Estaba anotado
+// como pendiente en MEJORAS-PENDIENTES desde el 04/08 y nunca se toco.
+//
+// Encima ahora la cancha es de TELA, que agarra distinto: el piso de PWM
+// puede ser mas alto todavia. 95 le deja margen por arriba del piso.
+//
+// ⚠ Si el robot se pasa de largo y pierde la pelota, el problema NO es
+// este numero sino que llega muy rapido a XP_ORBITA. Bajar XP_ORBITA
+// antes que volver a bajar esto.
+const int VEL_AVANCE = 95;   // era 55, debajo del piso de arranque
 
 // --- ORBITA PEGADA A LA PELOTA (2026-08-04) ---
 //
@@ -199,10 +231,15 @@ const int VEL_AVANCE = 55;
 //
 // COMO VOLVER A LO DE ANTES, exacto: VEL_ORB_IMPULSO = VEL_ORB_TRASERA = 120
 // y MS_ORBITA_MAX = 9000. Queda igual que el 2026-08-04 a la manana.
+// 2026-09-15: impulso y crucero SUBIDOS a pedido del equipo, por la tela.
+// El crucero estaba en 48, apenas arriba del piso de rodadura (~40) que se
+// midio en la cancha VIEJA. En tela el agarre es otro y ese margen de 8
+// cuentas no aguanta nada: la orbita se plantaba a mitad de vuelta.
+// Valores anteriores, por si hay que volver: impulso 99, crucero 48.
 const int VEL_ORB_FRENTE  = 30;    // DEBAJO del piso a proposito: no deben girar
-const int VEL_ORB_IMPULSO = 99;    // el golpe. Es el 180*ic del campeon 2025.
+const int VEL_ORB_IMPULSO = 120;   // 99 -> 130 -> 120. El golpe para despegar.
 const int MS_ORB_IMPULSO  = 300;   // cuanto dura el golpe. El 2025: 300 y 500 ms.
-const int VEL_ORB_TRASERA = 48;    // <<< velocidad de la vuelta ya rodando
+const int VEL_ORB_TRASERA = 67;    // 48 -> 75 -> 67. Velocidad ya rodando
 
 // OJO: esto va de la mano con VEL_ORB_TRASERA. Si la vuelta se hace mas lenta y
 // el tiempo maximo no se sube, el robot SE RINDE ANTES DE COMPLETAR UNA VUELTA
@@ -257,7 +294,22 @@ const int   RESTA_MAX   = 120;   // tope de la correccion
 // canje deliberado — puntería y no salirse de la cancha, a cambio de alcance.
 // Si queda demasiado corta, subir VEL_PATADA de a 10 antes que alargar el
 // tiempo: alargar el tiempo trae de vuelta los dos problemas.
-const int VEL_PATADA    = 215;
+// ================== MODO PRUEBA LENTA (2026-09-15) ==================
+// A pedido del equipo: bajar MUCHO la velocidad de la patada para poder
+// VER que hace — si detecta el blanco y si no hace cualquier cosa. A 215
+// el golpe dura 420 ms y no se llega a mirar nada.
+//
+// SOLO se toca la velocidad. El tiempo queda en 420 ms, tal cual el de
+// juego, por decision del equipo.
+//
+// Consecuencia, para que no sorprenda: la distancia es velocidad x
+// tiempo, asi que con el mismo tiempo y menos velocidad la patada
+// tambien RECORRE MENOS — alrededor del 40% de lo que recorria. Se va a
+// ver lento y corto. Es lo buscado: el objetivo es mirarlo, no medir
+// alcance.
+//
+// PARA VOLVER A LA PATADA DE JUEGO: VEL_PATADA = 215.
+const int VEL_PATADA    = 110;   // de juego: 215
 const int MS_PATADA     = 420;
 const int VEL_RETROCESO = 110;
 const int MS_RETROCESO  = 700;
@@ -525,6 +577,85 @@ const unsigned long MS_LINEA_CONFIRMA = 5;
 //  y cruza la linea de enfrente, bajarlo.
 const unsigned long MS_ESCAPE_COMPROMISO = 400;
 
+// ESPERA FRENADA ANTES DE ESCAPAR — 2026-09-15, a pedido del equipo.
+//
+// Al detectar la linea con CUALQUIER sensor, el robot primero FRENA EN
+// SECO y se queda quieto este tiempo; recien despues retrocede hacia donde
+// corresponda segun que sensor vio blanco.
+//
+// Por que: hasta ahora el escape arrancaba mientras el robot todavia venia
+// con todo el envion de la patada, y la direccion de escape se decidia con
+// el robot en movimiento. Frenando primero, la mascara se lee con el robot
+// QUIETO ARRIBA DE LA LINEA, que es el momento en que los sensores estan
+// diciendo la verdad.
+//
+// Y es la unica forma de mirar lo que hace: a 400 ms de escape no se llega
+// a ver nada.
+const unsigned long MS_ESPERA_LINEA = 1000;
+
+// ===================== ESCAPE CIEGO (2026-09-15) =====================
+// Reportado por el equipo despues de probarlo en cancha:
+//
+//   "mientras esta pateando detecta el blanco y ya frena pasado, y cuando
+//    retrocede detecta con otro sensor y no vuelve a la cancha, y chau
+//    todo."
+//
+// Son dos problemas distintos y este bloque ataca el SEGUNDO:
+//
+//   1. FRENA PASADO. Viene con todo el envion de la patada y para cuando
+//      detecta ya cruzo. Eso es inercia, no software — se ataca bajando la
+//      velocidad de la patada o frenando antes, no desde aca.
+//
+//   2. SE CONFUNDE AL VOLVER. Retrocediendo, OTRO sensor pisa la linea,
+//      la mascara cambia, y el escape se da vuelta a mitad de camino. El
+//      robot queda pataleando en el borde en vez de volver a la cancha.
+//      Es el MISMO patron que ya nos mordio dos veces el 01/09: una
+//      decision que hay que tomar UNA VEZ y sostener, replanteada a cada
+//      instante.
+//
+// EL ARREGLO, como lo pidio el equipo: una vez que arranca el retroceso,
+// se sostiene MS_ESCAPE_CIEGO a VEL_ESCAPE_FUERTE IGNORANDO POR COMPLETO
+// los sensores de linea. Ni cambia de direccion, ni se reinicia, ni sale
+// antes. Ciego y comprometido.
+//
+// Durante el frenado previo SI se sigue leyendo: ahi el robot esta quieto
+// arriba de la linea y es cuando los sensores mas la verdad dicen. La
+// ceguera empieza recien cuando arranca a moverse.
+// 2026-09-15, segunda pasada: bajado de 1500 a 500 ms. Con 1500 el robot
+// "retrocedia mucho y muy rapido" y se iba medio campo para atras. La
+// potencia queda en 200: esa es la que lo despega de la linea. Si sigue
+// yendose lejos, bajar PRIMERO el tiempo otra vez y recien despues la
+// potencia — un escape flojo que no se despega es peor que uno largo.
+const unsigned long MS_ESCAPE_CIEGO = 200;     // 1500 -> 500 -> 200  [SIN USO]
+const int           VEL_ESCAPE_FUERTE = 200;   // VEL_ESCAPE normal es 100
+
+// ============ RETROCESO INMEDIATO (2026-09-15, prueba) ============
+// Sintoma reportado por el equipo:
+//
+//   "cuando patea hacia adelante y esta cerca del arco, se mete en el area
+//    chica, llega a detectar la linea blanca, pero se detiene y no llega a
+//    moverse hacia atras. Queda detenida dentro del area chica."
+//
+// LA CAUSA, y explica exactamente eso: la secuencia era FRENAR 1000 ms y
+// RECIEN DESPUES retroceder 200 ms. Al terminar el freno el robot esta
+// QUIETO, y arrancar desde quieto se come casi esos 200 ms nada mas que en
+// superar el piso de PWM (~70). O sea que casi no llegaba a moverse: se
+// veia como "frena y se queda ahi".
+//
+// LA PRUEBA QUE PIDIO EL EQUIPO: sacar el freno del medio.
+//   - apenas ve la linea, RETROCEDE YA, sin frenar primero
+//   - retrocede MS_RETROCESO_LINEA
+//   - durante ese retroceso NO se lee la linea
+//   - y sigue sin leerla hasta completar MS_CIEGO_LINEA desde el disparo,
+//     para darle tiempo a alejarse antes de poder volver a dispararse
+//
+// El respaldo de la version anterior (freno 1 s + retroceso 200 ms) esta
+// en respaldos/delantero-2026-09-15-freno1s-antes-de-retroceso300.ino
+const unsigned long MS_RETROCESO_LINEA = 300;   // cuanto retrocede
+const unsigned long MS_CIEGO_LINEA     = 1000;  // cuanto ignora la linea
+
+unsigned long t_disparoLinea = 0;   // cuando vio la linea por ultima vez
+
 //  GOLPE DE FRENO AL LLEGAR A LA LINEA VINIENDO DE LA PATADA
 //  [2026-08-18 gviollaz, revertido como dano colateral ese dia; restaurado el
 //   2026-08-25 a pedido de Maximo, que volvio a ver el sintoma en cancha]
@@ -555,6 +686,18 @@ const unsigned long MS_ESCAPE_COMPROMISO = 400;
 //  Marcar donde esta la linea, dejarlo patear hacia ella y medir cuanto la
 //  cruzo. Si se pasa 2 cm no valia la pena; si se pasa 15, es gol en contra.
 //  Sin ese numero no se sabe si 150 ms alcanzan.
+// ⚠ 2026-09-15: queda en 240 por decision del equipo (solo se bajo la
+// velocidad de la patada, nada mas). Tenerlo presente al mirar la prueba:
+// con la patada en 110 y el freno en 240, si el robot pisa el blanco EN
+// PLENA PATADA el golpe para atras es MAS FUERTE que el envion que traia,
+// asi que va a pegar un saltito de culata. Eso es esperable con estos
+// numeros, no es que el robot este haciendo cualquier cosa.
+// 🚫 SIN USO desde el 2026-09-15. Los reemplazo el freno ELECTRICO: ahora
+// al ver la linea el robot hace frenar() durante MS_ESPERA_LINEA y recien
+// despues retrocede. Este golpe frenaba MANEJANDO EN SENTIDO CONTRARIO a
+// VEL_FRENO, que podia pasarse de largo para atras; un freno electrico no
+// se pasa porque no empuja, solo traba.
+// Se dejan escritos por si hay que volver atras.
 const int VEL_FRENO = 240;                 // igual que la patada: lo que trajo, se le opone
 const unsigned long MS_FRENO = 150;        // cuanto dura el golpe de freno
 
@@ -702,6 +845,12 @@ const unsigned long MS_FRENO = 150;        // cuanto dura el golpe de freno
 //   subirlo unos milimetros — al sensor 1 le paso lo mismo y paso de 3
 //   cuentas de separacion a 446 cuando lo levantaron.
 //
+//   🛑 NO HAGAN ESTO HOY. Lo de arriba es de la cancha VIEJA y quedo sin
+//   efecto el 2026-09-15: sobre la tela el sensor 3 tiene 547 cuentas de
+//   separacion, no 36. Subirlo ahora achicaria una separacion que esta
+//   comoda y nos obligaria a re-medir todo. Vale de nuevo SOLO si se
+//   vuelve a jugar en la superficie vieja. Ver el bloque de abajo.
+//
 // 2026-09-08, MAS TARDE. Con {663,661,725} el robot SEGUIA dando falsos
 // blancos, asi que se volvio a medir el verde en CINCO puntos de cancha
 // (pruebas/grabar-verde/, mesetas 3 a 7 de la traza):
@@ -726,8 +875,37 @@ const unsigned long MS_FRENO = 150;        // cuanto dura el golpe de freno
 //   falsos blancos, pero le deja 6 cuentas de margen para cada lado, asi
 //   que puede fallar en cualquier punto de cancha que no hayamos pisado.
 //   NO es una calibracion: es una curita hasta subir el sensor.
+// 2026-09-15 — CANCHA NUEVA, y todo lo de arriba quedo historico.
+//
+// La cancha es de TELA y el verde es MUCHISIMO mas oscuro. Medido con
+// pruebas/grabar-linea/ (91 s, 12 mesetas, clasificadas por el programa):
+//
+//                       verde hasta   blanco desde   separacion
+//     sensor 1 izq          132            649          517
+//     sensor 2 DER           99            755          656
+//     sensor 3 adel.        140            687          547
+//
+// Para comparar: en la cancha vieja el sensor 3 tenia ONCE cuentas de
+// separacion (verde 751, blanco 762) y por eso NINGUN umbral servia. Acá
+// tiene 547. El problema del sensor 3 no se arreglo: se lo llevo la
+// cancha. Si algun dia se vuelve a jugar en la otra superficie, vuelve.
+//
+// 🔴 Con los umbrales viejos {663, 661, 757} el robot estaba CIEGO, y se
+//    puede probar con esta misma corrida:
+//      - sensor 3: la linea le dio 745 y 755 en dos mesetas distintas,
+//        las dos por DEBAJO de su umbral de 757. No la vio ninguna vez.
+//      - sensor 1: 663 le quedaba justo encima del blanco mas flojo
+//        (649), asi que la linea apenas pisada se le escapaba.
+//    O sea que el robot NO estaba escapando de mas: estaba escapando de
+//    MENOS, y de la linea de verdad.
+//
+// Los umbrales nuevos son el punto medio verde<->blanco, con el peor caso
+// de cada lado. Quedan ~260-330 cuentas de margen para cada lado, en los
+// tres. Nunca tuvimos tanto aire: veniamos peleando por 11 y por 16.
+//
+// ⚠ Estos numeros son de la TELA. No transfieren a la cancha vieja.
 // =======================================================================
-int UMBRAL_LINEA[3] = { 663, 661, 757 };
+int UMBRAL_LINEA[3] = { 390, 427, 413 };
 
 //  Pines: se autodetectan leyendo el pin 32, igual que zirconLib.cpp:52-60.
 const int PIN_VERSION_PLACA = 32;
@@ -837,7 +1015,10 @@ int lineaMin[3] = { 9999, 9999, 9999 };         // minimo visto en toda la corri
 int lineaMax[3] = { -1, -1, -1 };               // maximo visto en toda la corrida
 int  mascaraLinea = 0;
 unsigned long t_ultimaLinea = 0;
-unsigned long t_lineaCruda  = 0;   // desde cuando se ve linea SEGUIDA (filtro)
+// Desde cuando ve blanco CADA sensor, por separado. Sirve para dos cosas:
+// filtrar picos sueltos, y sobre todo saber CUAL LA VIO PRIMERO, que es el
+// unico que decide la direccion del escape. 0 = ese sensor no la ve.
+unsigned long t_sensorDesde[3] = { 0, 0, 0 };
 
 enum Estado { BUSCANDO, CENTRANDO, AVANZANDO, ORBITANDO,
               APUNTA_RUMBO0, PATEA_ADEL, PATEA_ATRAS, ESCAPA_LINEA };
@@ -859,10 +1040,41 @@ unsigned long t_contadores = 0;
 
 // ---------- motores ----------
 
+// SOLTAR los motores. NO es frenar: el robot sigue de largo por inercia.
 void parar() {
   analogWrite(IZQ_PWM, 0); digitalWrite(IZQ_INA, 0); digitalWrite(IZQ_INB, 0);
   analogWrite(DER_PWM, 0); digitalWrite(DER_INA, 0); digitalWrite(DER_INB, 0);
   analogWrite(TRA_PWM, 0); digitalWrite(TRA_INA, 0); digitalWrite(TRA_INB, 0);
+}
+
+// FRENO ELECTRICO — 2026-09-15, a pedido del equipo.
+//
+// Cortocircuita los bornes del motor: la corriente que el propio motor
+// genera al girar lo frena a el mismo. Es instantaneo y no hay nada que
+// calibrar. Una vez detenido no circula corriente, asi que se puede
+// sostener sin que se caliente nada.
+//
+// PORTADO DE LA MESA DEL ARQUERO, que lo tiene MEDIDO en el piso el
+// 2026-08-18 con pruebas/probar-freno (tres corridas de 1 segundo,
+// marcando donde quedaba cada una):
+//     dos patas ALTAS + PWM maximo   -> frena
+//     dos patas BAJAS + PWM maximo   -> frena   <-- esta es la que usamos
+//     soltar (parar())               -> quedaba MAS LEJOS
+// (arquero-teensy-zircon/funciona/seguir-y-despejar/:709-737)
+//
+// ⚠️ SE PARECE PELIGROSAMENTE A parar(): las patas de direccion quedan
+// igual, en 0. La UNICA diferencia es el PWM. Con PWM en 0 el driver apaga
+// la salida y la rueda queda suelta; con PWM en 255 queda cortocircuitada.
+// Mismo estado de las patas, efecto opuesto. No confundirlas al leer.
+//
+// 🚨 Y la leccion de metodo que trae el arquero: antes de esa medicion
+// hubo una prueba EN LA MESA que dijo que el freno no servia. Estaba mal —
+// el robot se movia menos de 3 cm y nunca agarraba velocidad. Un freno
+// solo se puede medir si hay inercia que frenar.
+void frenar() {
+  digitalWrite(IZQ_INA, 0); digitalWrite(IZQ_INB, 0); analogWrite(IZQ_PWM, 255);
+  digitalWrite(DER_INA, 0); digitalWrite(DER_INB, 0); analogWrite(DER_PWM, 255);
+  digitalWrite(TRA_INA, 0); digitalWrite(TRA_INB, 0); analogWrite(TRA_PWM, 255);
 }
 
 void motoresRotando(bool sentidoA, int vel) {
@@ -930,6 +1142,30 @@ int leerLineas() {
 
 // Escapa de la(s) linea(s) que se estan viendo. Suma las direcciones, asi
 // que las esquinas (dos sensores a la vez) salen solas.
+// QUE SENSOR ES CUAL — MEDIDO el 2026-09-15 con pruebas/identificar-sensores/
+// (un sensor por vez sobre el blanco, los otros dos en negro; salta uno
+//  solo, ~700 cuentas, los otros ni se mueven):
+//
+//     sensor 1  =  DERECHO     A11, pin 25
+//     sensor 2  =  IZQUIERDO   A13, pin 27
+//     sensor 3  =  DELANTERO   A12, pin 26
+//
+// Hasta ese dia habia TRES versiones dando vueltas — el dibujo del equipo,
+// la bitacora del 18/08 y los comentarios del codigo 2025 — y las tres
+// decian cosas distintas. Ninguna era la correcta. Ahora esta medido.
+//
+// ⚠ LA TABLA DE ABAJO ESTA BIEN Y NO HAY QUE TOCARLA. Los tres sensores
+// estan en un LADO del triangulo, entre dos ruedas, o sea ENFRENTADOS a la
+// tercera — y el escape apaga justo esa tercera, que es como se traslada
+// en diagonal un robot de tres ruedas omni:
+//
+//     sensor 3 (delantero)  esta entre izq y der     -> apaga TRASERA
+//     sensor 1 (derecho)    esta entre trasera y der -> apaga IZQUIERDA
+//     sensor 2 (izquierdo)  esta entre trasera e izq -> apaga DERECHA
+//
+// Los nombres IZQ/DER/TRA del comentario son de la RUEDA que se apaga, no
+// de donde esta el sensor. Leerlos como posicion del sensor fue el error
+// que tuvo el mapa mal escrito durante un mes.
 void escaparDeLinea(int m, int velocidad) {
   //          IZQ(M1) DER(M2) TRA(M3)
   int v[3] = {   0,      0,      0   };
@@ -942,9 +1178,15 @@ void escaparDeLinea(int m, int velocidad) {
 
   if (pico == 0) {
     // Los tres sensores a la vez: las tres direcciones se cancelan y no hay
-    // para donde ir. Casi seguro son los umbrales mal puestos. Parar es lo
-    // honesto: salir para un lado elegido al azar seria inventar.
-    parar();
+    // para donde ir. Casi seguro son los umbrales mal puestos. Quedarse
+    // quieto es lo honesto: salir para un lado elegido al azar seria
+    // inventar.
+    //
+    // 2026-09-15: era parar(), que SUELTA las ruedas. Ahora es frenar(),
+    // que las traba. La diferencia importa desde que la cancha tiene
+    // rampitas en el borde: un robot quieto pero suelto sobre un plano
+    // inclinado se desliza solo, y esto salta justo cuando algo raro pasa.
+    frenar();
     return;
   }
 
@@ -1300,6 +1542,7 @@ void setup() {
   Serial.print("   sensores de linea en pines ");
   Serial.print(pinLinea[0]); Serial.print(", ");
   Serial.print(pinLinea[1]); Serial.print(", "); Serial.println(pinLinea[2]);
+  Serial.println("   S1=DERECHO   S2=IZQUIERDO   S3=DELANTERO  (medido 15/09)");
 
   if (LINEA_ACTIVA) {
     // AUTOPROTECCION: el robot se enciende apoyado en el verde, no sobre una
@@ -1316,6 +1559,11 @@ void setup() {
     Serial.print(" / "); Serial.print(UMBRAL_LINEA[2]);
     Serial.print("   confirma "); Serial.print(MS_LINEA_CONFIRMA);
     Serial.println(" ms");
+    Serial.print("   al ver linea: RETROCEDE YA ");
+    Serial.print(MS_RETROCESO_LINEA);
+    Serial.print(" ms a "); Serial.print(VEL_ESCAPE_FUERTE);
+    Serial.print("  (sin mirar la linea hasta los ");
+    Serial.print(MS_CIEGO_LINEA); Serial.println(" ms)");
 
     int m = leerLineas();
     if (m != 0 && PROTECCION_ARRANQUE) {
@@ -1404,7 +1652,18 @@ void loop() {
   // ---------- LA LINEA BLANCA MANDA SOBRE TODO ----------
   // Va antes que cualquier otra cosa y anula el estado en curso, incluida la
   // patada. Salir de la cancha es peor que perder una jugada.
-  if (lineaHabilitada) {
+  //
+  // ...SALVO durante el escape ciego. Ahi los sensores se ignoran enteros:
+  // ni disparan, ni cambian la direccion, ni reinician nada. Ver el bloque
+  // "ESCAPE CIEGO". Sin esta excepcion, el propio retroceso se pisa la
+  // linea con otro sensor y el robot se queda pataleando en el borde.
+  // VENTANA CIEGA: desde que vio la linea, no se lee nada durante
+  // MS_CIEGO_LINEA. Eso cubre el retroceso entero y ademas le da tiempo a
+  // alejarse antes de poder volver a dispararse. Ver "RETROCESO INMEDIATO".
+  bool lineaCiega = (t_disparoLinea != 0
+                     && millis() - t_disparoLinea < MS_CIEGO_LINEA);
+
+  if (lineaHabilitada && !lineaCiega) {
     int mCrudo = leerLineas();
 
     // ---------- FILTRO DE CONFIRMACION ----------
@@ -1422,42 +1681,66 @@ void loop() {
     // ENCIMA del umbral de forma sostenida, ningun filtro ayuda. Ataca
     // los cruces transitorios, que es lo que quedo despues de subir el
     // umbral del sensor 3 a 757. [2026-09-08]
-    if (mCrudo == 0)            t_lineaCruda = 0;
-    else if (t_lineaCruda == 0) t_lineaCruda = millis();
+    // El filtro se lleva UN CRONOMETRO POR SENSOR, no uno solo para los
+    // tres. Hace falta para saber cual la vio PRIMERO — ver abajo — y de
+    // paso filtra mejor: con un cronometro unico, un sensor que parpadea
+    // le reiniciaba la cuenta al que la estaba viendo en serio.
+    for (int i = 0; i < 3; i++) {
+      if (mCrudo & (1 << i)) { if (t_sensorDesde[i] == 0) t_sensorDesde[i] = millis(); }
+      else                     t_sensorDesde[i] = 0;
+    }
 
-    int m = (mCrudo != 0 && millis() - t_lineaCruda >= MS_LINEA_CONFIRMA)
-            ? mCrudo : 0;
+    int m = 0;
+    for (int i = 0; i < 3; i++)
+      if (t_sensorDesde[i] != 0 && millis() - t_sensorDesde[i] >= MS_LINEA_CONFIRMA)
+        m |= (1 << i);
 
     if (m != 0) {
       t_ultimaLinea = millis();
 
-      // La direccion se CONGELA los primeros MS_ESCAPE_COMPROMISO ms del
-      // escape: durante esa ventana los otros sensores se ignoran, para que
-      // el robot alcance a alejarse. Ver el bloque "COMPROMISO CON LA
-      // DIRECCION DE ESCAPE".
-      bool comprometido = (estado == ESCAPA_LINEA
-                           && millis() - t_entroEstado < MS_ESCAPE_COMPROMISO);
-      if (!comprometido) {
-        if (estado == ESCAPA_LINEA && m != mascaraLinea) {
-          Serial.print("    (sigo en la linea, cambio de direccion: sensores");
-          for (int i = 0; i < 3; i++) if (m & (1 << i)) { Serial.print(" "); Serial.print(i + 1); }
-          Serial.println(")");
-        }
-        mascaraLinea = m;
+      // ---------- EL PRIMERO QUE LA VIO ----------
+      // 2026-09-15, a pedido del equipo. La direccion de escape sale de UN
+      // SOLO sensor: el que vio la linea PRIMERO. No de la suma de los que
+      // la esten viendo.
+      //
+      // Antes se escapaba con la mascara completa, sumando direcciones
+      // ("las esquinas salen solas"). El problema que reporto el equipo:
+      // al llegar en diagonal, un segundo sensor pisa la linea un instante
+      // despues y la direccion resultante se corre — el robot termina
+      // saliendo para cualquier lado en vez de por donde entro.
+      //
+      // El primero es el que dice por donde se estaba yendo de la cancha, y
+      // volver por ahi es volver por donde vino. Los cronometros por sensor
+      // de arriba son los que permiten saberlo: gana el que lleva mas
+      // tiempo viendo blanco.
+      int primero = -1;
+      for (int i = 0; i < 3; i++) {
+        if (!(m & (1 << i))) continue;
+        if (primero < 0 || t_sensorDesde[i] < t_sensorDesde[primero]) primero = i;
       }
+      mascaraLinea = (1 << primero);
 
       if (estado != ESCAPA_LINEA) {
         // Si veniamos pateando, el envion es mucho mas grande: primero freno.
         frenoFuerte = (estado == PATEA_ADEL);
-        Serial.print("!!! LINEA BLANCA (sensores");
-        for (int i = 0; i < 3; i++) if (m & (1 << i)) { Serial.print(" "); Serial.print(i + 1); }
-        Serial.print(") estando en "); Serial.print(nombreEstado(estado));
-        if (frenoFuerte) {
-          Serial.print(" -> FRENO A FONDO ("); Serial.print(VEL_FRENO);
-          Serial.print(" x "); Serial.print(MS_FRENO); Serial.println(" ms) y escapo");
-        } else {
-          Serial.println(" -> ESCAPO");
+        Serial.print("!!! LINEA BLANCA: la vio PRIMERO el sensor ");
+        Serial.print(primero + 1);
+        Serial.print(" (");
+        Serial.print(primero == 0 ? "DERECHO" : (primero == 1 ? "IZQUIERDO" : "DELANTERO"));
+        Serial.print(")");
+        if (m != mascaraLinea) {         // habia mas de uno viendola
+          Serial.print("   [tambien veian:");
+          for (int i = 0; i < 3; i++)
+            if ((m & (1 << i)) && i != primero) { Serial.print(" "); Serial.print(i + 1); }
+          Serial.print("  -> los ignoro]");
         }
+        Serial.println();
+        Serial.print("    estando en "); Serial.print(nombreEstado(estado));
+        Serial.print(" -> RETROCEDO YA "); Serial.print(MS_RETROCESO_LINEA);
+        Serial.print(" ms a "); Serial.print(VEL_ESCAPE_FUERTE);
+        Serial.print(", ciego hasta los "); Serial.print(MS_CIEGO_LINEA);
+        Serial.println(" ms");
+        t_disparoLinea = millis();     // arranca la ventana ciega
         cambiarA(ESCAPA_LINEA);
       }
     }
@@ -1484,13 +1767,31 @@ void loop() {
 
   // ---------- ESCAPA_LINEA: lo primero, no lo interrumpe nadie ----------
   if (estado == ESCAPA_LINEA) {
-    if (millis() - t_ultimaLinea > MS_ESCAPE_EXTRA) {
-      Serial.println("... ya me despegue de la linea");
-      cambiarA(BUSCANDO);
+    // PRIMERO FRENAR Y ESPERAR, recien despues retroceder. Ver el bloque
+    // "ESPERA FRENADA ANTES DE ESCAPAR".
+    //
+    // El freno es ELECTRICO (frenar(), no parar()): trabar las ruedas, no
+    // soltarlas. Sobre una cancha con rampitas en el borde, un robot con
+    // las ruedas sueltas se desliza solo.
+    //
+    // Esta espera reemplaza al viejo golpe de VEL_FRENO x MS_FRENO, que
+    // frenaba manejando en sentido contrario — lo que podia pasarse de
+    // largo para atras. Un freno electrico no se pasa: no empuja.
+    // RETROCESO INMEDIATO: sin frenar primero. El robot viene en
+    // movimiento, asi que arrancar el retroceso YA aprovecha que las
+    // ruedas estan girando — el piso de PWM rodando es ~40, contra ~70
+    // desde quieto. Frenar antes tiraba esa ventaja a la basura.
+    //
+    // La direccion la puso el sensor que la vio PRIMERO y esta congelada.
+    // Para el sensor 3 (delantero) escaparDeLinea() sale derecho para
+    // atras, que es el caso del area chica.
+    if (enEstado < MS_RETROCESO_LINEA) {
+      escaparDeLinea(mascaraLinea, VEL_ESCAPE_FUERTE);
     } else {
-      // Los primeros MS_FRENO ms van a fondo SOLO si veniamos pateando.
-      bool frenando = (frenoFuerte && enEstado < MS_FRENO);
-      escaparDeLinea(mascaraLinea, frenando ? VEL_FRENO : VEL_ESCAPE);
+      Serial.print("... retrocedi "); Serial.print(MS_RETROCESO_LINEA);
+      Serial.print(" ms. Sigo sin mirar la linea hasta los ");
+      Serial.print(MS_CIEGO_LINEA); Serial.println(" ms.");
+      cambiarA(BUSCANDO);
     }
   }
 
@@ -1653,7 +1954,25 @@ void loop() {
     Serial.print("  arcoX="); if (veoArco) Serial.print(arcoX()); else Serial.print("--");
     Serial.print("  tol="); Serial.print(tolPelota, 0);
     if (arcoLejos) Serial.print("(lejos)");
-    if (giroscopoSano()) { Serial.print("  rumbo="); Serial.print(ultimoRumbo, 0); }
+    // 2026-09-15: antes esto imprimia ultimoRumbo, que es una CACHE.
+    // ultimoRumbo solo se escribe adentro de rumboActual(), y rumboActual()
+    // no se llama en todos los estados — en BUSCANDO no se llama nunca. O
+    // sea que la telemetria mostraba el valor congelado del arranque y no
+    // servia para saber si el giroscopo seguia vivo. Ahora lee de verdad.
+    //
+    // Y se llama SIEMPRE que haya giroscopo, no solo si esta sano, porque
+    // giroCaido se actualiza unicamente adentro de rumboActual(): si se
+    // caia una vez, nada volvia a preguntarle al chip y quedaba dado por
+    // muerto para siempre aunque se recuperara. Llamandolo aca, el chequeo
+    // sigue corriendo cada 2 s pase lo que pase.
+    //
+    // Cuesta una lectura I2C cada 2 segundos. No se nota.
+    if (hayGiroscopo) {
+      float r = rumboActual();
+      Serial.print("  rumbo=");
+      if (giroscopoSano()) Serial.print(r, 0);
+      else                 Serial.print("CAIDO");
+    }
     Serial.println();
 
     // La linea que permite medir en cancha sin cable. Se lee DESPUES, enchufando

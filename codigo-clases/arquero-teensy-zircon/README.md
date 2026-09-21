@@ -87,6 +87,8 @@ al robot de frente en vez de desde el robot. La tabla de arriba es lo medido. Ve
 | [`cuadrado-giroscopo/`](pruebas/cuadrado-giroscopo/) | Lo mismo con lazo cerrado de rumbo |
 | [`calibrar-15cm/`](pruebas/calibrar-15cm/) | ¿Cuánto tiempo de motor es una distancia dada? |
 | [`tabla-camara/`](pruebas/tabla-camara/) | ¿Cuánto exagera la cámara la distancia, y exagera parejo? |
+| [`medir-ancho/`](pruebas/medir-ancho/) | ¿Cuánto tarda en ir de costado de una línea a la otra, y cuánto hasta la mitad? Lo guarda en la EEPROM y lo informa por USB |
+| [`medir-ancho-sin-giro/`](pruebas/medir-ancho-sin-giro/) | Lo mismo, pero si el giroscopio no contesta mide igual sin él |
 | [`herramientas/`](pruebas/herramientas/) | Compilar, cargar y hablarle al robot **sin el Arduino IDE** |
 
 ### `funciona/`
@@ -109,7 +111,7 @@ pio run -e teensy41 -t upload
 
 O sin abrir ningún IDE, con los scripts de [`pruebas/herramientas/`](pruebas/herramientas/).
 
-## Tres cosas que muerden
+## Cosas que muerden
 
 **Cargar un sketch reinicia el Teensy.** Los programas que arrancan solos empiezan su cuenta
 regresiva apenas termina la carga. Cargá con la batería apagada, o frená en el acto.
@@ -119,6 +121,13 @@ existe pero devuelve puros ceros. Si ves rumbo `0.0`, lo primero que se revisa e
 
 **No hay botón de arranque.** Los motores salen a andar apenas hay energía. Apoyalo donde querés
 que arranque **antes** de conectar la batería.
+
+**Apoyalo quieto y RECIÉN AHÍ prendelo** (21/09: 5 de 5 veces anduvo el giroscopio así). El
+giroscopio se calibra quedándose quieto unos segundos después de prender, y lo pierde en cada
+apagado. Si lo apagás, esperá unos 10 s antes de volver a prenderlo.
+
+**Con el USB enchufado, prender la batería NO reinicia el Teensy.** Ya estaba prendido por el USB,
+arrancó sin batería (sin giroscopio) y se queda en ese estado. Desenchufá el USB y después prendé.
 
 **Sí hay freno, pero hay que pedirlo.** `parar()` sólo suelta los motores y el robot sigue de
 largo; `frenar()` los cortocircuita y lo detiene en el acto. Medido el 18/08: las dos formas de

@@ -1,5 +1,10 @@
 # Delantero — mejoras pendientes
 
+> 🆕 **2026-09-21:** hay un análisis nuevo de la órbita (por qué pierde la pelota, con 7 ideas
+> rankeadas y la medición que va primero) y de por qué se sale en las esquinas al escapar de la
+> línea. Está en la [bitácora del 21/09](bitacora/2026-09-21-partido-1-arco-fijo-y-escape-de-linea.md),
+> secciones 6 y 7. Ojo con la sección 1 de acá: el "48 = 12 cm" era de la cámara del **arquero**.
+
 **Nada de esto está implementado.** Es la lista de lo que sigue, armada al cerrar la clase del
 **2026-08-04**, donde la órbita quedó andando (*"orbita bastante bien"*, validado en el piso).
 

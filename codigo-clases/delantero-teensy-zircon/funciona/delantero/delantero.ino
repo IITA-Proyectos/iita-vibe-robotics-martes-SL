@@ -294,7 +294,7 @@ const int   RESTA_MAX   = 120;   // tope de la correccion
 // canje deliberado — puntería y no salirse de la cancha, a cambio de alcance.
 // Si queda demasiado corta, subir VEL_PATADA de a 10 antes que alargar el
 // tiempo: alargar el tiempo trae de vuelta los dos problemas.
-// ================== MODO PRUEBA LENTA (2026-09-15) ==================
+// ====== MODO PRUEBA LENTA (2026-09-15) — TERMINADO el 2026-09-21 ======
 // A pedido del equipo: bajar MUCHO la velocidad de la patada para poder
 // VER que hace — si detecta el blanco y si no hace cualquier cosa. A 215
 // el golpe dura 420 ms y no se llega a mirar nada.
@@ -308,8 +308,8 @@ const int   RESTA_MAX   = 120;   // tope de la correccion
 // ver lento y corto. Es lo buscado: el objetivo es mirarlo, no medir
 // alcance.
 //
-// PARA VOLVER A LA PATADA DE JUEGO: VEL_PATADA = 215.
-const int VEL_PATADA    = 110;   // de juego: 215
+// 2026-09-21: VUELTA A 215 a pedido del equipo ("quedo muy lento").
+const int VEL_PATADA    = 215;   // 110 (modo prueba 15/09) -> 215 (juego)
 const int MS_PATADA     = 420;
 const int VEL_RETROCESO = 110;
 const int MS_RETROCESO  = 700;
@@ -627,7 +627,7 @@ const unsigned long MS_ESPERA_LINEA = 1000;
 // yendose lejos, bajar PRIMERO el tiempo otra vez y recien despues la
 // potencia — un escape flojo que no se despega es peor que uno largo.
 const unsigned long MS_ESCAPE_CIEGO = 200;     // 1500 -> 500 -> 200  [SIN USO]
-const int           VEL_ESCAPE_FUERTE = 200;   // VEL_ESCAPE normal es 100
+const int           VEL_ESCAPE_FUERTE = 170;   // 200 -> 170 (21/09): el robot se levantaba al revertir. VEL_ESCAPE normal es 100
 
 // ============ RETROCESO INMEDIATO (2026-09-15, prueba) ============
 // Sintoma reportado por el equipo:
@@ -651,8 +651,8 @@ const int           VEL_ESCAPE_FUERTE = 200;   // VEL_ESCAPE normal es 100
 //
 // El respaldo de la version anterior (freno 1 s + retroceso 200 ms) esta
 // en respaldos/delantero-2026-09-15-freno1s-antes-de-retroceso300.ino
-const unsigned long MS_RETROCESO_LINEA = 300;   // cuanto retrocede
-const unsigned long MS_CIEGO_LINEA     = 1000;  // cuanto ignora la linea
+const unsigned long MS_RETROCESO_LINEA = 210;   // cuanto retrocede. 300 (15/09) -> 200 -> 250 -> 210 (21/09, pedido del equipo)
+const unsigned long MS_CIEGO_LINEA     = 300;   // cuanto ignora la linea. 1000 -> 500 -> 300 (21/09): ciego, en las esquinas cruzaba la otra linea. NO bajar de MS_RETROCESO_LINEA
 
 unsigned long t_disparoLinea = 0;   // cuando vio la linea por ultima vez
 
@@ -961,9 +961,34 @@ unsigned long t_ultimoAviso    = 0;
 unsigned long t_cicloPulso     = 0;
 unsigned long t_entroEstado    = 0;
 
-// A que arco le apuntamos. Si ELEGIR_ARCO_AL_ENCENDER esta apagado, se queda
-// con este valor — que es lo que veniamos haciendo.
-bool objetivoEsAmarillo = false;
+// A QUE ARCO ATACAR, FIJADO AL CARGAR EL PROGRAMA [2026-09-21]
+//
+// EL PROBLEMA, visto en el primer partido: al arrancar, los robots del otro
+// equipo TAPAN el arco. En los 2 s de MS_MIRAR_ARCOS el robot no llega a
+// verlo y se queda con el de siempre (AZUL), haya que atacar ese o no.
+//
+// LA SOLUCION (el juez permite tener dos programas): el MISMO codigo se
+// compila DOS VECES, una por arco. platformio.ini tiene [env:azul] y
+// [env:amarillo], que definen ATACAR_AZUL o ATACAR_AMARILLO. Despues del
+// sorteo de lado se carga el que corresponde con CARGAR-ROBOT.bat.
+// Con el arco fijo el robot NO mira al encender: no depende de que el arco
+// este a la vista, y arranca 2 s antes.
+//
+// Sin ninguna de las dos (Arduino IDE, o pio run -e teensy41) queda como
+// estaba: elige mirando al encender, y si no ve ninguno se queda con AZUL.
+#if defined(ATACAR_AZUL) && defined(ATACAR_AMARILLO)
+  #error "ATACAR_AZUL y ATACAR_AMARILLO a la vez: elegi uno solo"
+#endif
+#if defined(ATACAR_AMARILLO)
+  const bool ARCO_FIJO = true;
+  bool objetivoEsAmarillo = true;
+#elif defined(ATACAR_AZUL)
+  const bool ARCO_FIJO = true;
+  bool objetivoEsAmarillo = false;
+#else
+  const bool ARCO_FIJO = false;
+  bool objetivoEsAmarillo = false;   // si al encender no ve ningun arco, ataca este
+#endif
 
 // --- giroscopo ---
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
@@ -1499,6 +1524,16 @@ void cambiarA(Estado nuevo) {
 }
 
 
+// ESPERA FINAL DEL ARRANQUE [2026-09-21, a pedido del equipo: 3 s -> 2 s]
+// Es la cuenta regresiva de "Arranca en N segundos", DESPUES de elegir el
+// arco. Sirve para sacar la mano del robot antes de que salga andando. No
+// lee nada: ni camara, ni linea, ni giroscopo. Achicarla no cambia ninguna
+// medicion del arranque.
+// OJO: no es la unica espera. A bateria, sin cable, antes de esta se come
+// ~3 s esperando el USB (while !Serial), ~1 s el giroscopio y 2 s mirando
+// los arcos (MS_MIRAR_ARCOS). Esta es solo la ultima.
+const unsigned long MS_ESPERA_ARRANQUE = 2000;   // era 3000
+
 void setup() {
   pinMode(IZQ_INA, OUTPUT); pinMode(IZQ_INB, OUTPUT); pinMode(IZQ_PWM, OUTPUT);
   pinMode(DER_INA, OUTPUT); pinMode(DER_INB, OUTPUT); pinMode(DER_PWM, OUTPUT);
@@ -1526,6 +1561,21 @@ void setup() {
   Serial.print(" x "); Serial.print(MS_ORB_IMPULSO);
   Serial.print(" ms  ->  crucero "); Serial.print(VEL_ORB_TRASERA);
   Serial.print("   (max "); Serial.print(MS_ORBITA_MAX / 1000); Serial.println(" s)");
+  // La patada en el banner [2026-09-21]: sin esta linea no habia forma de
+  // saber desde el monitor si estaba cargada la de juego o la de prueba.
+  Serial.print("patada: "); Serial.print(VEL_PATADA);
+  Serial.print(" x "); Serial.print(MS_PATADA); Serial.println(" ms");
+  // El arco va ARRIBA en el banner: CARGAR-ROBOT.bat lee esta linea para
+  // confirmar que se cargo el programa correcto. Las lineas de mas abajo a
+  // veces se pierden si nadie esta leyendo el USB al arrancar.
+  // Sin arco fijo NO se imprime un nombre: todavia no se eligio (eso pasa
+  // mas abajo, mirando), y decir AZUL aca confundiria. [revision 21/09]
+  if (ARCO_FIJO) {
+    Serial.print("ARCO: "); Serial.print(arcoNombre());
+    Serial.println("  (fijo por programa)");
+  } else {
+    Serial.println("ARCO: ?  (sin arco fijo: lo elige mirando al encender)");
+  }
   Serial.println("==============================================");
 
   // --- sensores de linea (D) ---
@@ -1603,7 +1653,10 @@ void setup() {
   }
 
   // --- que arco atacar (B) ---
-  if (ELEGIR_ARCO_AL_ENCENDER) {
+  if (ARCO_FIJO) {
+    Serial.print("   *** ATACO EL ARCO "); Serial.print(arcoNombre());
+    Serial.println(" *** (fijo por programa: no miro al encender)");
+  } else if (ELEGIR_ARCO_AL_ENCENDER) {
     elegirArcoMirando();
   } else {
     Serial.print("Arco objetivo: "); Serial.print(arcoNombre());
@@ -1611,8 +1664,9 @@ void setup() {
   }
 
   Serial.println("==============================================");
-  Serial.println("Arranca en 3 segundos.");
-  delay(3000);
+  Serial.print("Arranca en "); Serial.print(MS_ESPERA_ARRANQUE / 1000);
+  Serial.println(" segundos.");
+  delay(MS_ESPERA_ARRANQUE);
 
   t_ultimoPaquete = millis();
   t_contadores    = millis();   // si no, la primera medicion sale con dt enorme

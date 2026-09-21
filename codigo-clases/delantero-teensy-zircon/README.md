@@ -63,6 +63,7 @@ al robot de frente en vez de desde el robot. La tabla de arriba es lo medido. Ve
 | [`pruebas/`](pruebas/) | Programas para **medir y diagnosticar**. Responden una pregunta y paran |
 | [`funciona/`](funciona/) | Lo que ya **anda de punta a punta** y se puede usar |
 | [`vision/`](vision/) | Lo que corre **en la cámara** OpenMV, y cómo calibrarla |
+| [`respaldos/`](respaldos/) | Versiones guardadas para volver atrás. ⭐ [`partido1-2026-09-21/`](respaldos/partido1-2026-09-21/) es **lo que jugó el primer partido (5-0)**: se carga tal cual desde su carpeta. No se toca; se trabaja en `funciona/delantero/` |
 | [`MEJORAS-PENDIENTES.md`](MEJORAS-PENDIENTES.md) | Lo que sigue, ordenado y con lo que hay que confirmar antes |
 
 ### `funciona/`
@@ -95,6 +96,29 @@ El script que corre hoy **en** la cámara vive en
 [`../../futbol-roboliga2026/robots-2025/vision-openmv/`](../../futbol-roboliga2026/robots-2025/vision-openmv/),
 que es material 2025 compartido con el arquero. **Antes de tocarlo, avisar a la otra mesa.**
 
+## ⚽ Día de partido: `CARGAR-ROBOT.bat`
+
+Después del sorteo de lado, **doble clic en [`CARGAR-ROBOT.bat`](CARGAR-ROBOT.bat)** y elegir:
+
+```
+   1)  atacar el ARCO AZUL
+   2)  atacar el ARCO AMARILLO
+```
+
+El script revisa que el robot enchufado sea el **delantero** y que haya uno solo (si es el arquero,
+no carga nada). Además abre el Teensy Loader, carga y **lee el banner del robot** para confirmar el
+arco. Tiene que terminar en `LISTO: EL ROBOT ATACA EL ARCO …  (confirmado por el robot)`. Si termina
+en rojo, **no se juega así**.
+
+Después: desenchufar el USB, apoyar el robot en la cancha **mirando al arco rival** y recién ahí
+prender la batería (si ya estaba prendida, apagarla y prenderla). En el entretiempo, si cambian de
+lado, se corre de nuevo con el otro arco.
+
+**Por qué dos programas** (21/09): al arrancar, los robots rivales tapaban el arco y el robot no
+llegaba a elegirlo mirando. El juez permite tener dos. Son **el mismo código** compilado dos veces
+(`[env:azul]` y `[env:amarillo]` en `funciona/delantero/platformio.ini`), así que un arreglo se hace
+una sola vez. Con el arco fijo, el robot tampoco pierde los 2 s de mirar al arrancar.
+
 ## Cargar un programa
 
 Cada carpeta trae su `platformio.ini`, y el `.ino` se llama igual que la carpeta para que también
@@ -125,8 +149,8 @@ pio device list
 
 Si aparecen dos, desenchufá uno. No hay forma de elegir desde el `platformio.ini`.
 
-**Cargar un sketch reinicia el Teensy.** Este firmware entra en BUSCANDO 3 segundos después del
-reset: si tiene batería y las ruedas en el piso, sale andando solo apenas termina la carga.
+**Cargar un sketch reinicia el Teensy.** Este firmware entra en BUSCANDO pocos segundos después del
+reset (la cuenta regresiva final es de 2 s, `MS_ESPERA_ARRANQUE`): si tiene batería y las ruedas en el piso, sale andando solo apenas termina la carga.
 
 **Para probar en el piso, desenchufá el USB después de cargar.** El programa queda en el Teensy y
 corre con la batería. Con el cable puesto, el robot lo arranca al moverse.

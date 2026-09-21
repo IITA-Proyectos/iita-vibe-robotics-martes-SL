@@ -1,5 +1,14 @@
 # Cómo quedó el robot el 2026-09-15 — y qué hay que tocar la clase que viene
 
+> 💾 **Respaldo del primer partido (21/09, 5-0):** [`respaldos/partido1-2026-09-21/`](respaldos/partido1-2026-09-21/)
+> — patada 215, retroceso 250 ms a 200, 1000 ms sin mirar la línea. Si lo de abajo sale mal, se
+> carga eso desde su carpeta y el banner dice `RESPALDO PARTIDO 1`.
+
+> ✅ **Actualización 2026-09-21:** `VEL_PATADA` volvió a **215**, y el banner ahora la imprime
+> (`patada: 215 x 420 ms`). Lo de abajo es cómo quedó el robot el 15/09; la sección 2 sigue
+> vigente: nada de eso se vio todavía en jugada completa, y ahora menos que menos con la patada
+> fuerte.
+
 **Lo primero, en una línea: el robot NO está en condiciones de jugar tal como quedó.**
 La patada está a la mitad de potencia porque la bajamos para poder mirarla.
 
@@ -34,9 +43,9 @@ No hay que cambiarlos. Hay que **mirarlos andar** y anotar qué pasó.
 | Constante | Línea | Valor | Recorrido de hoy |
 |---|---|---|---|
 | `UMBRAL_LINEA[3]` | `:908` | `390 / 427 / 413` | eran `663/661/757` — **medidos en la tela** |
-| `MS_RETROCESO_LINEA` | `:654` | 300 ms | 🔴 **nunca se probó**, se cargó al cerrar |
-| `MS_CIEGO_LINEA` | `:655` | 1000 ms | 🔴 nunca se probó |
-| `VEL_ESCAPE_FUERTE` | `:630` | 200 | |
+| `MS_RETROCESO_LINEA` | `:654` | **210 ms** | 300 (15/09) → 200 → 250 → **210 (21/09)**. 🔴 **Sin validar en jugada completa.** Ojo: el 15/09 "200 se quedaba clavado", pero era con 1 s de freno antes |
+| `MS_CIEGO_LINEA` | `:655` | **300 ms** | 1000 → 500 → **300 el 21/09** (no bajar de `MS_RETROCESO_LINEA`): sin mirar la línea, en las esquinas cruzaba la otra y se salía. 🔴 sin validar |
+| `VEL_ESCAPE_FUERTE` | `:630` | **170** | 200 → **170 el 21/09**: al revertir de golpe el robot se levantaba, y en las esquinas se salía por la otra línea |
 | `XP_ORBITA` | `:116` | 34 | 22 → 34 → 38 → **34** |
 | `VEL_ORB_IMPULSO` | `:240` | 120 | 99 → 130 → **120** |
 | `VEL_ORB_TRASERA` | `:242` | 67 | 48 → 75 → **67** |
@@ -65,7 +74,7 @@ No las borré: si hay que volver atrás, están.
 
 ## 💾 4. Cómo volver a la versión anterior del escape
 
-Si el retroceso inmediato de 300 ms **no funciona**, la versión anterior (freno eléctrico 1 s +
+Si el retroceso inmediato (300 ms el 15/09, 210 ms desde el 21/09) **no funciona**, la versión anterior (freno eléctrico 1 s +
 retroceso ciego 200 ms) está guardada entera:
 
 ```
@@ -82,7 +91,7 @@ Para volver, copiarla encima de `funciona/delantero/delantero.ino` y recargar.
 
 ## 📋 5. Orden sugerido para la clase que viene
 
-1. **Volver `VEL_PATADA` a 215.** Un cambio, un número.
+1. ~~**Volver `VEL_PATADA` a 215.** Un cambio, un número.~~ ✅ hecho el 21/09.
 2. **Probar una jugada completa** y anotar qué pasa. Nada de esto se vio de punta a punta.
 3. **Correr `pruebas/piso-de-pwm/`** sobre la tela. Existe desde julio y nunca se corrió: ese
    *"~70 desde quieto / ~40 rodando"* que usamos como base para **todo** nunca se midió, y encima
@@ -100,9 +109,10 @@ El robot lo dice solo. Monitor a 19200, y en el arranque imprime:
 ```
 orbita si Xp<34
 orbita: impulso 120 x 300 ms  ->  crucero 67   (max 20 s)
+patada: 215 x 420 ms                        <- desde el 21/09
    S1=DERECHO   S2=IZQUIERDO   S3=DELANTERO  (medido 15/09)
 Linea: sensores leen ... umbrales 390 / 427 / 413   confirma 5 ms
-   al ver linea: RETROCEDE YA 300 ms a 200  (sin mirar la linea hasta los 1000 ms)
+   al ver linea: RETROCEDE YA 210 ms a 170  (sin mirar la linea hasta los 300 ms)
 Giroscopo: (fusion corriendo, SYS_STATUS=5) OK
 ```
 

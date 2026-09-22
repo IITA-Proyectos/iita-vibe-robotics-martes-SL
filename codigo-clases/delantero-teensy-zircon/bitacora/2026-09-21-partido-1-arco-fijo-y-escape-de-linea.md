@@ -11,6 +11,7 @@ cargado con `CARGAR-ROBOT.bat` y confirmado por el banner.
 
 | | |
 |---|---|
+| 🏆 **Tres partidos: 5-0, 3-1 y 3-2** | el 1 esta contado aca; el 2 y el 3 se agregaron el 22/09, en la seccion 7 |
 | 🏆 **Primer partido: ganamos 5 a 0** | jugando junto al arquero de la otra mesa, contra un robot con ultrasonido, ToF, varias cámaras y pantallita |
 | ✅ **Patada de vuelta a 215** | se terminó el modo prueba lenta del 15/09 (estaba en 110) |
 | ⏱️ **Arranque 1 s más rápido** | la cuenta regresiva final pasó de 3 s a 2 s |
@@ -195,10 +196,10 @@ SERIES TEENSY       delantero 15708680 (modo carga 0017F834) · arquero 16667170
 
 ## ⚠️ Qué queda por VER
 
-1. 🔴 **Con qué versión se jugó el partido.** Suponemos 250 ms a 200 y 1000 ms sin mirar la línea.
-2. 🔴 **Retroceso 210 ms a 170 con 300 ms sin mirar la línea:** no se vio en una jugada completa. Anotar qué hace en las esquinas y si se sigue levantando.
+1. 🔴 **Con qué versión se jugó cada partido.** Del 1 suponemos 250 ms a 200 y 1000 ms sin mirar la línea. De los partidos 2 y 3 sabemos que fueron con `CARGAR-ROBOT.bat` y que se salió menos, pero no en qué momento se cargó cada valor.
+2. ~~🔴 **Retroceso 210 ms a 170 con 300 ms sin mirar la línea:** no se vio en una jugada completa.~~ ✅ **Se jugaron los partidos 2 y 3 con eso y se salió MENOS de la cancha** (sección 7). Sigue sin anotarse qué hace exactamente en las esquinas ni si se levanta.
 3. **¿Se levanta la cola o la trompa?** Filmar a ras del piso.
-4. **El script en un partido de verdad:** que el cartel verde salga y que el robot ataque el arco elegido.
+4. ~~**El script en un partido de verdad:** que el cartel verde salga y que el robot ataque el arco elegido.~~ ✅ **Se usó en los partidos 2 y 3** (sección 7).
 
 ## 🔧 Qué queda por HACER
 
@@ -208,6 +209,51 @@ SERIES TEENSY       delantero 15708680 (modo carga 0017F834) · arquero 16667170
 8. **Medir el escape con cinta métrica** en tres casos (robot quieto sobre la línea, avanzando, pateando): cuánto se pasa de la línea y dónde queda.
 9. **Limpieza sin cambiar el comportamiento:** borrar `frenoFuerte`, `VEL_FRENO`, `MS_FRENO` y las otras constantes sin uso, y corregir los comentarios viejos.
 10. Sigue pendiente del 15/09: **girar el robot a mano** para verificar el giroscopio, y la **bitácora del 08/09**.
+
+---
+
+## 7. 🏆 Partidos 2 y 3 — anotados el 22/09
+
+Esto se agrego al dia siguiente, contado por el equipo. **Las secciones de arriba se
+escribieron durante la clase y solo cubrian el partido 1.**
+
+| | resultado |
+|---|---|
+| Partido 1 | **ganamos 5 a 0** |
+| Partido 2 | **perdimos 3 a 1** |
+| Partido 3 | **ganamos 3 a 2** |
+
+### ✅ Lo que quedo confirmado
+
+**El escape retocado funciono: en los partidos 2 y 3 se salio MENOS de la cancha.**
+En el partido 1 se habia salido unas 3 veces, con un minuto de penalizacion cada una. Los
+tres numeros que cambiaron entre el partido 1 y hoy:
+
+| | partido 1 | partidos 2 y 3 |
+|---|---|---|
+| `VEL_ESCAPE_FUERTE` | 200 | **170** |
+| `MS_RETROCESO_LINEA` | 250 ms | **210 ms** |
+| `MS_CIEGO_LINEA` | 1000 ms | **300 ms** |
+
+Eso cierra el pendiente 2 de la lista de arriba: **el retroceso de 210 ms a 170 con 300 ms sin
+mirar la linea se vio en partido**, y anduvo mejor que el anterior.
+
+**Y el programa de arco fijo se uso en partidos de verdad.** Del partido 2 en adelante siempre
+se cargo con `CARGAR-ROBOT.bat`, eligiendo el arco en la mesa antes de jugar. El equipo lo
+resumio asi: *"es una muy buena idea"*. Cierra el pendiente 4.
+
+### ❓ Lo que NO sabemos, y conviene no inventar
+
+- **Por que se perdio el partido 2.** Se salio menos de la cancha, asi que la derrota fue por
+  otra cosa: no esta anotado cual.
+- **Si entre el partido 2 y el 3 se cambio algo mas** ademas de esas tres constantes, o si el
+  3-2 salio con lo mismo y cambio el rival o la suerte.
+- **Con que valores exactos se jugo cada partido.** Sabemos como quedo el codigo al final del
+  dia, no en que momento se cargo cada version.
+
+Es el mismo agujero que ya senala la nota de metodo de abajo: se cambiaron numeros rapido sin
+anotar que se vio con cada uno. **El proximo partido conviene anotar tres cosas antes de
+empezar: que version esta cargada, que arco, y despues cuantas veces se salio.**
 
 ---
 

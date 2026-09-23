@@ -89,6 +89,10 @@ al robot de frente en vez de desde el robot. La tabla de arriba es lo medido. Ve
 | [`tabla-camara/`](pruebas/tabla-camara/) | ¿Cuánto exagera la cámara la distancia, y exagera parejo? |
 | [`medir-ancho/`](pruebas/medir-ancho/) | ¿Cuánto tarda en ir de costado de una línea a la otra, y cuánto hasta la mitad? Lo guarda en la EEPROM y lo informa por USB |
 | [`medir-ancho-sin-giro/`](pruebas/medir-ancho-sin-giro/) | Lo mismo, pero si el giroscopio no contesta mide igual sin él |
+| [`mapa-linea/`](pruebas/mapa-linea/) | Histograma de todo lo que vieron los sensores de línea, sin cable ni umbral previo |
+| [`buscar-i2c/`](pruebas/buscar-i2c/) | ¿Está el giroscopio en el bus? Escanea los tres buses cada 2 s, para menear el conector |
+| [`probar-giroscopo/`](pruebas/probar-giroscopo/) | Solo el BNO055: lo busca en 0x28 y 0x29, no se cuelga, y muestra la calibración |
+| [`monitor-robot/`](pruebas/monitor-robot/) | ⭐ **El tablero del robot.** Giroscopio, sensores de luz y cámara en una pantalla que se refresca en su lugar, con teclas: reiniciar el giroscopio, reiniciar el Teensy, cambiar de modo |
 | [`herramientas/`](pruebas/herramientas/) | Compilar, cargar y hablarle al robot **sin el Arduino IDE** |
 
 ### `funciona/`

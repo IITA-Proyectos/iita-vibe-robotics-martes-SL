@@ -9,14 +9,17 @@ Arduino IDE, pero sin abrir el IDE.
 
 Se cierra con Ctrl+C.
 
-Las teclas que escribas se le mandan al robot tal cual. Las utiles:
+Las teclas que escribas se le mandan al robot tal cual. Cuales sirven
+depende del programa que tenga cargado: casi todos contestan con ? la
+lista de las que entienden.
 
-  M = prender/apagar el monitor en vivo (y frena el robot)
-  T = predecir adonde va la pelota, si/no
-  0 = PARAR             g = arrancar (avisa 10 s)
-  i = resumen           ?  = la ayuda completa del robot
+Si el programa dibuja un tablero que se refresca en su lugar (como
+`monitor-robot`), esto ya le pide a Windows que entienda los codigos de
+pantalla. Si aun asi se ve basura con corchetes, ese programa tiene una
+tecla para pasar a lista simple.
 """
 import argparse
+import os
 import sys
 import time
 
@@ -27,6 +30,33 @@ from serial.tools import list_ports
 # conector USB. En vez de adivinar, se lo busca por el identificador del
 # fabricante (PJRC = 0x16C0), que ese no cambia nunca.
 VID_PJRC = 0x16C0
+
+
+def habilitar_ansi():
+    """Windows NO interpreta los codigos ANSI hasta que un programa se lo pide.
+
+    `monitor-robot` dibuja un tablero que se queda quieto y se refresca en su
+    lugar; para eso manda codigos como ESC[H ("volve arriba") y ESC[K ("borra
+    el resto de la linea"). Sin esta funcion, la consola los muestra como
+    basura con corchetes en vez de obedecerlos.
+
+    Devuelve True si quedo habilitado. Los programas que solo imprimen texto
+    normal no se enteran de nada.
+    """
+    if os.name != "nt":
+        return True
+    try:
+        import ctypes
+        k = ctypes.windll.kernel32
+        h = k.GetStdHandle(-11)                 # STD_OUTPUT_HANDLE
+        modo = ctypes.c_uint32()
+        if not k.GetConsoleMode(h, ctypes.byref(modo)):
+            return False
+        ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
+        return bool(k.SetConsoleMode(
+            h, modo.value | ENABLE_VIRTUAL_TERMINAL_PROCESSING))
+    except Exception:
+        return False
 
 
 def buscar_teensy():
@@ -55,16 +85,20 @@ def main():
         print(f"NO SE PUDO ABRIR {puerto}: {e}")
         return 2
 
+    habilitar_ansi()
+
     print("=" * 60)
     print(f" MONITOR DEL ARQUERO  —  {puerto} a {a.baud}")
     print("=" * 60)
-    print(" Escribi una tecla y se le manda al robot. Las utiles:")
-    print("   M = monitor en vivo (y frena el robot)")
-    print("   T = predecir adonde va la pelota, si/no")
-    print("   i = resumen        ? = ayuda completa")
-    print("   0 = PARAR          g = arrancar")
+    print(" Lo que escribas se le manda al robot tal cual.")
+    print(" Cada programa tiene sus propias teclas: casi todos contestan")
+    print(" con ? la lista de las que entienden.")
     print()
     print(" Para salir: Ctrl+C")
+    if not habilitar_ansi():
+        print()
+        print(" (esta consola no entiende los codigos de pantalla: si el")
+        print("  monitor se ve con basura, apreta la tecla l)")
     print("=" * 60)
     print()
 

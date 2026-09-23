@@ -7,7 +7,8 @@
    aca. Las pruebas sueltas de diagnostico viven en ../../pruebas/ y son
    descartables; esto no.
 
-   Arranca como copia de pruebas/buscar-pelota/, validado en banco el
+   Arranca como copia de pruebas/buscar-pelota/ (borrado el 22/09: era
+   una foto congelada de este mismo firmware), validado en banco el
    2026-07-28. Robot: el que el equipo llama "robot 2" = DELANTERO.
 
    Mapeo de ruedas MEDIDO en banco (no deducido del codigo):
@@ -72,6 +73,69 @@
 #include <Adafruit_BNO055.h>
 
 // Mapeo MEDIDO en banco 2026-07-28 (robot DELANTERO)
+// =====================================================================
+//                       P A N E L   D E   C O N T R O L
+// =====================================================================
+//
+//   TODOS LOS NUMEROS QUE SE TOCAN EN CLASE ESTAN ACA. Si hay que cambiar
+//   algo apurado y sin ayuda, es en este bloque y en ningun otro lado.
+//
+//   Lo que NO esta aca (pines, tolerancias finas, perillas de encendido)
+//   casi nunca se toca y vive mas abajo.
+//
+//   Cada numero tiene al lado QUE HACE y, cuando cambio, por donde paso.
+//   La explicacion larga de por que vale lo que vale quedo abajo, en su
+//   bloque: buscá el nombre de la constante y vas a encontrarla.
+//
+//   REGLA QUE NO SE NEGOCIA: un cambio por vez. Si se tocan tres cosas y
+//   el robot empeora, no se sabe cual fue.
+//
+//   Despues de cambiar: cargar y LEER EL BANNER. El robot imprime estos
+//   valores al arrancar. El SUCCESS del cargador no prueba nada.
+// =====================================================================
+
+// ---------- IR A BUSCAR LA PELOTA ----------
+const int VEL_GIRO       = 80;   // potencia girando en el lugar para BUSCAR la pelota
+const int VEL_CENT       = 78;   // potencia girando para CENTRARLA una vez que la ve
+const int VEL_AVANCE     = 95;   // potencia yendo hacia la pelota, de LEJOS. Era 55: no arrancaba en la tela
+const int VEL_AVANCE_CERCA = 70; // ...y con cuanta llega, ya CERCA. Si la desacomoda al llegar, bajar esto
+const int XP_FRENAR      = 70;   // desde que distancia empieza a aflojar (entre esta y XP_ORBITA baja de a poco)
+
+// ---------- RODEAR LA PELOTA (ORBITA) ----------
+const int XP_ORBITA = 34;        // a que distancia deja de avanzar y empieza a rodearla. 22->34->38->34
+const int XP_SUELTA = 55;        // si la pelota se le aleja MAS que esto, vuelve a avanzar. XP_ORBITA nunca debe acercarsele
+const int VEL_ORB_IMPULSO = 120; // el golpe inicial para despegar la orbita. 99->130->120
+const int VEL_ORB_TRASERA = 67;  // potencia de la vuelta, ya rodando. 48->75->67
+const unsigned long MS_ORBITA_MAX = 20000;  // cuanto orbita buscando el arco antes de rendirse
+
+// ---------- PATEAR ----------
+const int VEL_PATADA = 215;      // potencia de la patada. 110 es "modo prueba lenta" para poder mirarla
+const int MS_PATADA  = 420;      // cuanto dura el golpe. Mas largo = la pelota llega mas lejos y el robot se pasa mas
+
+// ---------- QUE LA PATADA VAYA DERECHA ----------
+// MEDIDO el 2026-09-22 con pruebas/patada-derecha/, sobre la tela:
+//     sin corregir nada ......... se torcio 28,4 grados (siempre a la DERECHA)
+//     con el heading-hold ....... 4,4 grados, pero con un PICO de 12,9
+// La pelota se va en los primeros ~200 ms, o sea que la pelota ve el PICO,
+// no el 4,4 del final. Por eso se ataca el pico, no el promedio.
+const int   TRIM_PATADA = 15;    // compensacion FIJA: le saca esto a la rueda izquierda y se lo da a la derecha. Sube si sigue curvando a la derecha, baja si ahora curva a la izquierda
+const float KP_PATADA   = 4.0;   // cuanto corrige por GRADO de desvio
+const float KD_PATADA   = 0.3;   // cuanto corrige por GRADO/SEGUNDO de giro (frena antes de que el desvio crezca)
+
+// ---------- LINEA BLANCA ----------
+// Estos tres salen de MEDIR con pruebas/grabar-linea/ en la cancha. NO se
+// tantean: si la cancha cambia, se vuelven a medir. Orden: 1 DERECHO,
+// 2 IZQUIERDO, 3 DELANTERO.
+int UMBRAL_LINEA[3] = { 390, 427, 413 };    // desde que lectura cada sensor dice "esto es blanco"
+const unsigned long MS_LINEA_CONFIRMA  = 5;   // cuanto tiene que verla SEGUIDA para creerle (mata los picos sueltos)
+const unsigned long MS_RETROCESO_LINEA = 210; // cuanto retrocede apenas la ve. 300->200->250->210
+const int           VEL_ESCAPE_FUERTE  = 170; // con cuanta potencia retrocede. 200->170: a 200 se levantaba
+const unsigned long MS_CIEGO_LINEA     = 300; // cuanto IGNORA la linea despues de ver una. NO bajar de MS_RETROCESO_LINEA
+
+// =====================================================================
+//              fin del panel — de aca para abajo casi no se toca
+// =====================================================================
+
 #define IZQ_INA 8
 #define IZQ_INB 7
 #define IZQ_PWM 6
@@ -113,8 +177,10 @@ const int TOL_SALE  = 5;
 // Sigue debajo de XP_SUELTA = 55, que es lo unico que no se puede cruzar:
 // si XP_ORBITA llegara a XP_SUELTA, el robot entraria y saldria de la
 // orbita sin parar.
-const int XP_ORBITA = 34;   // 22 -> 34 -> 38 -> 34. Mas cerca que esto -> orbita
-const int XP_SUELTA = 55;   // si se le aleja mas que esto, vuelve a avanzar
+// XP_ORBITA vive ahora en el PANEL DE CONTROL, arriba de todo.
+// El por que y la historia quedaron aca, que es donde tienen sentido.
+// XP_SUELTA vive ahora en el PANEL DE CONTROL, arriba de todo.
+// El por que y la historia quedaron aca, que es donde tienen sentido.
 const int XP_MAX    = 150;  // arriba de esto no le creo A LA PELOTA (la camara recorta en 200)
 
 // EL ARCO NO LLEVA EL MISMO TECHO QUE LA PELOTA. [2026-08-11]
@@ -135,12 +201,14 @@ const int XP_MAX    = 150;  // arriba de esto no le creo A LA PELOTA (la camara 
 const int XARCO_MAX = 200;  // 200 es el tope que manda la camara: acepto todo
 
 // --- giro para BUSCAR ---
-const int VEL_GIRO       = 80;
+// VEL_GIRO vive ahora en el PANEL DE CONTROL, arriba de todo.
+// El por que y la historia quedaron aca, que es donde tienen sentido.
 const int MS_PULSO_BUSC  = 60;
 const int MS_ESPERA_BUSC = 380;
 
 // --- giro para CENTRAR ---
-const int VEL_CENT       = 78;
+// VEL_CENT vive ahora en el PANEL DE CONTROL, arriba de todo.
+// El por que y la historia quedaron aca, que es donde tienen sentido.
 const int MS_PULSO_CENT  = 32;
 const int MS_ESPERA_CENT = 320;
 
@@ -159,7 +227,44 @@ const int MS_ESPERA_CENT = 320;
 // ⚠ Si el robot se pasa de largo y pierde la pelota, el problema NO es
 // este numero sino que llega muy rapido a XP_ORBITA. Bajar XP_ORBITA
 // antes que volver a bajar esto.
-const int VEL_AVANCE = 95;   // era 55, debajo del piso de arranque
+// VEL_AVANCE vive ahora en el PANEL DE CONTROL, arriba de todo.
+// El por que y la historia quedaron aca, que es donde tienen sentido.
+
+// ============ AFLOJAR AL ACERCARSE A LA PELOTA (2026-09-22) ============
+// Sintoma reportado por el equipo:
+//
+//   "cuando encuentra la pelota y se dirige a la pelota, la toca a veces
+//    por la inercia y la desacomoda, y tiene que buscarla de nuevo."
+//
+// LA CAUSA: avanzar(VEL_AVANCE) manda 95 FIJO desde lejos hasta cruzar
+// XP_ORBITA. O sea que el robot llega a la pelota a toda velocidad y
+// recien ahi cambia de estado — pero ya trae el envion encima, y el envion
+// no lo frena un cambio de estado.
+//
+// Aparecio al subir VEL_AVANCE de 55 a 95 el 15/09. A 55 casi no arrancaba
+// (estaba debajo del piso), pero tampoco llegaba con inercia.
+//
+// EL ARREGLO: no cambiar CUANDO empieza a orbitar, sino COMO llega. Entre
+// XP_FRENAR y XP_ORBITA la velocidad baja de a poco, asi que cruza el
+// umbral ya despacio. La distancia de decision queda igual (XP_ORBITA
+// sigue en 34, que es donde la orbita anda bien): lo que cambia es que
+// llega suave en vez de de golpe.
+//
+// ⚠ VEL_AVANCE_CERCA no puede bajar mucho mas sin medir: el piso de PWM
+// sobre la TELA nunca se midio (pruebas/piso-de-pwm/ sigue sin correrse
+// desde julio, y ademas tiene los pines del ARQUERO). Si se pone por
+// debajo del piso, el robot se planta antes de llegar. 70 es conservador.
+// Si sigue tocando la pelota: bajar VEL_AVANCE_CERCA de a 5, o subir
+// XP_FRENAR para que afloje desde mas lejos.
+// XP_FRENAR vive ahora en el PANEL DE CONTROL, arriba de todo.
+// El por que y la historia quedaron aca, que es donde tienen sentido.
+// VEL_AVANCE_CERCA vive ahora en el PANEL DE CONTROL, arriba de todo.
+// El por que y la historia quedaron aca, que es donde tienen sentido.
+// La funcion velAcercarse() esta abajo, al lado de avanzar(). NO ponerla
+// aca: el preprocesador de Arduino inserta los prototipos justo antes de
+// la PRIMERA funcion del archivo, y si esa primera funcion queda arriba
+// del "enum Estado" el build muere con "'Estado' was not declared".
+// [2026-09-22, pasado en vivo]
 
 // --- ORBITA PEGADA A LA PELOTA (2026-08-04) ---
 //
@@ -237,15 +342,18 @@ const int VEL_AVANCE = 95;   // era 55, debajo del piso de arranque
 // cuentas no aguanta nada: la orbita se plantaba a mitad de vuelta.
 // Valores anteriores, por si hay que volver: impulso 99, crucero 48.
 const int VEL_ORB_FRENTE  = 30;    // DEBAJO del piso a proposito: no deben girar
-const int VEL_ORB_IMPULSO = 120;   // 99 -> 130 -> 120. El golpe para despegar.
+// VEL_ORB_IMPULSO vive ahora en el PANEL DE CONTROL, arriba de todo.
+// El por que y la historia quedaron aca, que es donde tienen sentido.
 const int MS_ORB_IMPULSO  = 300;   // cuanto dura el golpe. El 2025: 300 y 500 ms.
-const int VEL_ORB_TRASERA = 67;    // 48 -> 75 -> 67. Velocidad ya rodando
+// VEL_ORB_TRASERA vive ahora en el PANEL DE CONTROL, arriba de todo.
+// El por que y la historia quedaron aca, que es donde tienen sentido.
 
 // OJO: esto va de la mano con VEL_ORB_TRASERA. Si la vuelta se hace mas lenta y
 // el tiempo maximo no se sube, el robot SE RINDE ANTES DE COMPLETAR UNA VUELTA
 // y parece que "empeoro al ir mas lento". Tiene que alcanzar para ~2 vueltas:
 // cronometren una vuelta y pongan el doble.
-const unsigned long MS_ORBITA_MAX = 20000;  // si no encuentra el arco, se rinde
+// MS_ORBITA_MAX vive ahora en el PANEL DE CONTROL, arriba de todo.
+// El por que y la historia quedaron aca, que es donde tienen sentido.
 
 // --- patada ---
 // PATADA DERECHA — heading-hold con el giroscopo [2026-09-01]
@@ -271,7 +379,8 @@ const unsigned long MS_ORBITA_MAX = 20000;  // si no encuentra el arco, se rinde
 //
 // SI TODAVIA SALE TORCIDA: subir KP_PATADA de a 2. Si empieza a zigzaguear,
 // bajarlo. Y evaluar bajar VEL_PATADA a 200, que ademas deja margen al lazo.
-const float KP_PATADA   = 4.0;   // PWM que se resta por grado de desvio
+// KP_PATADA vive ahora en el PANEL DE CONTROL, arriba de todo.
+// El por que y la historia quedaron aca, que es donde tienen sentido.
 const int   RESTA_MAX   = 120;   // tope de la correccion
 // PATADA MAS CORTA Y MENOS BRUTA [2026-09-01, a pedido de Maximo]
 //     240 x 1000 ms  ->  200 x 420 ms
@@ -309,8 +418,10 @@ const int   RESTA_MAX   = 120;   // tope de la correccion
 // alcance.
 //
 // 2026-09-21: VUELTA A 215 a pedido del equipo ("quedo muy lento").
-const int VEL_PATADA    = 215;   // 110 (modo prueba 15/09) -> 215 (juego)
-const int MS_PATADA     = 420;
+// VEL_PATADA vive ahora en el PANEL DE CONTROL, arriba de todo.
+// El por que y la historia quedaron aca, que es donde tienen sentido.
+// MS_PATADA vive ahora en el PANEL DE CONTROL, arriba de todo.
+// El por que y la historia quedaron aca, que es donde tienen sentido.
 const int VEL_RETROCESO = 110;
 const int MS_RETROCESO  = 700;
 
@@ -550,7 +661,8 @@ const unsigned long MS_ESCAPE_EXTRA = 400;  // sigue 400 ms DESPUES de dejar de 
 // "FILTRO DE CONFIRMACION" en el loop. 5 ms a la velocidad del robot son
 // menos de 2 mm: no se pierde ninguna linea de verdad, y se descartan los
 // picos sueltos que disparaban escapes fantasma. [2026-09-08]
-const unsigned long MS_LINEA_CONFIRMA = 5;
+// MS_LINEA_CONFIRMA vive ahora en el PANEL DE CONTROL, arriba de todo.
+// El por que y la historia quedaron aca, que es donde tienen sentido.
 
 //  COMPROMISO CON LA DIRECCION DE ESCAPE [2026-09-01, a pedido de Maximo]
 //
@@ -627,7 +739,8 @@ const unsigned long MS_ESPERA_LINEA = 1000;
 // yendose lejos, bajar PRIMERO el tiempo otra vez y recien despues la
 // potencia — un escape flojo que no se despega es peor que uno largo.
 const unsigned long MS_ESCAPE_CIEGO = 200;     // 1500 -> 500 -> 200  [SIN USO]
-const int           VEL_ESCAPE_FUERTE = 170;   // 200 -> 170 (21/09): el robot se levantaba al revertir. VEL_ESCAPE normal es 100
+// VEL_ESCAPE_FUERTE vive ahora en el PANEL DE CONTROL, arriba de todo.
+// El por que y la historia quedaron aca, que es donde tienen sentido.
 
 // ============ RETROCESO INMEDIATO (2026-09-15, prueba) ============
 // Sintoma reportado por el equipo:
@@ -651,8 +764,10 @@ const int           VEL_ESCAPE_FUERTE = 170;   // 200 -> 170 (21/09): el robot s
 //
 // El respaldo de la version anterior (freno 1 s + retroceso 200 ms) esta
 // en respaldos/delantero-2026-09-15-freno1s-antes-de-retroceso300.ino
-const unsigned long MS_RETROCESO_LINEA = 210;   // cuanto retrocede. 300 (15/09) -> 200 -> 250 -> 210 (21/09, pedido del equipo)
-const unsigned long MS_CIEGO_LINEA     = 300;   // cuanto ignora la linea. 1000 -> 500 -> 300 (21/09): ciego, en las esquinas cruzaba la otra linea. NO bajar de MS_RETROCESO_LINEA
+// MS_RETROCESO_LINEA vive ahora en el PANEL DE CONTROL, arriba de todo.
+// El por que y la historia quedaron aca, que es donde tienen sentido.
+// MS_CIEGO_LINEA vive ahora en el PANEL DE CONTROL, arriba de todo.
+// El por que y la historia quedaron aca, que es donde tienen sentido.
 
 unsigned long t_disparoLinea = 0;   // cuando vio la linea por ultima vez
 
@@ -702,7 +817,7 @@ const int VEL_FRENO = 240;                 // igual que la patada: lo que trajo,
 const unsigned long MS_FRENO = 150;        // cuanto dura el golpe de freno
 
 //  UMBRALES DEL 2025, luz del laboratorio del anio pasado. Ya nos paso con
-//  los umbrales de color: se re-miden con pruebas/sensores-de-linea/ antes
+//  los umbrales de color: se re-miden con pruebas/grabar-linea/ antes
 //  de confiar. Mientras tanto hay una AUTOPROTECCION al arrancar: si un
 //  sensor ya lee "blanco" con el robot apoyado en el verde, el umbral esta
 //  mal y la funcion se desactiva sola en vez de escapar para siempre.
@@ -853,7 +968,7 @@ const unsigned long MS_FRENO = 150;        // cuanto dura el golpe de freno
 //
 // 2026-09-08, MAS TARDE. Con {663,661,725} el robot SEGUIA dando falsos
 // blancos, asi que se volvio a medir el verde en CINCO puntos de cancha
-// (pruebas/grabar-verde/, mesetas 3 a 7 de la traza):
+// (pruebas/grabar-linea/, mesetas 3 a 7 de la traza):
 //
 //     sensor 1: verde 451..576   umbral 663 -> margen +87   no disparo nunca
 //     sensor 2: verde 449..577   umbral 661 -> margen +84   no disparo nunca
@@ -905,7 +1020,8 @@ const unsigned long MS_FRENO = 150;        // cuanto dura el golpe de freno
 //
 // ⚠ Estos numeros son de la TELA. No transfieren a la cancha vieja.
 // =======================================================================
-int UMBRAL_LINEA[3] = { 390, 427, 413 };
+// UMBRAL_LINEA vive ahora en el PANEL DE CONTROL, arriba de todo.
+// El por que y la historia quedaron aca, que es donde tienen sentido.
 
 //  Pines: se autodetectan leyendo el pin 32, igual que zirconLib.cpp:52-60.
 const int PIN_VERSION_PLACA = 32;
@@ -1112,23 +1228,92 @@ void motoresRotando(bool sentidoA, int vel) {
 
 // Avanza tratando de NO torcerse, corrigiendo con el giroscopo contra el rumbo
 // que tenia al empezar. Ver el bloque "PATADA DERECHA" arriba.
-void avanzarDerecho(int vel, float rumboObjetivo) {
-  int vi = vel, vd = vel;
-  float err = diferencia(rumboObjetivo, rumboActual());
-  int resta = (int)(fabs(err) * KP_PATADA);
-  if (resta > RESTA_MAX) resta = RESTA_MAX;
-  if (err > 0) vd -= resta; else vi -= resta;   // SOLO frena, nunca acelera
-  if (vi < 0) vi = 0;
-  if (vd < 0) vd = 0;
+// Estado del termino derivativo. Se reinicia al entrar a PATEA_ADEL.
+float         errPatadaPrevio = 0;
+unsigned long t_derivPatada   = 0;
+float         derivPatada     = 0;
+
+// Cada cuanto se calcula la derivada. NO puede ser en cada vuelta del loop:
+// el loop corre a 17.300/s y el BNO055 actualiza su fusion a ~100/s, asi que
+// la mayoria de las vueltas leeria el MISMO numero repetido -> derivada cero,
+// y cuando el sensor por fin cambia, un salto enorme. En vez de corregir
+// suave, el robot pegaria tirones. 10 ms es el ritmo real del sensor.
+const unsigned long MS_DERIVADA_PATADA = 10;
+
+void reiniciarDerivadaPatada() {
+  errPatadaPrevio = 0;
+  t_derivPatada   = 0;
+  derivPatada     = 0;
+}
+
+// Escribe las dos ruedas de adelante y TRABA LA TRASERA.
+//
+// 🔧 POR QUE TRABAR LA TRASERA (mejora 3 del 22/09). avanzar() la dejaba
+// SUELTA durante toda la patada, y suelta no se opone a nada: el robot
+// pivotea alrededor de ella sin resistencia.
+//
+// Y trabarla NO frena el avance, por como funciona una rueda omni: para ir
+// derecho hacia adelante, la trasera se mueve de costado sobre sus rodillos
+// libres, que el motor no toca. El motor solo interviene cuando la rueda
+// tiene que GIRAR — o sea cuando el robot rota. Trabarla resiste la
+// rotacion y deja pasar la traslacion.
+// (Si al probarlo el robot llega notablemente mas corto, la hipotesis
+//  estaba mal: los rodillos rozan mas de lo que pensabamos.)
+void motoresPatada(int vi, int vd) {
+  if (vi < 0) vi = 0;   if (vi > 255) vi = 255;
+  if (vd < 0) vd = 0;   if (vd > 255) vd = 255;
   analogWrite(IZQ_PWM, vi); digitalWrite(IZQ_INA, 1); digitalWrite(IZQ_INB, 0);
   analogWrite(DER_PWM, vd); digitalWrite(DER_INA, 0); digitalWrite(DER_INB, 1);
-  analogWrite(TRA_PWM, 0);  digitalWrite(TRA_INA, 0); digitalWrite(TRA_INB, 0);
+  digitalWrite(TRA_INA, 0); digitalWrite(TRA_INB, 0); analogWrite(TRA_PWM, 255);
+}
+
+void avanzarDerecho(int vel, float rumboObjetivo) {
+  // ---- 1. COMPENSACION FIJA (feedforward) ----
+  // El desvio es SISTEMATICO y siempre del mismo lado (28,4 grados a la
+  // derecha, medido). Anularlo de entrada es mucho mas rapido que esperar a
+  // que el error aparezca para recien ahi reaccionar.
+  int vi = vel - TRIM_PATADA;
+  int vd = vel + TRIM_PATADA;
+
+  // ---- 4. PROPORCIONAL + DERIVATIVO ----
+  float err = diferencia(rumboObjetivo, rumboActual());
+  unsigned long ahora = millis();
+  if (t_derivPatada == 0) {
+    errPatadaPrevio = err;
+    t_derivPatada   = ahora;
+  } else if (ahora - t_derivPatada >= MS_DERIVADA_PATADA) {
+    derivPatada     = (err - errPatadaPrevio) * 1000.0 / (float)(ahora - t_derivPatada);
+    errPatadaPrevio = err;
+    t_derivPatada   = ahora;
+  }
+  float mando = KP_PATADA * err + KD_PATADA * derivPatada;
+
+  // ---- 2. REPARTIR: acelerar una Y frenar la otra ----
+  // Antes solo restaba, porque a 240 sobre 255 no habia lugar para subir.
+  // A 215 sobran 40 puntos. Repartiendo, el PROMEDIO de las dos ruedas se
+  // mantiene en vel y la patada no pierde empuje.
+  int mitad = (int)(fabs(mando) / 2.0);
+  if (mitad > RESTA_MAX / 2) mitad = RESTA_MAX / 2;
+  if (mando > 0) { vd -= mitad; vi += mitad; }
+  else           { vi -= mitad; vd += mitad; }
+
+  motoresPatada(vi, vd);
 }
 
 void avanzar(int vel) {
   analogWrite(IZQ_PWM, vel); digitalWrite(IZQ_INA, 1); digitalWrite(IZQ_INB, 0);
   analogWrite(DER_PWM, vel); digitalWrite(DER_INA, 0); digitalWrite(DER_INB, 1);
   analogWrite(TRA_PWM, 0);   digitalWrite(TRA_INA, 0); digitalWrite(TRA_INB, 0);
+}
+
+// Con cuanta potencia avanzar segun lo lejos que este la pelota: rapido de
+// lejos, suave al llegar. Regla de tres entre XP_FRENAR y XP_ORBITA; fuera
+// de ese tramo devuelve los topes. Ver "AFLOJAR AL ACERCARSE A LA PELOTA".
+int velAcercarse(int xp) {
+  if (xp >= XP_FRENAR) return VEL_AVANCE;
+  if (xp <= XP_ORBITA) return VEL_AVANCE_CERCA;
+  long sobra = (long)(xp - XP_ORBITA) * (VEL_AVANCE - VEL_AVANCE_CERCA);
+  return VEL_AVANCE_CERCA + (int)(sobra / (XP_FRENAR - XP_ORBITA));
 }
 
 void retroceder(int vel) {
@@ -1514,7 +1699,7 @@ void cambiarA(Estado nuevo) {
   // corrige durante el golpe, para no torcerse. Ver "PATADA DERECHA".
   if (nuevo == PATEA_ADEL && giroscopoSano()) rumboAlPatear = rumboActual();
   // Y la rampa arranca de cero, para que el golpe no sea un tiron.
-  if (nuevo == PATEA_ADEL) reiniciarRampaPatada();
+  if (nuevo == PATEA_ADEL) { reiniciarRampaPatada(); reiniciarDerivadaPatada(); }
   // El sentido de la orbita se congela ACA y no se vuelve a mirar. Ver el
   // bloque "EL SENTIDO DE LA ORBITA SE DECIDE UNA SOLA VEZ".
   if (nuevo == ORBITANDO) sentidoOrbita = sentidoParaOrbitar();
@@ -1548,6 +1733,9 @@ void setup() {
   Serial.println("==============================================");
   Serial.println("BUSCAR - CENTRAR - AVANZAR - ORBITAR - PATEAR");
   Serial.print("orbita si Xp<"); Serial.println(XP_ORBITA);
+  Serial.print("avance: "); Serial.print(VEL_AVANCE);
+  Serial.print(" y afloja hasta "); Serial.print(VEL_AVANCE_CERCA);
+  Serial.print(" desde Xp<"); Serial.println(XP_FRENAR);
   Serial.print("patea si pelota a menos de "); Serial.print(TOL_ANG_PELOTA, 0);
   Serial.print(" grados del frente Y el arco a menos de "); Serial.print(TOL_ANG_ALINEADO, 0);
   Serial.print(" grados de la pelota");
@@ -1563,6 +1751,10 @@ void setup() {
   Serial.print("   (max "); Serial.print(MS_ORBITA_MAX / 1000); Serial.println(" s)");
   // La patada en el banner [2026-09-21]: sin esta linea no habia forma de
   // saber desde el monitor si estaba cargada la de juego o la de prueba.
+  Serial.print("patada derecha: trim "); Serial.print(TRIM_PATADA);
+  Serial.print("  KP "); Serial.print(KP_PATADA, 1);
+  Serial.print("  KD "); Serial.print(KD_PATADA, 1);
+  Serial.println("  (trasera trabada)");
   Serial.print("patada: "); Serial.print(VEL_PATADA);
   Serial.print(" x "); Serial.print(MS_PATADA); Serial.println(" ms");
   // El arco va ARRIBA en el banner: CARGAR-ROBOT.bat lee esta linea para
@@ -1619,7 +1811,7 @@ void setup() {
     if (m != 0 && PROTECCION_ARRANQUE) {
       lineaHabilitada = false;
       Serial.println("!!! YA LEE BLANCO ESTANDO EN EL VERDE -> el umbral esta mal.");
-      Serial.println("!!! ESCAPE DE LINEA DESACTIVADO. Corre pruebas/sensores-de-linea/");
+      Serial.println("!!! ESCAPE DE LINEA DESACTIVADO. Corre pruebas/grabar-linea/");
     } else {
       lineaHabilitada = true;
       if (m != 0) {
@@ -1857,8 +2049,10 @@ void loop() {
     // enderezando desde el primer milisegundo del golpe.
     int vel = rampaPatada(VEL_PATADA);
     // Con giroscopo sano se patea DERECHO; si no, como hasta ahora.
+    // Sin giroscopo no hay lazo, pero la COMPENSACION FIJA no lo necesita:
+    // es un numero, no una realimentacion. Se aplica igual.
     if (giroscopoSano()) avanzarDerecho(vel, rumboAlPatear);
-    else                 avanzar(vel);
+    else                 motoresPatada(vel - TRIM_PATADA, vel + TRIM_PATADA);
     if (enEstado >= (unsigned long)MS_PATADA) cambiarA(PATEA_ATRAS);
   }
   else if (estado == PATEA_ATRAS) {
@@ -1971,7 +2165,9 @@ void loop() {
         if (GIRO_INVERTIDO) haciaUnLado = !haciaUnLado;
         rotarPulsado(haciaUnLado, VEL_CENT, MS_PULSO_CENT, MS_ESPERA_CENT);
       } else {
-        avanzar(VEL_AVANCE);
+        // Afloja de a poco al acercarse, para no llegar con envion y
+        // desacomodar la pelota. Ver "AFLOJAR AL ACERCARSE A LA PELOTA".
+        avanzar(velAcercarse(XpBueno));
       }
     }
   }

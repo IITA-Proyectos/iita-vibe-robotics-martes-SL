@@ -3,20 +3,49 @@
 Programas cortos para **medir, diagnosticar y probar comportamientos**. Cada uno responde una
 pregunta concreta.
 
-Ninguno usa `zirconLib` ni el giroscopio, a propósito: así compilan y corren siempre, sin
-depender de los dos problemas P0 del código de competencia (ver
-[`../bugs-conocidos.md`](../../../futbol-roboliga2026/bugs-conocidos.md)).
+> 🖱️ **La forma fácil de correrlas: doble clic en [`../MEDIR-ROBOT.bat`](../MEDIR-ROBOT.bat).**
+> Menú con todas, avisa cuál necesita cable, verifica que el robot enchufado sea el delantero,
+> y con la opción **L** lee lo que el robot tiene para decir al volver de la cancha.
+> *(Para jugar es [`../CARGAR-ROBOT.bat`](../CARGAR-ROBOT.bat), que es otro y no se toca.)*
 
-| Prueba | Responde / hace |
-|---|---|
-| [`quien-es-quien/`](quien-es-quien/) | ⭐ **¿Qué rueda cuelga de qué pines?** Mueve dos y apaga una: se ve cuál queda quieta |
-| [`identificar-robot/`](identificar-robot/) | ¿Este robot es el arquero o el delantero? |
-| [`tres-ruedas/`](tres-ruedas/) | Las tres ruedas para un lado y para el otro. Test más simple posible |
-| [`motores-a-mano/`](motores-a-mano/) | Prueba interactiva: escribís una tecla y ese motor arranca |
-| [`diagnostico-motores/`](diagnostico-motores/) | Los 3 motores en los 2 sentidos, paso a paso |
-| [`piso-de-pwm/`](piso-de-pwm/) | **A partir de qué PWM arranca cada rueda.** Sube de a 10 y anotás |
-| [`adelante-atras/`](adelante-atras/) | Izquierda + derecha adelante y atrás, trasera quieta |
-| [`buscar-pelota/`](buscar-pelota/) | ⭐ **El comportamiento completo:** buscar → centrar → avanzar → orbitar → patear |
+### 🟩 Línea blanca
+
+| Prueba | Responde / hace | cable |
+|---|---|---|
+| [`grabar-linea/`](grabar-linea/) | ⭐ **La de siempre.** Verde, blanco y negro; clasifica las mesetas solo y propone los 3 umbrales | **no** |
+| [`identificar-sensores/`](identificar-sensores/) | ¿Qué número de sensor es cada posición física? | sí |
+
+### 🧭 Giroscopio
+
+| Prueba | Responde / hace | cable |
+|---|---|---|
+| [`giroscopo-crudo/`](giroscopo-crudo/) | ¿Qué chip es y corre la fusión? El que descubrió que nunca estuvo roto | sí |
+| [`rumbo-vivo/`](rumbo-vivo/) | El rumbo en vivo, sin mover motores. El de **un minuto** | sí |
+| [`giroscopo-recupera/`](giroscopo-recupera/) | ¿El lazo recupera de un empujón? | sí |
+| [`signos/`](signos/) | Los tres signos: giro, órbita y cámara | sí |
+
+### ⚙️ Motores
+
+| Prueba | Responde / hace | cable |
+|---|---|---|
+| [`piso-de-pwm/`](piso-de-pwm/) | ⭐ **A partir de qué PWM arranca cada rueda.** 🐛 tiene los pines del **ARQUERO** | sí |
+| [`quien-es-quien/`](quien-es-quien/) | ¿Qué rueda cuelga de qué pines? Mueve dos y apaga una | sí |
+| [`motores-a-mano/`](motores-a-mano/) | Escribís una tecla y ese motor arranca | sí |
+| [`diagnostico-motores/`](diagnostico-motores/) | Los 3 motores en los 2 sentidos, paso a paso | sí |
+
+### 📷 Cámara, patada y otros
+
+| Prueba | Responde / hace | cable |
+|---|---|---|
+| [`tabla-camara/`](tabla-camara/) | ⭐ ¿Cuántos cm es un `Xp`? Cierra lo de `XP_ORBITA` | sí |
+| [`patada-derecha/`](patada-derecha/) | ¿Cuántos grados se tuerce al patear? ⚠️ mide 240×1000 y hoy patea 215×420 | sí |
+| [`identificar-robot/`](identificar-robot/) | ¿Este robot es el arquero o el delantero? | sí |
+
+> 🗑️ **Borrados el 2026-09-22.** `grabar-verde`, `medir-verde`, `calibrar-linea` y
+> `sensores-de-linea` quedaron reemplazados por `grabar-linea`, que hace todo eso y clasifica
+> solo. `adelante-atras` y `tres-ruedas` los cubre `diagnostico-motores`. `buscar-pelota` era
+> una foto congelada del firmware del 28/07.
+> **Siguen en el historial de git**: `git log --diff-filter=D -- pruebas/` los encuentra.
 
 ## Cómo se cargan
 

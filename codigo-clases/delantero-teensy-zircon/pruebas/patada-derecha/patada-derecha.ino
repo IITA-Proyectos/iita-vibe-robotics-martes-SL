@@ -24,11 +24,13 @@
    Si B se tuerce mucho menos que A, el heading-hold sirve y lo llevamos
    al firmware. Si las dos se tuercen igual, el problema es mecanico.
 
-   >>> POR QUE LA CORRECCION SOLO FRENA Y NUNCA ACELERA. La patada corre a
-   >>> 240 sobre un maximo de 255: si el lazo pidiera acelerar, no habria
-   >>> lugar. Restando siempre, la correccion funciona a plena potencia.
+   >>> POR QUE LA CORRECCION SOLO FRENA Y NUNCA ACELERA. Se escribio con la
+   >>> patada en 240 sobre 255: no habia lugar para subir. HOY LA PATADA
+   >>> ES 215 y sobran 40 puntos, asi que acelerar la rueda lenta seria
+   >>> posible. Esta prueba NO lo hace, a proposito: mide el firmware tal
+   >>> cual esta. Si el desvio sigue alto, ese es el cambio a probar.
 
-   🚨 ESTO MUEVE EL ROBOT A FONDO. Un segundo a 240 son mas de un metro.
+   🚨 ESTO MUEVE EL ROBOT A FONDO. La patada es corta (420 ms) pero va a 215.
    🚨 NO SE PUEDE CORRER SOBRE LA MESA — se cae. Va en el piso o en la
    🚨 cancha, con espacio libre adelante y atras, y sin el cable USB.
    🚨 Los resultados quedan guardados y se leen despues en la mesa,
@@ -54,9 +56,18 @@
 #define LED 13
 
 // --------- perillas ---------
-const int  VEL_PATADA = 240;   // el mismo que el firmware. No tocar si se
+// 2026-09-22: 240 -> 215 y 1000 -> 420 ms. Eran los del 01/09; el
+// firmware cambio el mismo dia y esta prueba quedo midiendo una patada
+// que ya no existe. Tienen que ser SIEMPRE los del firmware.
+const int  VEL_PATADA = 215;   // el mismo que el firmware. No tocar si se
                                // quiere reproducir la patada de verdad.
-const unsigned long MS_PATADA = 1000;   // idem
+const unsigned long MS_PATADA = 420;   // idem
+// La RAMPA de arranque, igual que el firmware (se agrego el 08/09 y
+// nunca se probo). Sin esto la prueba arrancaria de golpe y mediria
+// un patinaje que el robot de verdad ya no tiene.
+const int           RAMPA_PASO = 15;
+const unsigned long RAMPA_MS   = 5;
+
 const float KP = 4.0;          // correccion: PWM que se resta por grado de
                                // desvio. 4.0 = 10 grados -> 40 de PWM menos.
 const int  RESTA_MAX = 120;    // tope de la correccion, por las dudas
@@ -124,14 +135,27 @@ float patear(bool conGiroscopo, float *pico) {
   float peor = 0;
   unsigned long t0 = millis();
 
+  // Rampa: sube de a escalones hasta VEL_PATADA, como el firmware.
+  int           pwmRampa = 0;
+  unsigned long tRampa   = millis();
+
   while (millis() - t0 < MS_PATADA) {
-    int vi = VEL_PATADA, vd = VEL_PATADA;
+    if (millis() - tRampa >= RAMPA_MS) {
+      tRampa = millis();
+      pwmRampa += RAMPA_PASO;
+      if (pwmRampa > VEL_PATADA) pwmRampa = VEL_PATADA;
+    }
+    int vi = pwmRampa, vd = pwmRampa;
     if (conGiroscopo && hayGiro) {
       float err = dif(r0, rumbo());          // >0 = se fue para un lado
       if (fabs(err) > fabs(peor)) peor = err;
       int resta = (int)(fabs(err) * KP);
       if (resta > RESTA_MAX) resta = RESTA_MAX;
-      // SOLO SE FRENA, nunca se acelera: a 240 no hay lugar para subir.
+      // SOLO SE FRENA, nunca se acelera. Se escribio cuando la patada
+      // era 240 sobre 255 y no habia lugar para subir. HOY ESTA EN 215
+      // Y SOBRAN 40 PUNTOS: se podria corregir tambien acelerando la
+      // rueda lenta, en vez de frenar la rapida y perder empuje.
+      // Esta prueba lo deja como el firmware, para medir lo que hay.
       if (err > 0) vd -= resta; else vi -= resta;
       if (vi < 0) vi = 0;
       if (vd < 0) vd = 0;

@@ -74,16 +74,47 @@ al robot de frente en vez de desde el robot. La tabla de arriba es lo medido. Ve
 
 ### `pruebas/`
 
+> 🖱️ **La forma fácil de correrlas: doble clic en [`MEDIR-ROBOT.bat`](MEDIR-ROBOT.bat).**
+> Menú con todas, te dice cuál necesita cable, y la opción **L** lee lo que el robot
+> tiene para decir cuando volvés de la cancha (y lo guarda en `mediciones/`).
+> *(Para jugar es [`CARGAR-ROBOT.bat`](CARGAR-ROBOT.bat), que es otro.)*
+
+**Línea blanca**
+
 | Prueba | Responde |
 |---|---|
+| [`grabar-linea/`](pruebas/grabar-linea/) | ⭐ **La de siempre.** Verde, blanco y negro **sin cable**, clasifica solo y propone los 3 umbrales |
+| [`identificar-sensores/`](pruebas/identificar-sensores/) | ¿Qué número de sensor es cada posición física? |
+
+**Giroscopio**
+
+| Prueba | Responde |
+|---|---|
+| [`giroscopo-crudo/`](pruebas/giroscopo-crudo/) | ¿Qué chip es y corre la fusión? El que descubrió que nunca estuvo roto |
+| [`rumbo-vivo/`](pruebas/rumbo-vivo/) | El rumbo en vivo, sin mover motores. El de **un minuto** para verificarlo |
+| [`giroscopo-recupera/`](pruebas/giroscopo-recupera/) | ¿El lazo recupera de un empujón? |
+| [`signos/`](pruebas/signos/) | Los tres signos: giro, órbita y cámara |
+
+**Motores**
+
+| Prueba | Responde |
+|---|---|
+| [`piso-de-pwm/`](pruebas/piso-de-pwm/) | ⭐ ¿Con cuánto PWM arranca cada rueda? **Nunca se corrió**, y 🐛 **tiene los pines del ARQUERO** |
 | [`quien-es-quien/`](pruebas/quien-es-quien/) | ¿Qué pines son qué rueda? Mueve dos y apaga una |
-| [`identificar-robot/`](pruebas/identificar-robot/) | ¿Este robot es el arquero o el delantero? |
-| [`adelante-atras/`](pruebas/adelante-atras/) | ¿Avanza derecho? (la polaridad espejada de las de adelante) |
-| [`tres-ruedas/`](pruebas/tres-ruedas/) | ¿Responden las tres? |
 | [`motores-a-mano/`](pruebas/motores-a-mano/) | Manejar cada motor a mano, sin secuencias cronometradas |
-| [`diagnostico-motores/`](pruebas/diagnostico-motores/) | Diagnóstico general de los drivers |
-| [`piso-de-pwm/`](pruebas/piso-de-pwm/) | ¿Con cuánto PWM arranca cada rueda en cada sentido? **Nunca se corrió** |
-| [`buscar-pelota/`](pruebas/buscar-pelota/) | La base de la que salió el firmware vivo |
+| [`diagnostico-motores/`](pruebas/diagnostico-motores/) | Los tres motores en los dos sentidos |
+
+**Cámara y patada**
+
+| Prueba | Responde |
+|---|---|
+| [`tabla-camara/`](pruebas/tabla-camara/) | ⭐ ¿Cuántos cm es un `Xp`? Cierra lo de `XP_ORBITA`. **Nunca se corrió** |
+| [`patada-derecha/`](pruebas/patada-derecha/) | ¿Cuántos grados se tuerce al patear? ⚠️ mide 240×1000 ms y hoy patea 215×420 |
+| [`identificar-robot/`](pruebas/identificar-robot/) | ¿Este robot es el arquero o el delantero? |
+
+> 🗑️ **Borrados el 2026-09-22** porque `grabar-linea` los reemplazó o ya habían cumplido:
+> `grabar-verde`, `medir-verde`, `calibrar-linea`, `sensores-de-linea`, `adelante-atras`,
+> `tres-ruedas` y `buscar-pelota`. Siguen en el historial de git si hacen falta.
 
 ### `vision/`
 

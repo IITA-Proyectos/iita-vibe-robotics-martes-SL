@@ -13,7 +13,8 @@
    sensores leian el verde de la cancha como si fuera blanco.
 
    Pero el cable USB no llega a la cancha. Y su hermano
-   pruebas/calibrar-linea/ necesita el cable, porque espera un ENTER
+   pruebas/calibrar-linea/ (borrado el 22/09) necesitaba el cable,
+   porque esperaba un ENTER
    entre fase y fase.
 
    Este graba SIN NADIE MIRANDO y vuelca todo cuando lo reenchufas.
@@ -82,7 +83,11 @@ const char* versionPlaca = "?";
 // separacion contra el blanco. El 08/09 tenia 11 cuentas (verde 751,
 // blanco 762) y por eso no habia umbral posible. Con un verde mas oscuro
 // puede volver a entrar en rango sin tocarle la altura.
-const int UMBRAL_ACTUAL[3] = { 663, 661, 757 };
+// 2026-09-22: actualizado a lo que el robot tiene HOY. Si esto queda
+// viejo, el aviso "CRUZA EL UMBRAL DE HOY" miente y es peor que no
+// tenerlo. Cada vez que cambie UMBRAL_LINEA en el firmware, cambiar
+// aca tambien.
+const int UMBRAL_ACTUAL[3] = { 390, 427, 413 };
 
 // ---- la traza ----
 // Un bloque cada 100 ms con minimo, maximo y promedio de cada sensor.

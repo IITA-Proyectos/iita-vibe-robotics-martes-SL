@@ -103,6 +103,7 @@ al robot de frente en vez de desde el robot. La tabla de arriba es lo medido. Ve
 | Programa | Qué hace |
 |---|---|
 | [`seguir-y-despejar/`](funciona/seguir-y-despejar/) | ⭐ **El arquero completo.** Sigue la pelota de costado sin dejar de mirar al frente, y la despeja cuando se acerca |
+| [`../respaldos/estable-0.0929/`](respaldos/estable-0.0929/) | 🧊 **Copia congelada de la version ESTABLE 0.0929** (29/09). No se toca. Si algo se rompe experimentando, se carga esta y el robot vuelve a como estaba |
 | [`despeje-pelota/`](funciona/despeje-pelota/) | Solo el despeje, sin seguimiento. Más simple para probar de a una cosa |
 
 ## Cargar un programa

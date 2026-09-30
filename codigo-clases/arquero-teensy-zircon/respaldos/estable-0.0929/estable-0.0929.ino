@@ -6,14 +6,19 @@
    IITA Salta — taller de los martes — Roboliga 2026
    Ultimo cambio: 2026-09-29
 
-   ESTE ES EL PROGRAMA DE PARTIDO. Es el que se carga para jugar.
-   Todo lo que esta en `pruebas/` son herramientas de medicion: no juegan.
+   🧊 ESTA ES LA COPIA CONGELADA. NO SE TOCA.
 
-   El numero de version es la fecha: 0.0929 = 2026-09-29. Hay una copia
-   congelada de esta misma version en
-        funciona/seguir-y-despejar/../../respaldos/estable-0.0929/
-   que se carga tal cual y no se toca nunca mas. Si algo se rompe mientras
-   se experimenta aca, se vuelve a esa carpeta y listo.
+   Es una copia exacta de `funciona/seguir-y-despejar/` tal como quedo el
+   2026-09-29. Existe para una sola cosa: si mientras se experimenta en
+   `funciona/` algo se rompe y no se sabe que fue, se carga esta carpeta tal
+   cual y el robot vuelve a como estaba.
+
+   Se compila y se carga desde aca mismo, sin copiar nada:
+        robot.ps1 cargar "respaldos\estable-0.0929"
+   Al arrancar dice por USB "RESPALDO ESTABLE 0.0929 (copia congelada)", asi
+   no hay duda de cual de las dos esta puesta.
+
+   El trabajo sigue en `funciona/seguir-y-despejar/`.
 
    ⚠️ QUE TAN "ESTABLE" ES, dicho con honestidad:
    La version que gano los amistosos del 2026-09-21 (5-0 y 3-2, con una
@@ -1226,7 +1231,7 @@ void terminarDespeje() {
 // arrancar y nada mas — el 21/09 se saco toda la consola del programa de
 // juego porque en la cancha no hay cable, y eso sigue igual: esta linea no
 // se lee en la cancha, se lee cuando el robot vuelve a la mesa.
-const char* VERSION = "ESTABLE 0.0929";
+const char* VERSION = "RESPALDO ESTABLE 0.0929 (copia congelada)";
 
 void setup() {
   Serial.begin(19200);

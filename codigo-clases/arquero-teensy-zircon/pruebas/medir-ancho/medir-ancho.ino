@@ -193,6 +193,13 @@ int cerosSeguidos = 0;
 const unsigned long MS_ESPERA_DATOS_GIRO = 5000;
 
 // 🎯 ESPERAR A QUE EL GIROSCOPIO SE CALIBRE, QUIETO.
+// 2026-09-29: el arranque del giroscopio se rehizo juntando todo lo que
+// aprendimos. Ver el bloque de rumboActual() y el de setExtCrystalUse.
+// Y el motivo por el que se vuelve a medir: los numeros del 21/09
+// (4618/4396 ms de cruce) se tomaron con EL CABLE DEL GIROSCOPIO ROTO, que
+// se descubrio el 29/09. Si se caia en medio de un cruce, el robot se
+// torcia sin corregir y el tiempo medido no es el de ir derecho.
+//
 // La hoja de datos de Bosch (BNO055, seccion 3.11.2) dice que el giroscopio
 // se calibra dejando el sensor quieto "unos segundos", y que esa
 // calibracion se pierde en cada apagado. El chip dice como va, de 0 a 3
@@ -224,6 +231,13 @@ struct MedicionAncho {
 const uint16_t MARCA_ANCHO    = 0xA2C3;
 const uint16_t MARCA_ANCHO_V2 = 0xA2C2;
 const uint16_t MARCA_ANCHO_V1 = 0xA2C1;
+// Esta medicion vive al principio de la EEPROM. ⚠️ La EEPROM es UNA SOLA y
+// la comparten todos los programas: el 29/09 `derecho-y-vuelta` guardaba su
+// historial tambien en la direccion 0 y piso esta medicion. Quedo repartida
+// asi, y el que agregue un programa que guarde algo tiene que respetarlo:
+//      0 .. 255   esta medicion (medir-ancho y medir-ancho-sin-giro)
+//    256 .. 767   derecho-y-vuelta
+//    768 .. 4095  libre
 const int DIR_EEPROM_ANCHO = 0;
 
 MedicionAncho medicion = { 0, 0, 0, 0, 0, 0 };
@@ -303,15 +317,57 @@ int rampa(int objetivo) {
 
 // ---------------------------------------------------------------- rumbo
 
-// El rumbo, o -1 si el sensor devolvio ceros (no contesto).
+// 🎯 PREGUNTARLE AL CHIP EN VEZ DE ADIVINAR (2026-09-29)
+//
+// Hasta hoy, "el sensor se cayo" se deducia de que los tres angulos dieran
+// 0.0 exacto, porque la libreria Adafruit devuelve ceros cuando no puede
+// leer el chip. Hoy vimos que ESA DEDUCCION FALLA EN LAS DOS DIRECCIONES:
+//
+//   - da "muerto" con el chip SANO: recien arrancado, la fusion todavia no
+//     produce angulos y devuelve 0,0,0 — pero los datos crudos del
+//     giroscopo estaban llegando perfectamente. Lo vimos en vivo.
+//   - da "sano" con el chip MUERTO: si el rumbo de reposo cae en 0.0, tres
+//     ceros es una postura real. Y ESTE robot se para justo en 359.9, a un
+//     paso del borde. A la otra mesa esto ya los mordio en pleno juego.
+//
+// El registro 0x39 (SYS_STATUS) del BNO055 lo dice sin adivinar: 5 = "el
+// algoritmo de fusion esta corriendo". Es lo que usa el delantero desde el
+// 01/09. Se consulta cada MS_CHEQUEO_FUSION para no llenar el bus.
+const unsigned long MS_CHEQUEO_FUSION = 400;
+unsigned long t_chequeoFusion = 0;
+bool fusionCorriendo = true;
+
+bool preguntarSiFusiona() {
+  uint8_t sys = 0, autotest = 0, err = 0;
+  bno.getSystemStatus(&sys, &autotest, &err);
+  return sys == 5;
+}
+
+// El rumbo, o -1 si el sensor no esta dando datos utiles.
 float rumboActual() {
   if (!hayGiroscopo) return -1;
+
+  unsigned long ahora = millis();
+  if (ahora - t_chequeoFusion >= MS_CHEQUEO_FUSION) {
+    t_chequeoFusion = ahora;
+    fusionCorriendo = preguntarSiFusiona();
+  }
+
   sensors_event_t e;
   bno.getEvent(&e);
-  if (e.orientation.x == 0.0 && e.orientation.y == 0.0
-      && e.orientation.z == 0.0) {
+  bool tresCeros = (e.orientation.x == 0.0 && e.orientation.y == 0.0
+                    && e.orientation.z == 0.0);
+
+  if (!fusionCorriendo) {
+    // Esto SI es una caida de verdad: el chip mismo dice que no fusiona.
     if (cerosSeguidos < CEROS_PARA_CAIDO) cerosSeguidos++;
     return -1;
+  }
+  if (tresCeros) {
+    // Fusiona y da tres ceros: es una postura real (el robot parado en el
+    // borde de 0 grados). No se cuenta como caida.
+    cerosSeguidos = 0;
+    return 0.01;      // no 0.0 exacto, para no confundirlo con "sin dato"
   }
   cerosSeguidos = 0;
   return e.orientation.x;
@@ -617,8 +673,28 @@ void setup() {
   }
   if (!hayGiroscopo) { buscandoGiro = false; fallar(ERR_SIN_GIRO); return; }
 
-  delay(1000);
+  // ⚠️ EL ORDEN IMPORTA, Y LO TENIAMOS AL REVES (lo encontro el delantero).
+  // setExtCrystalUse() pasa el chip a modo CONFIG y lo vuelve a sacar, o sea
+  // que REINICIA LA FUSION. Esperar antes de llamarlo es tirar ese tiempo a
+  // la basura: la cuenta arranca de nuevo igual. Primero el cristal,
+  // despues la espera.
   bno.setExtCrystalUse(true);
+  delay(700);
+
+  // Y ahora se le pregunta al chip si de verdad esta fusionando, en vez de
+  // deducirlo de los angulos. Si arranco mal, mejor saberlo aca.
+  t_chequeoFusion = 0;
+  if (!preguntarSiFusiona()) {
+    // Puede tardar un poco mas en arrancar la fusion: se le da tiempo.
+    unsigned long tf = millis();
+    while (!preguntarSiFusiona() && millis() - tf < MS_ESPERA_DATOS_GIRO) {
+      informarSiToca();
+      delay(50);
+    }
+  }
+  fusionCorriendo = preguntarSiFusiona();
+  buscandoGiro = false;
+  if (!fusionCorriendo) { fallar(ERR_SIN_GIRO); return; }
 
   // Saludar no alcanza: hay que esperar a que DE UN DATO.
   unsigned long t0 = millis();
@@ -626,7 +702,6 @@ void setup() {
     informarSiToca();
     delay(50);
   }
-  buscandoGiro = false;
   if (rumboActual() < 0) { fallar(ERR_SIN_GIRO); return; }
 
   fase = CUENTA; t_fase = millis();

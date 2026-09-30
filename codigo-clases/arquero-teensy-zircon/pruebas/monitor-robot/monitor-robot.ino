@@ -1242,7 +1242,11 @@ void loop() {
     medirGiroscopo();
     medirLuz();
 
-    digitalWrite(LED, salud == SANO ? HIGH : LOW);
+    // Fijo mientras da datos, y PARPADEO RAPIDO cuando no: el mismo
+    // aviso que el programa de juego. Queda debajo de la bateria y casi no
+    // se ve, pero cuando el cable no llega es lo unico que hay.
+    if (salud == SANO) digitalWrite(LED, HIGH);
+    else               digitalWrite(LED, ((ahora / 50) % 2) ? HIGH : LOW);
 
     if (salud != saludAnterior) {
       // Al arrancar, saludAnterior vale AUSENTE. Si el giroscopio esta

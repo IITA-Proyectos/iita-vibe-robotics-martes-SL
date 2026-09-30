@@ -1228,11 +1228,29 @@ void setup() {
   //
   // Ahora insiste: hasta 10 intentos separados por 300 ms (3 segundos en
   // total), que sobra para que el sensor despierte.
+  // ---- cuantas veces se le pregunta al giroscopio ----
+  //
+  // 2026-09-29, pedido del equipo: UN SOLO INTENTO, como hace el delantero.
+  //
+  // ⚠️ Los 10 intentos se agregaron el 2026-09-01 para tapar la carrera de
+  // encendido: el BNO055 tarda en despertar y, si se le pregunta demasiado
+  // pronto, contesta que no esta aunque este perfecto. Ese dia el equipo
+  // confirmo 3 corridas buenas de 3 con los reintentos puestos.
+  //
+  // Con UNO solo, si el sensor todavia no desperto el robot juega el partido
+  // entero sin rumbo (avisando con el parpadeo rapido). A cambio, lo que se
+  // gana es que el arranque sea inmediato y que no se disfrace un problema
+  // fisico: el 29/09 se descubrio que EL CABLE del giroscopio esta roto, y
+  // los reintentos hacen que "a veces arranque" en vez de fallar parejo.
+  //
+  // Es un solo numero: volver a 10 es cambiar este 1.
+  const int INTENTOS_GIRO = 1;
+
   int intentos = 0;
-  while (!hayGiroscopo && intentos < 10) {
+  while (!hayGiroscopo && intentos < INTENTOS_GIRO) {
     intentos++;
     hayGiroscopo = bno.begin();
-    if (!hayGiroscopo) delay(300);
+    if (!hayGiroscopo && intentos < INTENTOS_GIRO) delay(300);
   }
   if (hayGiroscopo) {
     delay(1000);

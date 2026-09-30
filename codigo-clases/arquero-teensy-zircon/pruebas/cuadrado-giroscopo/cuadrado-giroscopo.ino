@@ -27,7 +27,7 @@
         parpadeo LENTO  -> falta mas de 3 s, todavia lo podes tocar
         parpadeo RAPIDO -> faltan menos de 3 s, SOLTALO
         LED FIJO        -> en movimiento
-        TRIPLE parpadeo repetido -> EL GIROSCOPIO NO RESPONDE (ver abajo)
+        parpadeo RAPIDO (10 por segundo) -> EL GIROSCOPIO NO RESPONDE
 
    PROTOCOLO: apoyar -> prender bateria -> sacar las manos. Nunca al reves.
 
@@ -39,7 +39,8 @@
    SI EL GIROSCOPIO NO RESPONDE
    ---------------------------------------------------------------------
    El sketch NO se mueve. Prefiere quedarse quieto antes que manejar a
-   ciegas creyendo que tiene rumbo. El LED hace triple parpadeo sin parar.
+   ciegas creyendo que tiene rumbo. El LED hace el parpadeo RAPIDO, el
+   mismo aviso que el programa de juego.
    Revisar: cable I2C (pines 18 y 19) y que el BNO este en la direccion
    0x28. El codigo 2025 en este caso se colgaba en un bucle infinito sin
    avisar nada — de ahi el LED.
@@ -606,10 +607,9 @@ void loop() {
 
     case SIN_GIROSCOPO: {
       parar();
-      // triple parpadeo repetido: se distingue de lejos del resto
-      unsigned long t = ahora % 1600;
-      bool on = (t < 100) || (t >= 200 && t < 300) || (t >= 400 && t < 500);
-      digitalWrite(LED, on ? HIGH : LOW);
+      // PARPADEO RAPIDO = no hay giroscopio, el mismo aviso que el
+      // programa de juego. 10 destellos por segundo.
+      digitalWrite(LED, ((ahora / 50) % 2) ? HIGH : LOW);
       break;
     }
 

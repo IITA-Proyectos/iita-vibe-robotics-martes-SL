@@ -93,6 +93,9 @@ al robot de frente en vez de desde el robot. La tabla de arriba es lo medido. Ve
 | [`buscar-i2c/`](pruebas/buscar-i2c/) | ¿Está el giroscopio en el bus? Escanea los tres buses cada 2 s, para menear el conector |
 | [`probar-giroscopo/`](pruebas/probar-giroscopo/) | Solo el BNO055: lo busca en 0x28 y 0x29, no se cuelga, y muestra la calibración |
 | [`monitor-robot/`](pruebas/monitor-robot/) | ⭐ **El tablero del robot.** Giroscopio, sensores de luz y cámara en una pantalla que se refresca en su lugar, con teclas: reiniciar el giroscopio, reiniciar el Teensy, cambiar de modo |
+| [`derecho-y-vuelta/`](pruebas/derecho-y-vuelta/) | ¿Cuánto se tuerce el robot al avanzar, y cuánto lo arregla el heading-hold del delantero? Mide con y sin corrección en la misma corrida y guarda el historial en la EEPROM |
+| [`cuando-se-cae/`](pruebas/cuando-se-cae/) | ¿A qué potencia de motor se muere el giroscopio? Sube la potencia por rampa y anota el umbral. Hoy en modo vigilancia (sin motores) para menear el cable. Con `PROBAR.bat` |
+| [`giroscopo-dfrobot/`](pruebas/giroscopo-dfrobot/) | El mismo BNO055 con la librería de DFRobot en vez de Adafruit. Si contesta acá y no allá, el problema era la librería |
 | [`herramientas/`](pruebas/herramientas/) | Compilar, cargar y hablarle al robot **sin el Arduino IDE** |
 
 ### `funciona/`

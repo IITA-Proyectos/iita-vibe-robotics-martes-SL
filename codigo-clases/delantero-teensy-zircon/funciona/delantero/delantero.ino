@@ -95,7 +95,9 @@
 // =====================================================================
 
 // ---------- IR A BUSCAR LA PELOTA ----------
-const int VEL_GIRO       = 80;   // potencia girando en el lugar para BUSCAR la pelota
+const int VEL_GIRO       = 95;   // potencia girando en el lugar para BUSCAR la pelota. 80 -> 95 el 29/09,
+                                 // despues de que la pausa pasara a FRENAR: antes subirla era peligroso
+                                 // porque la inercia se la comia la pausa suelta y se pasaba de la pelota
 const int VEL_CENT       = 78;   // potencia girando para CENTRARLA una vez que la ve
 const int VEL_AVANCE     = 95;   // potencia yendo hacia la pelota, de LEJOS. Era 55: no arrancaba en la tela
 const int VEL_AVANCE_CERCA = 70; // ...y con cuanta llega, ya CERCA. Si la desacomoda al llegar, bajar esto
@@ -154,9 +156,45 @@ const unsigned long MS_CIEGO_LINEA     = 300; // cuanto IGNORA la linea despues 
 const bool GIRO_INVERTIDO   = true;   // sentido del giro de busqueda/centrado
 const bool ORBITA_INVERTIDA = true;  // <<< para que orbite al otro lado
 
-// --- histeresis del centrado ---
-const int TOL_ENTRA = 10;
-const int TOL_SALE  = 5;
+// --- BUSCAR GIRANDO CONTINUO, no a pulsos (2026-09-29) ---
+// MEDIDO en pruebas/calibracion-busqueda/: girando continuo a 50 con rampa
+// llego a la pelota en 3,5 s; girando a pulsos, en 5,7 s. Al equipo y al
+// profe les gusto mas como queda. La rampa es para no pedirle un tiron
+// desde quieto, que hacia patinar las ruedas en la tela.
+const bool BUSCA_CONTINUO    = true;  // false vuelve al giro a pulsos de antes
+const int  VEL_GIRO_CONTINUO = 50;    // 70 se pasaba de la pelota; 50 quedo
+const int  RAMPA_GIRO_PASO   = 10;    // cuanto sube el PWM en cada escalon
+const unsigned long RAMPA_GIRO_MS = 10;   // cada cuanto sube un escalon
+// Girando continuo lleva envion: al ver la pelota hay que sacarselo o se
+// pasa de largo y la pierde. [pedido del equipo, 29/09]
+const unsigned long MS_FRENO_AL_VER = 200;
+
+// --- DESTRABE: LA VE Y NO SE LE ACERCA (2026-09-29, pedido del equipo) ---
+// De lejos le costaba centrarse y avanzar. La idea del equipo: si pasa un
+// rato viendola sin llegar, que se acerque un poco a lo bruto, porque de
+// cerca centrar le sale facil.
+//
+// OJO CON QUE MIDE EL RELOJ. La primera version media "tiempo seguido
+// girando", y con la histeresis eso se reinicia a cada rato (gira, se
+// alinea, avanza, se tuerce): nunca llegaba a los 5 s y el destrabe casi no
+// saltaba. Ahora mide TIEMPO VIENDOLA SIN ACERCARSE: vuelve a cero solo si
+// recorta MEJORA_DESTRABE cm de verdad, o si pierde la pelota.
+const unsigned long MS_LIMITE_CENTRAR  = 5000;  // viendola sin acercarse
+const int           MEJORA_DESTRABE    = 10;    // cm que tiene que recortar
+const unsigned long MS_AVANCE_DESTRABE = 1000;  // cuanto avanza a lo bruto
+const int           VEL_DESTRABE       = 150;
+const int           MAX_DESTRABES      = 5;     // por cada ida a buscar
+
+// --- histeresis del centrado: AHORA EN GRADOS (2026-09-29) ---
+// Antes eran 10 y 5 comparados contra Yp CRUDO. Yp esta en CENTIMETROS (lo
+// dice el script que corre en la camara: "Retornamos coordenadas reales
+// (cm)"), asi que el ANGULO que representan depende de la distancia: con la
+// pelota a 150 cm, 10 y 5 son 3,8 y 1,9 grados. Toda la ventana de histeresis
+// era mas angosta que lo que el robot gira en UN pulso de centrado, asi que
+// de lejos entraba y salia de CENTRANDO sin parar y no avanzaba nunca.
+// En grados la ventana vale lo mismo este cerca o lejos.
+const float TOL_ANG_ENTRA = 12.0;  // mas torcida que esto -> a centrar
+const float TOL_ANG_SALE  =  6.0;  // mas derecha que esto -> a avanzar
 
 // --- distancias ---
 // 2026-09-15: subido de 22 a 34. El equipo reporto que al llegar a la
@@ -167,12 +205,15 @@ const int TOL_SALE  = 5;
 // Llega mas rapido, asi que para cuando el estado cambia ya se comio la
 // distancia que le quedaba. Subir el umbral es empezar a rodearla ANTES.
 //
-// ⚠ ESTE NUMERO ESTA EN UNIDADES DESCONOCIDAS. El factor de escala de la
-// camara nunca se midio — pruebas/tabla-camara/ esta escrita desde el
-// 25/08 y nunca se corrio. No sabemos cuantos centimetros son 34, asi que
-// esto es tanteo, no calculo. La orbita gira alrededor de un punto a
-// R = 2*L = 17,5 cm adelante del centro del robot: si Xp fuera cm, el
-// umbral tendria que estar comodamente por encima de eso.
+// ✅ 2026-09-29: SON CENTIMETROS. Este comentario decia "unidades
+// desconocidas" y estaba mal. Lo confirman dos fuentes: el script que corre
+// DENTRO de la camara (h = 18.7 cm de altura, r = 13.5/(2*pi) cm de radio de
+// pelota, y "return X, Y  # Retornamos coordenadas reales (cm)"), y la tabla
+// fila -> cm de vision/README.md (fila 240 = 17,4 cm; fila 33 = 150 cm).
+// Asi que 34 son 34 CENTIMETROS, y se puede calcular en vez de tantear.
+// De hecho cierra: la orbita gira alrededor de un punto a R = 2*L = 17,5 cm
+// adelante del centro del robot, y 34 esta comodamente por encima de eso,
+// que es justo lo que este comentario pedia comprobar.
 //
 // Sigue debajo de XP_SUELTA = 55, que es lo unico que no se puede cruzar:
 // si XP_ORBITA llegara a XP_SUELTA, el robot entraria y saldria de la
@@ -204,7 +245,13 @@ const int XARCO_MAX = 200;  // 200 es el tope que manda la camara: acepto todo
 // VEL_GIRO vive ahora en el PANEL DE CONTROL, arriba de todo.
 // El por que y la historia quedaron aca, que es donde tienen sentido.
 const int MS_PULSO_BUSC  = 60;
-const int MS_ESPERA_BUSC = 380;
+// 2026-09-29: 380 -> 200. MEDIDO con pruebas/calibracion-busqueda/:
+// con la pausa en 380 el robot llegaba a la pelota en 10,2 s; con 200,
+// en 5,3 s. Casi el doble de rapido, solo por acortar la pausa.
+// La camara manda 46 cuadros/s, asi que en 200 ms ve unos 9: sigue
+// siendo de sobra para decidir. Es la perilla correcta para barrer mas
+// rapido — subir VEL_GIRO seria al reves, mas inercia y peor deteccion.
+const int MS_ESPERA_BUSC = 200;   // era 380
 
 // --- giro para CENTRAR ---
 // VEL_CENT vive ahora en el PANEL DE CONTROL, arriba de todo.
@@ -1162,9 +1209,18 @@ unsigned long t_ultimaLinea = 0;
 unsigned long t_sensorDesde[3] = { 0, 0, 0 };
 
 enum Estado { BUSCANDO, CENTRANDO, AVANZANDO, ORBITANDO,
-              APUNTA_RUMBO0, PATEA_ADEL, PATEA_ATRAS, ESCAPA_LINEA };
+              APUNTA_RUMBO0, PATEA_ADEL, PATEA_ATRAS, ESCAPA_LINEA,
+              DESTRABANDO };
 Estado estado = BUSCANDO;
 Estado estadoAnterior = PATEA_ATRAS;
+
+// --- rampa del giro continuo de busqueda y reloj del destrabe [29/09] ---
+int  pwmGiroBusc = 0;              // PWM actual de la rampa del giro
+unsigned long t_rampaGiro    = 0;
+unsigned long t_frenoAlVer   = 0;  // 0 = no esta frenando el envion
+unsigned long t_sinAcercarse = 0;  // 0 = el reloj del destrabe esta parado
+int  mejorXp    = 0;               // lo mas cerca que estuvo en este intento
+int  nDestrabes = 0;
 
 bool avisadoSinCamara = false;
 
@@ -1416,11 +1472,49 @@ void escaparDeLinea(int m, int velocidad) {
   digitalWrite(TRA_INB, pwm[2] < 0 ? 1 : 0);
 }
 
+// Gira a pulsos: empuja un rato y despues se queda quieto, para poder
+// mirar entre pulso y pulso.
+//
+// 2026-09-22 -> LA PAUSA AHORA FRENA DE VERDAD. Reportado por el equipo:
+// "mientras gira buscando la detecta y a veces se pasa, y la busca de
+// vuelta".
+//
+// LA CAUSA: la pausa hacia parar(), que pone las dos patas de direccion
+// en 0 — eso SUELTA las ruedas, no las frena. Durante los 380 ms de
+// "pausa" el robot seguia girando por inercia con las ruedas libres. O
+// sea que la pausa no detenia nada: solo dejaba de empujar. La camara
+// veia la pelota y el robot seguia de largo.
+//
+// Ahora la pausa usa frenar() (el freno electrico portado del arquero el
+// 15/09): cortocircuita los motores y el pulso termina donde tiene que
+// terminar. Arregla lo mismo al CENTRAR, que usa este mismo mecanismo.
+//
+// ⚠ EFECTO LATERAL A VIGILAR: la vuelta de busqueda va a tardar mas,
+// porque hasta hoy la inercia ayudaba a avanzar durante la pausa. Si
+// tarda mucho en encontrar la pelota, se compensa subiendo MS_PULSO_BUSC
+// (60) o bajando MS_ESPERA_BUSC (380). NO subiendo VEL_GIRO: mas
+// velocidad es mas inercia, que es justo lo que estamos sacando.
 void rotarPulsado(bool sentidoA, int vel, int msPulso, int msEspera) {
   unsigned long fase = millis() - t_cicloPulso;
   if (fase < (unsigned long)msPulso)                    motoresRotando(sentidoA, vel);
-  else if (fase < (unsigned long)(msPulso + msEspera))  parar();
+  else if (fase < (unsigned long)(msPulso + msEspera))  frenar();
   else                                                  t_cicloPulso = millis();
+}
+
+
+// Giro CONTINUO con rampa para BUSCAR la pelota. A diferencia de
+// rotarPulsado(), no para nunca: sube el PWM de a RAMPA_GIRO_PASO hasta
+// VEL_GIRO_CONTINUO y se queda ahi. pwmGiroBusc vuelve a 0 cuando ve la
+// pelota, asi la proxima busqueda arranca suave otra vez.
+void girarContinuo(bool sentidoA) {
+  if (millis() - t_rampaGiro >= RAMPA_GIRO_MS) {
+    t_rampaGiro = millis();
+    if (pwmGiroBusc < VEL_GIRO_CONTINUO) {
+      pwmGiroBusc += RAMPA_GIRO_PASO;
+      if (pwmGiroBusc > VEL_GIRO_CONTINUO) pwmGiroBusc = VEL_GIRO_CONTINUO;
+    }
+  }
+  motoresRotando(sentidoA, pwmGiroBusc);
 }
 
 
@@ -1539,6 +1633,7 @@ const char* nombreEstado(Estado e) {
     case PATEA_ADEL:  return "PATEANDO!";
     case PATEA_ATRAS: return "retrocede";
     case ESCAPA_LINEA: return "!LINEA!";
+    case DESTRABANDO: return "destrabando";
   }
   return "?";
 }
@@ -1733,6 +1828,24 @@ void setup() {
   Serial.println("==============================================");
   Serial.println("BUSCAR - CENTRAR - AVANZAR - ORBITAR - PATEAR");
   Serial.print("orbita si Xp<"); Serial.println(XP_ORBITA);
+  if (BUSCA_CONTINUO) {
+    Serial.print("buscar: giro CONTINUO a "); Serial.print(VEL_GIRO_CONTINUO);
+    Serial.print(" con rampa; al verla frena "); Serial.print(MS_FRENO_AL_VER);
+    Serial.println(" ms el envion");
+  } else {
+    Serial.print("buscar: pulsos de "); Serial.print(MS_PULSO_BUSC);
+    Serial.print(" ms a "); Serial.print(VEL_GIRO);
+    Serial.print(" con pausa FRENADA de "); Serial.print(MS_ESPERA_BUSC);
+    Serial.println(" ms");
+  }
+  Serial.print("centrar POR ANGULO: entra a "); Serial.print(TOL_ANG_ENTRA, 0);
+  Serial.print(" grados, sale a "); Serial.print(TOL_ANG_SALE, 0);
+  Serial.println("  (pausa FRENADA)");
+  Serial.print("destrabe: si en "); Serial.print(MS_LIMITE_CENTRAR / 1000);
+  Serial.print(" s no se acerca "); Serial.print(MEJORA_DESTRABE);
+  Serial.print(" cm, avanza "); Serial.print(MS_AVANCE_DESTRABE / 1000.0, 1);
+  Serial.print(" s a "); Serial.print(VEL_DESTRABE);
+  Serial.print(" (hasta "); Serial.print(MAX_DESTRABES); Serial.println(" veces)");
   Serial.print("avance: "); Serial.print(VEL_AVANCE);
   Serial.print(" y afloja hasta "); Serial.print(VEL_AVANCE_CERCA);
   Serial.print(" desde Xp<"); Serial.println(XP_FRENAR);
@@ -2143,31 +2256,88 @@ void loop() {
   else {
     if (!laVeo) {
       if (estado != BUSCANDO) cambiarA(BUSCANDO);
-      rotarPulsado(!GIRO_INVERTIDO, VEL_GIRO, MS_PULSO_BUSC, MS_ESPERA_BUSC);
+      // La perdio: los dos relojes vuelven a cero. El destrabe es para "la
+      // veo y no me acerco", no para "la perdi": si no, el tiempo de volver a
+      // buscarla contaria como tiempo sin acercarse y el destrabe saltaria
+      // por el motivo equivocado (eso pasaba antes del 29/09).
+      t_sinAcercarse = 0;
+      t_frenoAlVer   = 0;
+      if (BUSCA_CONTINUO) girarContinuo(!GIRO_INVERTIDO);
+      else                rotarPulsado(!GIRO_INVERTIDO, VEL_GIRO, MS_PULSO_BUSC, MS_ESPERA_BUSC);
+    }
+    // Acaba de verla viniendo de girar continuo: primero le saca el envion.
+    // NO es un delay(): son vueltas de loop() frenando, asi que la linea
+    // blanca se sigue mirando. Si se bloqueara, el robot podria cruzar la
+    // linea sin verla y salirse de la cancha.
+    else if (estado == BUSCANDO && BUSCA_CONTINUO
+             && (t_frenoAlVer == 0 || millis() - t_frenoAlVer < MS_FRENO_AL_VER)) {
+      if (t_frenoAlVer == 0) {
+        t_frenoAlVer = millis();
+        pwmGiroBusc  = 0;          // la proxima busqueda arranca suave
+        Serial.print("*** la vi a "); Serial.print(XpBueno);
+        Serial.println(" cm -> freno el envion antes de centrar");
+      }
+      frenar();
     }
     else if (XpBueno < XP_ORBITA) {
       Serial.print("*** llegue a "); Serial.print(XpBueno);
       Serial.print(" cm -> a orbitar buscando el arco ");
       Serial.println(arcoNombre());
+      nDestrabes     = 0;          // llego: el cupo de destrabes se renueva
+      t_sinAcercarse = 0;
+      pwmGiroBusc    = 0;
       cambiarA(ORBITANDO);
     }
-    else {
-      int desvio = abs(YpBueno);
-      if (estado == CENTRANDO) {
-        if (desvio < TOL_SALE) cambiarA(AVANZANDO);
+    // DESTRABANDO: avanza a lo bruto un rato para mirarla desde mas cerca.
+    // Es un ESTADO y no una espera bloqueante, justamente para no dejar de
+    // mirar la linea blanca durante ese segundo.
+    else if (estado == DESTRABANDO) {
+      if (millis() - t_entroEstado >= MS_AVANCE_DESTRABE) {
+        t_sinAcercarse = 0;        // el reloj se recarga con la nueva distancia
+        cambiarA(CENTRANDO);
       } else {
-        if (desvio > TOL_ENTRA)        cambiarA(CENTRANDO);
-        else if (estado != AVANZANDO)  cambiarA(AVANZANDO);
+        avanzar(VEL_DESTRABE);
+      }
+    }
+    else {
+      // EL RELOJ DEL DESTRABE mide TIEMPO VIENDOLA SIN ACERCARSE. Vuelve a
+      // cero solo si recorta MEJORA_DESTRABE cm de verdad. Ver el bloque
+      // "DESTRABE" del panel de control para por que no mide otra cosa.
+      if (t_sinAcercarse == 0) { t_sinAcercarse = millis(); mejorXp = XpBueno; }
+      if (XpBueno < mejorXp - MEJORA_DESTRABE) {
+        mejorXp        = XpBueno;
+        t_sinAcercarse = millis();     // progresa: se le da mas tiempo
       }
 
-      if (estado == CENTRANDO) {
-        bool haciaUnLado = (YpBueno > 0);
-        if (GIRO_INVERTIDO) haciaUnLado = !haciaUnLado;
-        rotarPulsado(haciaUnLado, VEL_CENT, MS_PULSO_CENT, MS_ESPERA_CENT);
-      } else {
-        // Afloja de a poco al acercarse, para no llegar con envion y
-        // desacomodar la pelota. Ver "AFLOJAR AL ACERCARSE A LA PELOTA".
-        avanzar(velAcercarse(XpBueno));
+      if (nDestrabes < MAX_DESTRABES
+          && millis() - t_sinAcercarse > MS_LIMITE_CENTRAR) {
+        nDestrabes++;
+        Serial.print("... la veo a "); Serial.print(XpBueno);
+        Serial.print(" cm y no me acerco -> avanzo a lo bruto (destrabe ");
+        Serial.print(nDestrabes); Serial.print(" de "); Serial.print(MAX_DESTRABES);
+        Serial.println(")");
+        cambiarA(DESTRABANDO);
+      }
+      else {
+        // EL CENTRADO MIDE EN GRADOS, con histeresis. Ver TOL_ANG_ENTRA en el
+        // panel: en centimetros crudos la ventana se volvia inservible de lejos.
+        float desvio = fabs(angPelota);
+        if (estado == CENTRANDO) {
+          if (desvio < TOL_ANG_SALE) cambiarA(AVANZANDO);
+        } else {
+          if (desvio > TOL_ANG_ENTRA)    cambiarA(CENTRANDO);
+          else if (estado != AVANZANDO)  cambiarA(AVANZANDO);
+        }
+
+        if (estado == CENTRANDO) {
+          bool haciaUnLado = (YpBueno > 0);
+          if (GIRO_INVERTIDO) haciaUnLado = !haciaUnLado;
+          rotarPulsado(haciaUnLado, VEL_CENT, MS_PULSO_CENT, MS_ESPERA_CENT);
+        } else {
+          // Afloja de a poco al acercarse, para no llegar con envion y
+          // desacomodar la pelota. Ver "AFLOJAR AL ACERCARSE A LA PELOTA".
+          avanzar(velAcercarse(XpBueno));
+        }
       }
     }
   }

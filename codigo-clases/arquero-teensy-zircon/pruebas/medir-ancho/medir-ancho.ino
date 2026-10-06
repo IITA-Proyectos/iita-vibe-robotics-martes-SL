@@ -143,6 +143,42 @@ const int UMBRAL_BLANCO = 425;
 // es 50/50/89) y un motor parado necesita ~70 para arrancar (medido el
 // 01/09). Si en vez de deslizarse de costado el robot GIRA o avanza a los
 // tirones, este es el primer numero a subir.
+//
+// 🎯 2026-10-06: PASO JUSTO ESO. El robot oscilaba de costado, poco al
+// principio y mucho despues. Oscilacion que CRECE es la firma de un lazo de
+// control con una ZONA MUERTA adentro, y aca la zona muerta estaba a la
+// vista: con las ruedas de adelante en 50 y el piso en ~70, la correccion
+// de rumbo empuja y NO PASA NADA. El termino acumulado se infla mientras el
+// robot no responde; cuando la suma por fin cruza el piso, la rueda arranca
+// de golpe y se pasa de largo. Y al otro lado, lo mismo pero mas grande.
+//
+//      100  ->  ruedas de adelante en 50
+//      160  ->  ruedas de adelante en 80
+//
+// 🎯 2026-10-06 — EL CAMINO CORTO ERA OTRO.
+//
+// Con 100 el robot zigzagueaba desde el medio; con 160 ese tramo salia
+// derecho. La conclusion facil era "hay que ir mas rapido", y es la
+// equivocada: a 160 el robot llega al borde y choca contra la madera del
+// piso con todo.
+//
+// Lo dijo el equipo, y tienen razon: lo que habia que subir no era la
+// velocidad, era EL PISO DE LA CORRECCION.
+//
+// El problema nunca fue que el robot se moviera poco — rodando se mueve
+// con ~40 de PWM. El problema era que cuando la correccion de rumbo pedia
+// unos pocos PWM de diferencia entre ruedas, ESA DIFERENCIA NO ALCANZABA
+// para vencer el roce, y el robot no respondia hasta que el error ya era
+// grande. Subir la velocidad entera era darle margen a la correccion por
+// el lado caro: mas envion, mas golpe, y los tiempos medidos valdrian para
+// una velocidad que el juego no usa.
+//
+// Entonces vuelve a 100 (la misma del 21/09 y la del programa de juego,
+// asi los numeros son comparables) y la fuerza se la damos donde falta:
+// en PWM_MIN_CORRECCION, aca abajo.
+//
+// ⚠️ El numero medido SOLO VALE PARA ESTA VELOCIDAD. Si se cambia, hay que
+// volver a medir y cambiarla tambien en el programa de juego.
 const int VEL_MEDIR = 100;
 
 // Mezcla para ir de costado: la del codigo 2025 (ai/adproporcional), la
@@ -159,6 +195,32 @@ const unsigned long MS_CUENTA        = 3000;   // quieto antes de salir
 const unsigned long MS_MAX_PRIMER_COSTADO = 4000;
 const unsigned long MS_MAX_CRUCE          = 6000;   // nunca mas que esto
 const unsigned long MS_FRENO         = 200;    // freno electrico sostenido
+
+// ---- enderezarse despues del golpe ----
+//
+// 🎯 EL PROBLEMA QUE ESTO ARREGLA (2026-10-06)
+//
+// Al llegar al lateral el robot choca contra el borde de la cancha, y el
+// golpe lo GIRA. Si el tramo siguiente arrancara asi, pasarian dos cosas
+// malas a la vez: la correccion de rumbo tendria que pelear un error enorme
+// MIENTRAS cruza (de ahi el zigzagueo), y el tiempo cronometrado seria el de
+// un robot yendo en diagonal, no cruzando derecho. O sea: el numero no
+// valdria.
+//
+// La solucion es separar las dos cosas. Primero se endereza QUIETO, girando
+// en el lugar hasta volver al rumbo de referencia. Recien cuando esta
+// cuadrado arranca el cronometro. Asi cada cruce empieza igual que el
+// anterior, que es la unica forma de que los tiempos se puedan comparar.
+//
+// Los PWM salen de lo medido el 2026-09-15: desde quieto hace falta ~75
+// para vencer el roce, y arriba de ~85 el giro se pasa y oscila.
+const int           PWM_MIN_ENDEREZAR   = 75;
+const int           PWM_MAX_ENDEREZAR   = 85;
+const float         TOLERANCIA_ENDEREZAR = 3.0;    // grados
+const unsigned long MS_MAX_ENDEREZAR    = 2500;    // si no llega, seguir igual
+
+int   vecesQueSeEnderezo = 0;
+float peorGolpe = 0;        // el mayor desvio encontrado al llegar al lateral
 const unsigned long MS_QUIETO        = 300;    // quieto entre tramos
 // Lo que tarda el motor en empezar a mover, medido el 04/08 (avanzando).
 const unsigned long MS_RETARDO_ARRANQUE = 33;
@@ -181,7 +243,48 @@ const float KP_RUMBO = 5.0;
 const float KI_RUMBO = 1.5;
 const float LIMITE_INTEGRAL = 30.0;
 const int   MAX_CORRECCION_RUMBO = 100;
+// ---- 🔴 EL PISO DE LA CORRECCION: SE PROBO Y SE SACO (2026-10-06) ----
+//
+// La idea era: si la correccion pide pocos PWM, el roce se los come y el
+// robot no responde. Entonces ponerle un minimo. Se probo con 30 y con 70.
+// NO ARREGLO NADA, y con 70 empeoro bastante. La cuenta de por que:
+//
+//   yendo a la derecha, las ruedas de adelante reciben 50 (mezcla 50/50/89)
+//   si la correccion pide c = -70  ->  50 - 70 = -20
+//
+// ⚠️ LAS RUEDAS DE ADELANTE SE DAN VUELTA. Con un piso de 70 la correccion
+// deja de ser un ajuste y pasa a ser un interruptor que destruye el
+// movimiento lateral cada vez que dispara. Eso ES el zigzagueo.
+//
+// Y la prueba de que el piso nunca hizo falta: el programa de juego NO LO
+// TIENE —su correccion devuelve el valor crudo, sea 3 o 40— y mueve el
+// robot de costado todo el partido sin zigzaguear, con las ruedas de
+// adelante en 30, menos todavia que los 50 de aca.
+//
+// El problema real era el delay(200) escondido en getSystemStatus(); ver el
+// bloque de preguntarSiFusiona(). Queda escrito para no volver a intentarlo.
+const int PWM_MIN_CORRECCION = 0;        // 0 = sin piso, como el juego
+
+// La zona muerta vuelve a 1,0: es la del programa de juego. Se habia
+// ensanchado a 2,0 solo para acompañar al piso, que ya no esta.
 const float ZONA_MUERTA_RUMBO = 1.0;
+
+// ---- cuanto se torcio en cada tramo ----
+//
+// Para saber si un cambio mejoro la oscilacion hace falta un NUMERO, no una
+// impresion. Se guarda el peor desvio de cada tramo (contra el rumbo que
+// tendria que estar sosteniendo) y se informa al final.
+//
+// Como leerlo: si el peor desvio es de 2 o 3 grados, el robot va derecho y
+// lo que se vio fue el deslizamiento normal. Si es de 15 o 20, oscila de
+// verdad. Y si crece tramo a tramo, el lazo se esta yendo.
+float desvioPeor[4] = {0, 0, 0, 0};
+
+// Lo ultimo que devolvio rumboActual(). Existe para NO tener que leer el
+// giroscopio dos veces por vuelta: cada lectura es una charla por I2C de
+// un par de milisegundos, y en un lazo de control eso es retardo puro.
+float ultimoRumboLeido = -1;
+
 float integralRumbo = 0;
 unsigned long t_ultimoControl = 0;
 
@@ -244,7 +347,7 @@ MedicionAncho medicion = { 0, 0, 0, 0, 0, 0 };
 
 
 // ---- estado ----
-enum Fase { CUENTA, MOVIENDO, FRENANDO, TERMINADO, ERROR };
+enum Fase { CUENTA, MOVIENDO, FRENANDO, ENDEREZANDO, TERMINADO, ERROR };
 Fase fase = CUENTA;
 unsigned long t_fase = 0;
 
@@ -337,10 +440,27 @@ const unsigned long MS_CHEQUEO_FUSION = 400;
 unsigned long t_chequeoFusion = 0;
 bool fusionCorriendo = true;
 
+// 🚨 NO USAR bno.getSystemStatus(): TERMINA CON delay(200).
+//
+// Esta es la causa del zigzagueo, y estuvo escondida una semana entera.
+// Adafruit_BNO055.cpp, en getSystemStatus(), despues de leer los registros
+// hace un delay(200) antes de volver. Llamandola cada 400 ms desde
+// rumboActual(), el robot manejaba A CIEGAS 200 de cada 400 milisegundos
+// —la mitad del tiempo— con la ultima correccion clavada en los motores,
+// porque el PWM lo sigue generando el hardware mientras el programa duerme.
+//
+// Eso es RETARDO, no ganancia. Y por eso no sirvio subir la velocidad, ni
+// poner piso a la correccion, ni ensanchar la zona muerta: las tres mueven
+// el TAMAÑO de la correccion, y el problema era el TIEMPO EN QUE NADIE MIRA.
+//
+// La misma informacion se saca leyendo el registro 0x39 a mano, en un par
+// de milisegundos y sin dormir a nadie.
 bool preguntarSiFusiona() {
-  uint8_t sys = 0, autotest = 0, err = 0;
-  bno.getSystemStatus(&sys, &autotest, &err);
-  return sys == 5;
+  Wire.beginTransmission(0x28);
+  Wire.write(0x39);                      // SYS_STATUS
+  if (Wire.endTransmission(false) != 0) return false;
+  if (Wire.requestFrom(0x28, 1) != 1)    return false;
+  return Wire.read() == 5;               // 5 = la fusion esta corriendo
 }
 
 // El rumbo, o -1 si el sensor no esta dando datos utiles.
@@ -370,6 +490,7 @@ float rumboActual() {
     return 0.01;      // no 0.0 exacto, para no confundirlo con "sin dato"
   }
   cerosSeguidos = 0;
+  ultimoRumboLeido = e.orientation.x;
   return e.orientation.x;
 }
 
@@ -385,6 +506,24 @@ float diferencia(float objetivo, float actual) {
 void reiniciarCorreccion() {
   integralRumbo = 0;
   t_ultimoControl = millis();
+}
+
+// Anota el peor desvio del tramo. Va ACA y no arriba junto a desvioPeor[]
+// porque en un .ino el IDE genera los prototipos de todas las funciones y
+// los mete antes de la primera que encuentre: definida mas arriba, el
+// prototipo de fallar(Error) quedaba antes del `enum Error` y no compilaba.
+// 🚨 NO LLAMA A rumboActual(). Usa el valor que ya leyo la correccion de
+// rumbo en esta misma vuelta.
+//
+// Cuando esta funcion se escribio (2026-10-06) leia el giroscopio de nuevo,
+// y con eso DUPLICABA las lecturas I2C del lazo de movimiento. Cada lectura
+// del BNO055 son un par de milisegundos: en un lazo de control, eso es
+// retardo, y el retardo hace oscilar aunque las ganancias esten bien.
+// Medir no puede cambiar lo que se mide.
+void anotarDesvio(int n) {
+  if (n < 0 || n > 3 || rumboBase < 0 || ultimoRumboLeido < 0) return;
+  float d = fabs(diferencia(rumboBase, ultimoRumboLeido));
+  if (d > desvioPeor[n]) desvioPeor[n] = d;
 }
 
 // Cuanto sumarle a las TRES ruedas para que el robot no gire.
@@ -410,6 +549,9 @@ int correccionDeRumbo() {
   float c = error * KP_RUMBO + integralRumbo * KI_RUMBO;
   if (c >  MAX_CORRECCION_RUMBO) c =  MAX_CORRECCION_RUMBO;
   if (c < -MAX_CORRECCION_RUMBO) c = -MAX_CORRECCION_RUMBO;
+
+  // ⚠️ ACA HUBO UN PISO (PWM_MIN_CORRECCION) Y FUE UN ERROR. Ver el bloque
+  // de esa constante, mas arriba.
   return (int)c;
 }
 
@@ -485,6 +627,9 @@ void escribirEstado() {
     case FRENANDO:
       Serial.print("MIDIENDO, tramo "); Serial.print(tramo + 1);
       Serial.println(" de 4"); break;
+    case ENDEREZANDO:
+      Serial.print("enderezandose despues del golpe, antes del tramo ");
+      Serial.println(tramo + 2); break;
     case TERMINADO: Serial.println("TERMINO BIEN. La medicion de arriba es la que acaba de hacer."); break;
     case ERROR:
       Serial.print("ERROR, no se guardo nada: ");
@@ -556,6 +701,35 @@ void informe() {
       Serial.print("  <-- OJO: este programa usa "); Serial.print(VEL_MEDIR);
     }
     Serial.println();
+  }
+  // El peor desvio de cada tramo: es lo que dice si oscilo o no.
+  if (desvioPeor[0] > 0 || desvioPeor[1] > 0
+      || desvioPeor[2] > 0 || desvioPeor[3] > 0) {
+    Serial.print("  peor desvio por tramo (grados): ");
+    for (int i = 0; i < 4; i++) {
+      Serial.print(desvioPeor[i], 1);
+      if (i < 3) Serial.print("  ");
+    }
+    Serial.println();
+    float peor = 0;
+    for (int i = 0; i < 4; i++) if (desvioPeor[i] > peor) peor = desvioPeor[i];
+    if (vecesQueSeEnderezo > 0) {
+      Serial.print("  se tuvo que enderezar "); Serial.print(vecesQueSeEnderezo);
+      Serial.print(" vez/veces; el peor golpe lo dejo ");
+      Serial.print(peorGolpe, 1); Serial.println(" grados torcido");
+      Serial.println("    (eso es el choque contra el borde: si es mucho, el");
+      Serial.println("     robot llega demasiado rapido y hay que bajar VEL_MEDIR)");
+    } else {
+      Serial.println("  no hizo falta enderezarlo en ningun momento");
+    }
+    if (peor > 10.0) {
+      Serial.println("    -> MAS DE 10 GRADOS: oscilo de verdad, el numero medido");
+      Serial.println("       no sirve (fue zigzagueando, no derecho).");
+    } else if (peor > 5.0) {
+      Serial.println("    -> entre 5 y 10 grados: se movio bastante, mirarlo.");
+    } else {
+      Serial.println("    -> menos de 5 grados: fue derecho.");
+    }
   }
   escribirEstado();
   Serial.println("===========================================");
@@ -736,6 +910,7 @@ void loop() {
     case MOVIENDO: {
       digitalWrite(LED, HIGH);
       moverDeCostado(dirTramo * VEL_MEDIR);   // tambien lee el giroscopio
+      anotarDesvio(tramo);
 
       if (giroscopoCaido()) { fallar(ERR_SIN_GIRO); break; }
 
@@ -765,6 +940,19 @@ void loop() {
       if (ahora - t_fase < MS_FRENO) { frenar(); break; }
       parar();
       if (ahora - t_fase < MS_FRENO + MS_QUIETO) break;
+      // Antes de seguir: ¿quedo torcido por el golpe contra el borde?
+      if (tramo + 1 < TRAMOS && hayGiroscopo && rumboBase >= 0) {
+        float r = rumboActual();
+        if (r >= 0) {
+          float err = fabs(diferencia(rumboBase, r));
+          if (err > fabs(peorGolpe)) peorGolpe = err;
+          if (err > TOLERANCIA_ENDEREZAR) {
+            vecesQueSeEnderezo++;
+            fase = ENDEREZANDO; t_fase = ahora;
+            break;
+          }
+        }
+      }
       if (tramo + 1 < TRAMOS) {
         empezarTramo(tramo + 1);
       } else {
@@ -773,6 +961,39 @@ void loop() {
         informe();                             // y avisa enseguida
       }
       break;
+
+    case ENDEREZANDO: {
+      // Gira en el lugar: las tres ruedas al mismo sentido. El signo es el
+      // mismo que usa correccionDeRumbo(), que ya esta probado.
+      digitalWrite(LED, ((ahora / 150) % 2) ? HIGH : LOW);   // parpadeo medio
+      float r = rumboActual();
+      bool listo = false;
+
+      if (r < 0) {
+        listo = true;                    // sin rumbo no se puede enderezar
+      } else {
+        float err = diferencia(rumboBase, r);
+        if (fabs(err) <= TOLERANCIA_ENDEREZAR) listo = true;
+        else {
+          int pwm = (int)(fabs(err) * KP_RUMBO);
+          if (pwm > PWM_MAX_ENDEREZAR) pwm = PWM_MAX_ENDEREZAR;
+          if (pwm < PWM_MIN_ENDEREZAR) pwm = PWM_MIN_ENDEREZAR;
+          int c = (err > 0) ? pwm : -pwm;
+          aplicar(c, c, c);
+        }
+      }
+      // Tope de tiempo: si no llega, mejor seguir que quedarse trabado.
+      if (ahora - t_fase >= MS_MAX_ENDEREZAR) listo = true;
+
+      if (listo) {
+        frenar();                        // frenar, no soltar: si no se pasa
+        delay(MS_FRENO);
+        parar();
+        delay(MS_QUIETO);
+        empezarTramo(tramo + 1);
+      }
+      break;
+    }
 
     case TERMINADO:
       parar();

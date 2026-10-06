@@ -96,6 +96,7 @@ al robot de frente en vez de desde el robot. La tabla de arriba es lo medido. Ve
 | [`derecho-y-vuelta/`](pruebas/derecho-y-vuelta/) | ¿Cuánto se tuerce el robot al avanzar, y cuánto lo arregla el heading-hold del delantero? Mide con y sin corrección en la misma corrida y guarda el historial en la EEPROM |
 | [`cuando-se-cae/`](pruebas/cuando-se-cae/) | ¿A qué potencia de motor se muere el giroscopio? Sube la potencia por rampa y anota el umbral. Hoy en modo vigilancia (sin motores) para menear el cable. Con `PROBAR.bat` |
 | [`ir-al-medio/`](pruebas/ir-al-medio/) | ⭐ Volver al centro del arco usando las líneas: busca el lateral, el fondo y el área para saber dónde está en los dos ejes, y recién entonces cruza al medio por tiempo. Se puede apoyar en cualquier lado de la cancha |
+| [`ver-prediccion/`](pruebas/ver-prediccion/) | ⭐ ¿La predicción de la pelota acierta? Dibuja una regla con dos marcas: dónde **está** y dónde se **predice**. Si la P queda detrás de la o, el signo está invertido. Con `MIRAR.bat` |
 | [`giroscopo-dfrobot/`](pruebas/giroscopo-dfrobot/) | El mismo BNO055 con la librería de DFRobot en vez de Adafruit. Si contesta acá y no allá, el problema era la librería |
 | [`herramientas/`](pruebas/herramientas/) | Compilar, cargar y hablarle al robot **sin el Arduino IDE** |
 

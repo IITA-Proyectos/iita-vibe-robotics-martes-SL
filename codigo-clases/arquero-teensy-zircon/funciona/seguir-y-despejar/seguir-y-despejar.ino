@@ -6,6 +6,32 @@
    IITA Salta — taller de los martes — Roboliga 2026
    Ultimo cambio: 2026-09-29
 
+   ---------------------------------------------------------------------
+   📋 CAMBIOS DEL 2026-10-06, Y COMO VOLVER ATRAS
+   ---------------------------------------------------------------------
+   Se tocaron DOS numeros, los dos para que el robot se adelante mejor a la
+   pelota. Si algo anda peor que antes, estos son los valores de vuelta:
+
+        pwmMaxLateral             150   ->   120   (era asi antes de hoy)
+        msAnticipacionSeguir      500   ->   250   (o borrar la constante y
+                                                    usar msAnticipacion)
+
+   Los dos estan con su explicacion completa en el lugar donde se declaran.
+   Y los dos son UN NUMERO: volver atras es cambiarlo, nada mas.
+
+   🧊 Y si se quiere volver a TODO como estaba, sin pensar: esta la copia
+   congelada en `respaldos/estable-0.0929/`, que es este mismo programa tal
+   como quedo el 29/09. Se carga desde su propia carpeta y su banner avisa
+   "RESPALDO ESTABLE 0.0929" para no confundirla con esta.
+
+   POR QUE LOS DOS JUNTOS Y NO DE A UNO: porque estaban peleados. Subir la
+   anticipacion sola no hacia nada con pelota rapida, porque el tope de 120
+   ya recortaba la fuerza (120/11,5 = 10,4 cm de desvio y ya saturaba). Y
+   subir el tope solo tampoco alcanzaba, porque el robot seguia mirando a
+   donde la pelota ESTABA. Hacian falta los dos.
+
+   ---------------------------------------------------------------------
+
    ESTE ES EL PROGRAMA DE PARTIDO. Es el que se carga para jugar.
    Todo lo que esta en `pruebas/` son herramientas de medicion: no juegan.
 
@@ -219,7 +245,34 @@ const int LADO_TRASERA = 89;     // la de atras
 // pelota casi tres veces mas flojo y va a parecer que se rompio.
 float kpLateral   = 11.5;        // PWM por cm REAL de desvio de la pelota
 int   pwmMinLateral = 60;        // abajo de esto no se mueve, solo zumba
-int   pwmMaxLateral = 120;
+
+// 🎯 2026-10-06: 120 -> 150, a pedido del equipo.
+//
+// POR QUE. Lo destapo una pregunta del equipo: "¿el seguimiento lateral tiene
+// un tope de velocidad?". Si, y la cuenta de cuando satura es esta:
+//
+//       120 / kpLateral  =  120 / 11,5  =  10,4 cm de desvio
+//
+// O sea que con la pelota a mas de 10 cm al costado, el robot YA IBA AL TOPE:
+// 10 cm o 30 cm daban lo mismo. Y eso explica algo que acababamos de hacer:
+// subir la anticipacion del seguimiento de 250 a 500 ms NO cambiaba nada con
+// pelota rapida, porque el desvio ya pasaba los 10,4 cm y la fuerza ya estaba
+// recortada. La prediccion cambiaba hacia DONDE mira, pero el robot no podia
+// ir mas rapido. Con pelota rapida el que manda es ESTE numero.
+//
+//       150 / 11,5 = 13 cm antes de saturar
+//
+// Como queda el reparto de las ruedas con 150 (mezcla 50/50/89):
+//       las dos de adelante:  75     (el piso de arranque es ~70: justo arriba)
+//       la de atras:         133
+// Y la correccion de rumbo puede sumar hasta 100 encima: 233, debajo de 255.
+// Entra.
+//
+// ⚠️ EL COSTO, PARA SABER QUE MIRAR: mas velocidad es mas envion, y al llegar
+// al desvio cero el robot se pasa de largo. Si empieza a oscilar de lado a
+// lado alrededor de la pelota en vez de quedarse, bajarlo (135, 125). La zona
+// muerta de 1,4 cm ayuda, pero no tapa un envion grande.
+int   pwmMaxLateral = 150;
 // 4.0 de camara / 2,87 = 1,4 cm reales. Mismo comportamiento que antes.
 const float ZONA_MUERTA_PELOTA = 1.4;   // cm REALES: no perseguir migajas
 
@@ -704,6 +757,39 @@ unsigned long msIdaDespeje = 533;
 // pelota), este numero esta alto.
 float msAnticipacion = 250;
 
+// 🎯 2026-10-06 — SEGUIR Y DISPARAR NO QUIEREN EL MISMO ADELANTO.
+//
+// Los 250 ms de arriba estan calculados para DECIDIR EL DESPEJE: son lo que
+// el robot tarda en reaccionar, asi que sale hacia donde la pelota va a estar
+// cuando el llegue. Para eso, 250 es el numero correcto — mas seria pasarse
+// de largo.
+//
+// Pero SEGUIR no es lo mismo. Siguiendo, el robot esta SIEMPRE atras: la
+// pelota se mueve y el la persigue, y nunca termina de alcanzarla. Ahi
+// conviene adelantarse mas.
+//
+// El equipo lo vio en cancha y lo dijo asi: "si la pelota va lenta tiene que
+// ir siguiendola igual que el movimiento de la pelota, y si va rapido que
+// vaya mas adelantado". Eso es exactamente lo que hace la cuenta
+// (velocidad x tiempo): con pelota lenta adelanta poco y con pelota rapida
+// adelanta mucho, solo.
+//
+// LO QUE FALTABA ERA GANANCIA. Con 250 ms el adelanto era:
+//       5 cm/s  ->  1,2 cm   (¡menos que ZONA_MUERTA_PELOTA = 1,4!)
+//      15 cm/s  ->  3,8 cm
+//      35 cm/s  ->  8,7 cm
+// O sea que con pelota normal adelantaba dos o tres centimetros: estaba
+// prediciendo, pero tan poco que a ojo no se notaba. Y con pelota lenta el
+// adelanto caia dentro de la zona muerta y desaparecia del todo.
+//
+// Con 500 ms se duplica, y recien ahi el robot va visiblemente adelantado.
+//
+// ⚠️ COMO SABER SI QUEDO BIEN:
+//    pasa de largo y la pelota le entra por detras  ->  bajarlo (400, 350)
+//    sigue corriendo atras de la pelota             ->  subirlo (600, 700)
+// Y ojo: esto NO toca la decision del despeje, que sigue con los 250.
+float msAnticipacionSeguir = 500;
+
 // Para la cuenta de la velocidad hay que acordarse de la lectura anterior.
 float desvioAnterior = 0;
 float distanciaAnterior = 0;
@@ -1050,7 +1136,10 @@ float desvioPelota() {
 // Si la prediccion esta apagada, devuelve la posicion de ahora y listo.
 float desvioPredicho() {
   if (!predecirTrayectoria) return desvioPelota();
-  return desvioPelota() + velocidadLateral * (msAnticipacion / 1000.0);
+  // Esta la usa el SEGUIMIENTO lateral, con su propia anticipacion. La
+  // decision del despeje tiene su cuenta aparte, en leerCamara(), con
+  // msAnticipacion (250).
+  return desvioPelota() + velocidadLateral * (msAnticipacionSeguir / 1000.0);
 }
 
 // ¿Con que angulo tengo que salir, y llego?

@@ -477,6 +477,43 @@ no arrancar**. Si zumba sin moverse con desvíos chicos, subir de a 5.
 el equipo pidió "bajalo al que tenía antes" puede que se refiriera a otro número — quedó
 anotado en el código y hay que confirmarlo.
 
+### 🔴 Y NO ALCANZÓ: lo probaron y sigue pasando
+
+Con los dos arreglos cargados, el equipo reportó:
+
+> **"Cuando la pelota está quieta sigue corrigiendo de un lado hacia otro."**
+
+Así que el ruido amplificado y el piso de 60 **no eran toda la causa**, o no eran la causa.
+Queda abierto, y pensándolo aparece un mecanismo que no habíamos considerado:
+
+**El seguimiento lateral es un lazo de POSICIÓN, y el robot se mueve dentro de él.** Cuando el
+robot va a la derecha, la pelota **pasa a verse más a la izquierda** — porque la cámara va
+montada en el robot. Entonces el desvío cambia de signo *por el movimiento del propio robot*, no
+porque la pelota se haya movido. Eso es un lazo cerrado que puede oscilar **con la pelota
+perfectamente quieta y sin nada de ruido**.
+
+Y hay dos cosas que lo hacen oscilar en vez de converger:
+
+**1. No puede hacer una corrección chica.** Con `pwmMinLateral` en 45, cualquier desvío que pase
+la zona muerta recibe un empujón de 45. No existe "acercarse despacito".
+
+**2. Cuando llega al centro, no frena: se suelta.** En la zona muerta el código hace `parar()`,
+que **sólo corta la corriente** — el robot sigue de largo por inercia. Así que entra a la zona
+muerta ya con velocidad, la cruza, y sale del otro lado con desvío suficiente para recibir otro
+empujón de 45. Para el otro lado. Y de nuevo.
+
+**O sea que la zona muerta tiene que ser más ancha que lo que el robot patina al soltarse** — y
+1,4 cm es poquísimo.
+
+⬜ **Dos arreglos propuestos, sin probar** (ver §14):
+
+- **`frenar()` en vez de `parar()` al entrar en la zona muerta.** `frenar()` cortocircuita los
+  motores y el robot se detiene de verdad. 🎯 Hay precedente: el 15/09 el equipo pidió
+  exactamente este cambio para el enderezado, por el mismo motivo — el robot se pasaba de largo.
+- **Ensanchar `ZONA_MUERTA_PELOTA`** de 1,4 a 3 cm. Es la misma lección que aprendimos hoy con la
+  corrección de rumbo: **si hay un piso, la zona muerta tiene que ser más ancha**, o el robot
+  salta entre "nada" y "el empujón mínimo" para siempre.
+
 ---
 
 ## 12. Errores del día (casi todos míos)
@@ -547,6 +584,12 @@ congelada en `respaldos/estable-0.0929/`.
 
 ### 🔴 Lo primero
 
+- 🔴 **LA PELOTA QUIETA Y EL ROBOT CORRIGIENDO DE LADO A LADO SIGUE PASANDO.** Es lo único que
+  quedó abierto del día, y los dos arreglos de hoy no lo resolvieron (§11). La sospecha nueva:
+  el lazo oscila solo, porque la cámara va montada en el robot y moverse cambia el desvío; y
+  cuando llega al centro hace `parar()`, que suelta los motores en vez de frenarlos, así que
+  patina y sale del otro lado. **Los dos arreglos a probar: `frenar()` en vez de `parar()` en la
+  zona muerta, y ensanchar `ZONA_MUERTA_PELOTA` de 1,4 a 3 cm.** Uno por vez, para saber cuál fue.
 - ⬜ **Probar en cancha lo que quedó cargado.** Son cinco números cambiados y ninguno probado con
   pelota rápida. Qué mirar: si **oscila de lado a lado** alrededor de la pelota, el techo de 150
   es mucho (bajar a 135). Si **se pasa de largo**, la anticipación de 500 es mucha (bajar a 400).

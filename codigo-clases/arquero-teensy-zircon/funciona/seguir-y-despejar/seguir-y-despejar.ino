@@ -244,7 +244,30 @@ const int LADO_TRASERA = 89;     // la de atras
 // Si algun dia alguien "corrige" esto de vuelta a 4, el robot va a seguir la
 // pelota casi tres veces mas flojo y va a parecer que se rompio.
 float kpLateral   = 11.5;        // PWM por cm REAL de desvio de la pelota
-int   pwmMinLateral = 60;        // abajo de esto no se mueve, solo zumba
+// 🎯 2026-10-06: 60 -> 45, buscando que el robot no salte con la pelota quieta.
+//
+// ⚠️ ACLARACION: este numero NUNCA SE CAMBIO HOY, venia en 60 de antes. Si
+// cuando pidieron "bajar el piso al que tenia antes" se referian a otro
+// numero, hay que decirlo.
+//
+// POR QUE BAJARLO IGUAL, que la idea del equipo es buena: con el piso en 60
+// NO EXISTE LA CORRECCION SUAVE. Cualquier desvio que apenas pase la zona
+// muerta recibe el mismo empujon que un desvio grande:
+//
+//      desvio de 1,5 cm  ->  1,5 x 11,5 = 17  ->  se sube a 60
+//      desvio de 5,0 cm  ->  5,0 x 11,5 = 58  ->  se sube a 60
+//
+// O sea que el robot pega el mismo salto por 1,5 cm que por 5 cm. Con la
+// pelota quieta y el ruido de la camara entrando y saliendo de la zona
+// muerta, eso es exactamente un robot saltando de lado a lado.
+//
+// ⚠️ EL RIESGO: el 60 estaba ahi porque abajo de eso "no se mueve, solo
+// zumba". Si con 45 el robot zumba sin moverse cuando el desvio es chico,
+// subirlo de a 5. El piso de arranque de los motores desde quieto es ~70,
+// pero de costado la rueda mas cargada recibe 89% del valor, asi que 45 le
+// da 40 a la trasera: justo el piso de RODADURA. Moviendose alcanza; desde
+// parado puede no arrancar.
+int   pwmMinLateral = 45;
 
 // 🎯 2026-10-06: 120 -> 150, a pedido del equipo.
 //
@@ -755,7 +778,20 @@ unsigned long msIdaDespeje = 533;
 //    ~135 ms  -> arrancar los motores y que la rampa suba
 // ⚠️ ESTIMADO. Si el robot se adelanta de mas (queda del otro lado de la
 // pelota), este numero esta alto.
-float msAnticipacion = 250;
+//
+// 🎯 2026-10-06, pedido del equipo: EN CERO. Quieren probar que el despeje
+// decida con la pelota donde ESTA de verdad —que "despeje siempre"— y dejar
+// la prediccion unicamente para el seguimiento lateral.
+//
+// Con 0, dLatPredicho = dLat: la decision del despeje usa el desvio real y
+// nada mas. La prediccion del seguimiento no se toca y sigue en
+// msAnticipacionSeguir.
+//
+// Para volver a los 250 (que es lo que el robot tarda en reaccionar, ver la
+// cuenta de abajo) basta con cambiar este numero:
+//      ~115 ms  -> los 3 cuadros seguidos que exige antes de creerle
+//      ~135 ms  -> arrancar los motores y que la rampa suba
+float msAnticipacion = 0;
 
 // 🎯 2026-10-06 — SEGUIR Y DISPARAR NO QUIEREN EL MISMO ADELANTO.
 //
@@ -1136,10 +1172,35 @@ float desvioPelota() {
 // Si la prediccion esta apagada, devuelve la posicion de ahora y listo.
 float desvioPredicho() {
   if (!predecirTrayectoria) return desvioPelota();
+
+  // 🚨 EL PISO DE VELOCIDAD, Y POR QUE HACE FALTA ACA (2026-10-06)
+  //
+  // Con la pelota QUIETA el robot se iba de lado a lado. La cuenta de por
+  // que: el ruido de la camara con la pelota parada llega a 3,6 cm/s
+  // (medido el 08/09), y con la anticipacion en 500 ms ese ruido se
+  // convierte en un desvio inventado de
+  //
+  //      3,6 cm/s x 0,5 s = 1,8 cm
+  //
+  // ...que es MAS que ZONA_MUERTA_PELOTA (1,4 cm). O sea que el robot creia
+  // que la pelota se movia, la perseguia, el ruido cambiaba de signo, y la
+  // perseguia para el otro lado. No corregia de mas: se le estaba
+  // amplificando el ruido.
+  //
+  // (Con los 250 ms de antes el ruido daba 0,9 cm y quedaba ADENTRO de la
+  // zona muerta, asi que no se notaba. Subir la anticipacion lo saco afuera.)
+  //
+  // PISO_VELOCIDAD ya existia en este programa —4,0, puesto justo apenas
+  // arriba de esos 3,6— pero se usaba solo para armar la diagonal del
+  // despeje. Aca faltaba. Debajo del piso, la velocidad se toma como CERO y
+  // la prediccion no adelanta nada: con la pelota quieta el robot mira donde
+  // la pelota esta, y se queda.
+  float v = velocidadLateral;
+  if (fabs(v) < PISO_VELOCIDAD) v = 0;
+
   // Esta la usa el SEGUIMIENTO lateral, con su propia anticipacion. La
-  // decision del despeje tiene su cuenta aparte, en leerCamara(), con
-  // msAnticipacion (250).
-  return desvioPelota() + velocidadLateral * (msAnticipacionSeguir / 1000.0);
+  // decision del despeje tiene su cuenta aparte, en leerCamara().
+  return desvioPelota() + v * (msAnticipacionSeguir / 1000.0);
 }
 
 // ¿Con que angulo tengo que salir, y llego?

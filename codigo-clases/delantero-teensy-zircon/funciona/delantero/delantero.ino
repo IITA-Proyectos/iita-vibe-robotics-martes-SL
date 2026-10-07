@@ -159,9 +159,29 @@ const int MS_PATADA  = 500;      // cuanto dura el golpe. Mas largo = la pelota 
 //     con el heading-hold ....... 4,4 grados, pero con un PICO de 12,9
 // La pelota se va en los primeros ~200 ms, o sea que la pelota ve el PICO,
 // no el 4,4 del final. Por eso se ataca el pico, no el promedio.
-const int   TRIM_PATADA = 15;    // compensacion FIJA: le saca esto a la rueda izquierda y se lo da a la derecha. Sube si sigue curvando a la derecha, baja si ahora curva a la izquierda
+// Compensacion FIJA: le saca esto a la rueda izquierda y se lo da a la derecha.
+// Sube si curva para un lado, baja si curva para el otro.
+//
+// 15 -> 5 el 06/10. El 15 se eligio cuando el robot curvaba -28,4 grados. La
+// medicion nueva (mediciones/medicion-2026-10-06_20-28-09.txt) dio:
+//     sin correccion  -11,9 grados   /   con el giroscopio solo  +1,9 grados
+// O sea que el giroscopio SOLO, sin nada de trim, ya hace el trabajo completo
+// y hasta se pasa un poco (el crudo era negativo y termino positivo: cruzo el
+// cero). Un trim de 15 arriba de eso compensa una curva que ya no existe, y
+// empuja de mas. No se baja a 0 porque el trim es la red de seguridad para
+// cuando el giroscopio falla: ahi no hay lazo, pero un numero fijo sirve igual.
+const int   TRIM_PATADA = 5;
 const float KP_PATADA   = 4.0;   // cuanto corrige por GRADO de desvio
-const float KD_PATADA   = 0.3;   // cuanto corrige por GRADO/SEGUNDO de giro (frena antes de que el desvio crezca)
+// Cuanto corrige por GRADO/SEGUNDO de giro: frena el desvio ANTES de que crezca.
+//
+// 0,3 -> 0,6 el 06/10. Lo midio el robot solo: de las 5 patadas guardadas, los
+// PICOS eran 3 a 5 veces mas grandes que los desvios finales (pico -19,4 con
+// final +3,7; pico -14,9 con final +4,8). O sea que el robot se tuerce fuerte y
+// despues el corrector lo endereza... pero la pelota ya salio. Para donde va la
+// pelota lo decide el PICO, no el final. Ese patron "se va lejos y vuelve" es
+// sobreoscilacion, y el derivativo es el que la amortigua. Subir KP haria lo
+// contrario: mas fuerza y mas sobreoscilacion.
+const float KD_PATADA   = 0.6;
 
 // ---------- LINEA BLANCA ----------
 // Estos tres salen de MEDIR con pruebas/grabar-linea/ en la cancha. NO se
@@ -1301,6 +1321,26 @@ bool avisadoSinCamara = false;
 unsigned long nPaquetes = 0, nTirados = 0, nLoops = 0;
 unsigned long t_contadores = 0;
 
+// Si el rumbo objetivo de ESTA patada es confiable. Ver cambiarA(). [06/10]
+bool rumboPatadaValido = false;
+
+// --- CUANTO SE TORCIO EN CADA PATADA [2026-10-06] ---
+// Hasta hoy la patada se juzgaba A OJO ("esta un poco torcida"), y eso ya nos
+// costo tiempo con el destrabe. Ahora el robot se guarda el desvio de las
+// ultimas PATADAS_GUARDADAS patadas y lo repite en la telemetria de cada 2 s,
+// con el mismo truco que lineaMin/lineaMax: en la cancha no llega el cable, asi
+// que se patea, se trae el robot y se enchufa el USB SIN APAGAR LA BATERIA.
+//
+// COMO LEERLO. El signo dice PARA QUE LADO se torcio, y es lo que decide la
+// perilla: si todas las patadas se van para el MISMO lado, es sistematico y va
+// TRIM_PATADA; si se van para los dos, es el corrector y van KP/KD.
+#define PATADAS_GUARDADAS 5
+float desvioPatada[PATADAS_GUARDADAS];   // grados al terminar el golpe
+float picoPatada[PATADAS_GUARDADAS];     // lo peor durante el golpe
+bool  conLazoPatada[PATADAS_GUARDADAS];  // tuvo giroscopo y rumbo bueno?
+int   nPatadas    = 0;                   // cuantas pateo en toda la corrida
+float picoEnCurso = 0;                   // pico de la patada que esta en vuelo
+
 
 // ---------- motores ----------
 
@@ -1859,7 +1899,23 @@ int rampaPatada(int objetivo) {
 void cambiarA(Estado nuevo) {
   // Al empezar a patear se guarda el rumbo actual: es contra ese que se
   // corrige durante el golpe, para no torcerse. Ver "PATADA DERECHA".
-  if (nuevo == PATEA_ADEL && giroscopoSano()) rumboAlPatear = rumboActual();
+  // EL RUMBO OBJETIVO DE LA PATADA, y si se puede confiar en el.
+  //
+  // Antes esto era solo la primera linea: si el giroscopio no estaba sano en
+  // este instante, rumboAlPatear se quedaba con el valor de UNA PATADA
+  // ANTERIOR. Y si durante el golpe el giroscopio volvia, el corrector se
+  // ponia a enderezar el robot hacia el rumbo de una patada vieja — que puede
+  // estar a decenas de grados. El robot obedecia y se torcia muchisimo a
+  // proposito. Candidato a explicar la patada de -47,1 grados medida el 06/10,
+  // la unica de las 5 que no volvio nunca (pico = final = -47,1).
+  //
+  // Enderezar hacia un rumbo viejo nunca es correcto: si no hay rumbo bueno,
+  // esa patada va con compensacion fija y SIN lazo.
+  if (nuevo == PATEA_ADEL) {
+    rumboPatadaValido = giroscopoSano();
+    if (rumboPatadaValido) rumboAlPatear = rumboActual();
+    else Serial.println("!!! patada sin rumbo del giroscopo -> va con trim fijo, sin lazo");
+  }
   // Y la rampa arranca de cero, para que el golpe no sea un tiron.
   if (nuevo == PATEA_ADEL) { reiniciarRampaPatada(); reiniciarDerivadaPatada(); }
   // El sentido de la orbita se congela ACA y no se vuelve a mirar. Ver el
@@ -1946,6 +2002,8 @@ void setup() {
   Serial.print("  KP "); Serial.print(KP_PATADA, 1);
   Serial.print("  KD "); Serial.print(KD_PATADA, 1);
   Serial.println("  (trasera trabada)");
+  Serial.println("la patada se MIDE: al terminar imprime cuanto se torcio, y la");
+  Serial.println("telemetria repite las ultimas 5 para leerlas despues sin cable.");
   Serial.print("patada: "); Serial.print(VEL_PATADA);
   Serial.print(" x "); Serial.print(MS_PATADA); Serial.println(" ms");
   // El arco va ARRIBA en el banner: CARGAR-ROBOT.bat lee esta linea para
@@ -2243,9 +2301,31 @@ void loop() {
     // Con giroscopo sano se patea DERECHO; si no, como hasta ahora.
     // Sin giroscopo no hay lazo, pero la COMPENSACION FIJA no lo necesita:
     // es un numero, no una realimentacion. Se aplica igual.
-    if (giroscopoSano()) avanzarDerecho(vel, rumboAlPatear);
-    else                 motoresPatada(vel - TRIM_PATADA, vel + TRIM_PATADA);
-    if (enEstado >= (unsigned long)MS_PATADA) cambiarA(PATEA_ATRAS);
+    // El lazo necesita DOS cosas: giroscopo sano AHORA y un rumbo objetivo en
+    // el que se pueda confiar. Si falta cualquiera, compensacion fija sola.
+    bool conLazo = (giroscopoSano() && rumboPatadaValido);
+    if (conLazo) avanzarDerecho(vel, rumboAlPatear);
+    else         motoresPatada(vel - TRIM_PATADA, vel + TRIM_PATADA);
+
+    // MEDIR la patada: el desvio contra el rumbo con el que arranco el golpe.
+    // Se guarda el PICO (lo peor que paso en el medio) y, al terminar, el
+    // desvio final. Sin rumbo confiable no hay con que comparar: queda en 0.
+    float errP = conLazo ? diferencia(rumboAlPatear, rumboActual()) : 0.0;
+    if (fabs(errP) > fabs(picoEnCurso)) picoEnCurso = errP;
+
+    if (enEstado >= (unsigned long)MS_PATADA) {
+      int i = nPatadas % PATADAS_GUARDADAS;
+      desvioPatada[i]  = errP;
+      picoPatada[i]    = picoEnCurso;
+      conLazoPatada[i] = conLazo;
+      nPatadas++;
+      Serial.print("*** patada "); Serial.print(nPatadas);
+      Serial.print(" terminada: se torcio "); Serial.print(errP, 1);
+      Serial.print(" grados (pico "); Serial.print(picoEnCurso, 1);
+      Serial.println(conLazo ? ")" : ")  [SIN LAZO: trim fijo solo]");
+      picoEnCurso = 0;
+      cambiarA(PATEA_ATRAS);
+    }
   }
   else if (estado == PATEA_ATRAS) {
     retroceder(VEL_RETROCESO);
@@ -2580,6 +2660,19 @@ void loop() {
       Serial.print(" paq/s   "); Serial.print(nTirados * 1000UL / dt);
       Serial.print(" bytes tirados/s   loop: "); Serial.print(nLoops * 1000UL / dt);
       Serial.println(" /s");
+    }
+    // Las patadas medidas, para leerlas DESPUES enchufando sin apagar la bateria.
+    if (nPatadas > 0) {
+      Serial.print("        patadas: "); Serial.print(nPatadas);
+      Serial.print("   desvio (grados, ultimas primero):");
+      int cuantas = (nPatadas < PATADAS_GUARDADAS) ? nPatadas : PATADAS_GUARDADAS;
+      for (int k = 1; k <= cuantas; k++) {
+        int i = (nPatadas - k) % PATADAS_GUARDADAS;
+        Serial.print(" "); Serial.print(desvioPatada[i], 1);
+        Serial.print("(pico "); Serial.print(picoPatada[i], 1);
+        Serial.print(conLazoPatada[i] ? ")" : ",SIN LAZO)");
+      }
+      Serial.println();
     }
     nPaquetes = nTirados = nLoops = 0;
     t_contadores = millis();

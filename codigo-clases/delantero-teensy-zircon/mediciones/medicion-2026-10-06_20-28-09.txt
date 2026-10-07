@@ -1,0 +1,97 @@
+﻿
+=====================================================
+ RESULTADO ??? cuanto se torcio el robot al patear
+=====================================================
+ A) SIN correccion  (como el firmware de hoy):  -11.9 grados   (pico -5.2)
+ B) CON giroscopo   (heading-hold, KP=4.0):        1.9 grados   (pico 3.7)
+
+ -> EL ROBOT CURVA, Y EL GIROSCOPO LO ARREGLA.
+    Paso de 11.9 a 1.9 grados.
+    Llevar este heading-hold al estado PATEA_ADEL del firmware.
+
+ (para repetir: desenchufa y enchufa)
+
+=====================================================
+ RESULTADO ??? cuanto se torcio el robot al patear
+=====================================================
+ A) SIN correccion  (como el firmware de hoy):  -11.9 grados   (pico -5.2)
+ B) CON giroscopo   (heading-hold, KP=4.0):        1.9 grados   (pico 3.7)
+
+ -> EL ROBOT CURVA, Y EL GIROSCOPO LO ARREGLA.
+    Paso de 11.9 a 1.9 grados.
+    Llevar este heading-hold al estado PATEA_ADEL del firmware.
+
+ (para repetir: desenchufa y enchufa)
+
+=====================================================
+ RESULTADO ??? cuanto se torcio el robot al patear
+=====================================================
+ A) SIN correccion  (como el firmware de hoy):  -11.9 grados   (pico -5.2)
+ B) CON giroscopo   (heading-hold, KP=4.0):        1.9 grados   (pico 3.7)
+
+ -> EL ROBOT CURVA, Y EL GIROSCOPO LO ARREGLA.
+    Paso de 11.9 a 1.9 grados.
+    Llevar este heading-hold al estado PATEA_ADEL del firmware.
+
+ (para repetir: desenchufa y enchufa)
+
+=====================================================
+ RESULTADO ??? cuanto se torcio el robot al patear
+=====================================================
+ A) SIN correccion  (como el firmware de hoy):  -11.9 grados   (pico -5.2)
+ B) CON giroscopo   (heading-hold, KP=4.0):        1.9 grados   (pico 3.7)
+
+ -> EL ROBOT CURVA, Y EL GIROSCOPO LO ARREGLA.
+    Paso de 11.9 a 1.9 grados.
+    Llevar este heading-hold al estado PATEA_ADEL del firmware.
+
+ (para repetir: desenchufa y enchufa)
+
+=====================================================
+ RESULTADO ??? cuanto se torcio el robot al patear
+=====================================================
+ A) SIN correccion  (como el firmware de hoy):  -11.9 grados   (pico -5.2)
+ B) CON giroscopo   (heading-hold, KP=4.0):        1.9 grados   (pico 3.7)
+
+ -> EL ROBOT CURVA, Y EL GIROSCOPO LO ARREGLA.
+    Paso de 11.9 a 1.9 grados.
+    Llevar este heading-hold al estado PATEA_ADEL del firmware.
+
+ (para repetir: desenchufa y enchufa)
+
+=====================================================
+ RESULTADO ??? cuanto se torcio el robot al patear
+=====================================================
+ A) SIN correccion  (como el firmware de hoy):  -11.9 grados   (pico -5.2)
+ B) CON giroscopo   (heading-hold, KP=4.0):        1.9 grados   (pico 3.7)
+
+ -> EL ROBOT CURVA, Y EL GIROSCOPO LO ARREGLA.
+    Paso de 11.9 a 1.9 grados.
+    Llevar este heading-hold al estado PATEA_ADEL del firmware.
+
+ (para repetir: desenchufa y enchufa)
+
+=====================================================
+ RESULTADO ??? cuanto se torcio el robot al patear
+=====================================================
+ A) SIN correccion  (como el firmware de hoy):  -11.9 grados   (pico -5.2)
+ B) CON giroscopo   (heading-hold, KP=4.0):        1.9 grados   (pico 3.7)
+
+ -> EL ROBOT CURVA, Y EL GIROSCOPO LO ARREGLA.
+    Paso de 11.9 a 1.9 grados.
+    Llevar este heading-hold al estado PATEA_ADEL del firmware.
+
+ (para repetir: desenchufa y enchufa)
+
+=====================================================
+ RESULTADO ??? cuanto se torcio el robot al patear
+=====================================================
+ A) SIN correccion  (como el firmware de hoy):  -11.9 grados   (pico -5.2)
+ B) CON giroscopo   (heading-hold, KP=4.0):        1.9 grados   (pico 3.7)
+
+ -> EL ROBOT CURVA, Y EL GIROSCOPO LO ARREGLA.
+    Paso de 11.9 a 1.9 grados.
+    Llevar este heading-hold al estado PATEA_ADEL del firmware.
+
+ (para repetir: desenchufa y enchufa)
+

@@ -124,6 +124,12 @@ $PRUEBAS = @(
   [pscustomobject]@{ n="13"; carpeta="identificar-robot";    cable=$true;  tecla=$false;
                      que="ES EL ARQUERO O EL DELANTERO?";
                      como="En la mesa." }
+  [pscustomobject]@{ n="14"; carpeta="calibracion-quieto";   cable=$false; tecla=$false;
+                     que="CALIBRAR TODO EN QUIETO: linea + giroscopio + camara, una corrida";
+                     como="PARA CANCHA NUEVA. NO mueve motores. Bateria puesta, desenchufa, hace las 3 fases, volve y usa la opcion L." }
+  [pscustomobject]@{ n="15"; carpeta="calibracion-moviendo"; cable=$false; tecla=$false;
+                     que="CALIBRAR MOVIENDO: piso de PWM, avanzar, girar, centrar, orbitar, escape";
+                     como="EN EL PISO, MUEVE EL ROBOT. Bateria puesta, desenchufa, dejalo hacer las 6 fases, volve y usa la opcion L." }
 )
 
 # ---------------------------------------------------------------------

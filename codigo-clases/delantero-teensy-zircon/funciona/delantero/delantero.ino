@@ -142,10 +142,48 @@ const unsigned long MS_AGUANTE_ORBITA = 1000;
 const float TOL_ANG_ORB_ENTRA = 18.0;  // se corrio mas que esto -> recentrar
 const float TOL_ANG_ORB_SALE  =  9.0;  // mejor que esto -> seguir orbitando
 const int VEL_ORB_TRASERA = 67;  // potencia de la vuelta, ya rodando. 48->75->67
-const unsigned long MS_ORBITA_MAX = 20000;  // cuanto orbita buscando el arco antes de rendirse
+const unsigned long MS_ORBITA_MAX = 10000;  // cuanto orbita buscando el arco antes de rendirse. 20 s -> 10 s el 12/10
+
+// --- DOS VUELTAS SIN PATEAR -> PATEAR AL RUMBO CERO [2026-10-12, pedido del equipo] ---
+// Si rodea la pelota VUELTAS_PARA_RUMBO0 veces sin patear (lo mide el
+// giroscopio: una vuelta alrededor de la pelota son 360 grados de rumbo), o
+// pasan los MS_ORBITA_MAX, deja de esperar al arco: SIGUE ORBITANDO y patea
+// apenas queda mirando al rumbo con el que se encendio (el "cero"), con la
+// pelota adelante.
+// No gira en el lugar como APUNTA_RUMBO0: girando en el lugar la pelota se le
+// va del cuadro y termina buscando de nuevo. Orbitando, la pelota queda siempre
+// adelante, asi que cuando el rumbo pasa por el cero el robot ya esta detras
+// de la pelota y empujarla la manda para alla.
+// OJO: el cero es hacia donde miraba AL PRENDER LA BATERIA. Hay que apoyarlo
+// mirando al arco rival, si no patea para cualquier lado.
+// SIN PROBAR. Para volver a lo de antes (girar en el lugar): poner false.
+const bool  RUMBO0_ORBITANDO    = true;
+const float VUELTAS_PARA_RUMBO0 = 1.0;  // 2 -> 1 el 12/10: con la luz de esa cancha la camara casi no ve los arcos
+const unsigned long MS_RUMBO0_MAX = 15000;  // cuanto mas orbita esperando quedar mirando al cero
+
+// --- QUE EL "CERO" NO SE MUEVA, Y NO PATEAR A NUESTRO ARCO [2026-10-12, despues del partido] ---
+// En el partido (1-1) el equipo vio que "el 0 grados se descalibro" y el robot
+// pateo casi hacia nuestro arco. Dos protecciones, cada una con su interruptor:
+//
+// 1) GIRO_SIN_BRUJULA. El BNO055 venia en su modo por defecto (NDOF), que usa
+//    la BRUJULA para el rumbo. Al lado de tres motores la brujula miente, y
+//    ademas ese modo CORRIGE el rumbo de golpe cuando la brujula termina de
+//    calibrarse, cosa que pasa despues de girar un rato. En modo IMU el rumbo
+//    sale solo del giroscopio y el acelerometro: es relativo a como estaba al
+//    encenderse (justo lo que llamamos "cero") y no pega saltos.
+//    HIPOTESIS, NO MEDIDO: no sabemos si el salto del partido fue la brujula.
+//    La otra causa posible es que el robot se haya REINICIADO en la cancha
+//    mirando para otro lado: el cero se toma cada vez que arranca.
+// 2) VETO_ARCO_PROPIO. Si la camara esta viendo NUESTRO arco, no patea al
+//    rumbo cero aunque el giroscopio diga que mira al rival: sigue orbitando.
+//    Cerca de nuestro arco es justo donde la camara lo ve grande.
+// SIN PROBAR. Para volver a lo de antes: los dos en false.
+const bool GIRO_SIN_BRUJULA = true;
+const bool VETO_ARCO_PROPIO = true;
 
 // ---------- PATEAR ----------
-const int VEL_PATADA = 215;      // potencia de la patada. 110 es "modo prueba lenta" para poder mirarla
+const int VEL_PATADA = 150;      // potencia de la patada. 110 es "modo prueba lenta" para poder mirarla
+                                 // 215 -> 152 -> 145 -> 150 el 12/10 (dia de partido): robot achicado, para que no vuelque. SIN PROBAR
 const int MS_PATADA  = 500;      // cuanto dura el golpe. Mas largo = la pelota llega mas lejos y el robot se pasa mas
                                  // 420 -> 500 el 06/10: el equipo reporto que pateando de lejos la pelota
                                  // se queda corta y no llega al arco. Si sigue cortandose, la otra perilla
@@ -187,10 +225,14 @@ const float KD_PATADA   = 0.6;
 // Estos tres salen de MEDIR con pruebas/grabar-linea/ en la cancha. NO se
 // tantean: si la cancha cambia, se vuelven a medir. Orden: 1 DERECHO,
 // 2 IZQUIERDO, 3 DELANTERO.
-int UMBRAL_LINEA[3] = { 390, 427, 413 };    // desde que lectura cada sensor dice "esto es blanco"
+// 2026-10-12, cancha del dia de partido (grabar-linea, 10 mesetas, guardado en
+// mediciones/medicion-2026-10-12_11-00-07.txt): verde hasta 132/123/163,
+// blanco desde 538/680/643. Antes 390/427/413, que eran de la tela.
+int UMBRAL_LINEA[3] = { 335, 401, 403 };    // desde que lectura cada sensor dice "esto es blanco"
 const unsigned long MS_LINEA_CONFIRMA  = 5;   // cuanto tiene que verla SEGUIDA para creerle (mata los picos sueltos)
 const unsigned long MS_RETROCESO_LINEA = 210; // cuanto retrocede apenas la ve. 300->200->250->210
-const int           VEL_ESCAPE_FUERTE  = 170; // con cuanta potencia retrocede. 200->170: a 200 se levantaba
+const int           VEL_ESCAPE_FUERTE  = 135; // con cuanta potencia retrocede. 200->170: a 200 se levantaba.
+                                              // 170->150->140->135 el 12/10: robot achicado (ruedas mas adentro, base mas alta), vuelca mas facil. SIN PROBAR
 const unsigned long MS_CIEGO_LINEA     = 300; // cuanto IGNORA la linea despues de ver una. NO bajar de MS_RETROCESO_LINEA
 
 // =====================================================================
@@ -221,7 +263,8 @@ const bool ORBITA_INVERTIDA = true;  // <<< para que orbite al otro lado
 // profe les gusto mas como queda. La rampa es para no pedirle un tiron
 // desde quieto, que hacia patinar las ruedas en la tela.
 const bool BUSCA_CONTINUO    = true;  // false vuelve al giro a pulsos de antes
-const int  VEL_GIRO_CONTINUO = 50;    // 70 se pasaba de la pelota; 50 quedo
+const int  VEL_GIRO_CONTINUO = 40;    // 70 se pasaba de la pelota; 50 quedo. 50->45->40 el 12/10 (robot achicado). SIN PROBAR:
+                                      // si se queda zumbando sin girar al buscar, volver a 50
 const int  RAMPA_GIRO_PASO   = 10;    // cuanto sube el PWM en cada escalon
 const unsigned long RAMPA_GIRO_MS = 10;   // cada cuanto sube un escalon
 // Girando continuo lleva envion: al ver la pelota hay que sacarselo o se
@@ -1306,6 +1349,10 @@ unsigned long t_sinAcercarse = 0;  // 0 = el reloj del destrabe esta parado
 unsigned long t_perdidaDesde = 0;  // desde cuando no ve la pelota (0 = la ve)
 unsigned long t_orbSinVerla  = 0;  // idem pero DENTRO de la orbita (0 = la ve)
 bool recentrandoOrbita = false;    // <- la histeresis de la banda de angulo
+float giradoOrbita   = 0;          // grados de rumbo girados en esta orbita (con signo)
+float rumboOrbPrevio = 0;          // ultima lectura del rumbo, orbitando
+unsigned long t_muestraOrb  = 0;   // cuando se leyo el rumbo por ultima vez, orbitando
+unsigned long t_buscaRumbo0 = 0;   // 0 = espera al arco; si no, desde cuando busca el rumbo cero
 int  mejorXp    = 0;               // lo mas cerca que estuvo en este intento
 int  nDestrabes = 0;
 
@@ -1696,6 +1743,8 @@ float diferencia(float objetivo, float actual) {
 int   arcoX()       { return objetivoEsAmarillo ? XamBueno : XazBueno; }
 int   arcoY()       { return objetivoEsAmarillo ? YamBueno : YazBueno; }
 unsigned long arcoT() { return objetivoEsAmarillo ? t_ultimoAmarillo : t_ultimoAzul; }
+// El arco que NO atacamos, o sea el nuestro. [12/10]
+unsigned long arcoPropioT() { return objetivoEsAmarillo ? t_ultimoAzul : t_ultimoAmarillo; }
 const char* arcoNombre() { return objetivoEsAmarillo ? "AMARILLO" : "AZUL"; }
 
 
@@ -1778,7 +1827,7 @@ const char* nombreEstado(Estado e) {
 // sistema (0x39): 5 = algoritmo de fusion corriendo. Es un dato que el sensor da
 // sobre si mismo, sin ambiguedad, y no se puede confundir con una postura.
 bool arrancarGiroscopo() {
-  if (!bno.begin()) return false;
+  if (!bno.begin(GIRO_SIN_BRUJULA ? OPERATION_MODE_IMUPLUS : OPERATION_MODE_NDOF)) return false;
   bno.setExtCrystalUse(true);
   delay(700);                      // AHORA despues: setExtCrystalUse reinicia la
                                    // fusion, asi que esperar antes no servia
@@ -1921,7 +1970,10 @@ void cambiarA(Estado nuevo) {
   // El sentido de la orbita se congela ACA y no se vuelve a mirar. Ver el
   // bloque "EL SENTIDO DE LA ORBITA SE DECIDE UNA SOLA VEZ".
   if (nuevo == ORBITANDO) { sentidoOrbita = sentidoParaOrbitar();
-                            recentrandoOrbita = false; t_orbSinVerla = 0; }
+                            recentrandoOrbita = false; t_orbSinVerla = 0;
+                            // La cuenta de vueltas arranca de cero en cada orbita. [12/10]
+                            giradoOrbita = 0; t_buscaRumbo0 = 0; t_muestraOrb = millis();
+                            if (hayGiroscopo) rumboOrbPrevio = rumboActual(); }
   // El rato que pasa escapando de la linea NO es "la veo y no me acerco", asi
   // que el reloj del destrabe se para aca. Sin esto, con un sensor que lee
   // blanco de mas el robot quemaba el cupo de destrabes escapando. [06/10]
@@ -1991,6 +2043,11 @@ void setup() {
   Serial.print(" x "); Serial.print(MS_ORB_IMPULSO);
   Serial.print(" ms  ->  crucero "); Serial.print(VEL_ORB_TRASERA);
   Serial.print("   (max "); Serial.print(MS_ORBITA_MAX / 1000); Serial.println(" s)");
+  if (RUMBO0_ORBITANDO && PATEAR_AL_RUMBO0) {
+    Serial.print("orbita: a las "); Serial.print(VUELTAS_PARA_RUMBO0, 0);
+    Serial.print(" vueltas (o "); Serial.print(MS_ORBITA_MAX / 1000);
+    Serial.println(" s) sin patear, patea al quedar mirando al RUMBO CERO");
+  }
   Serial.print("orbita, no perder la pelota: aguanta ");
   Serial.print(MS_AGUANTE_ORBITA); Serial.print(" ms sin verla FRENADA, y recentra");
   Serial.print(" si pasa "); Serial.print(TOL_ANG_ORB_ENTRA, 0);
@@ -2086,6 +2143,8 @@ void setup() {
       rumboCero = rumboActual();
       Serial.print("OK. Rumbo cero = "); Serial.print(rumboCero, 1);
       Serial.println(" grados (hacia donde mira AHORA)");
+      Serial.println(GIRO_SIN_BRUJULA ? "   giroscopo SIN brujula (modo IMU): el cero no depende de los imanes"
+                                      : "   giroscopo CON brujula (modo NDOF, el de siempre)");
     } else {
       Serial.println("NO CONTESTA. Sigo sin el, como hasta ayer.");
     }
@@ -2243,6 +2302,7 @@ void loop() {
 
   bool laVeo    = (millis() - t_ultimaPelota) < MS_GRACIA;
   bool veoArco  = (millis() - arcoT())        < MS_GRACIA;
+  bool veoArcoPropio = (millis() - arcoPropioT()) < MS_GRACIA;
   unsigned long enEstado = millis() - t_entroEstado;
 
   // Los angulos, que es con lo que se decide la patada. Ver el bloque
@@ -2337,6 +2397,21 @@ void loop() {
 
     if (laVeo) t_orbSinVerla = 0;
 
+    // CUANTO LLEVA GIRADO ALREDEDOR DE LA PELOTA [12/10]. Se lee cada 20 ms y
+    // no en cada vuelta del loop, porque cada lectura es una consulta I2C.
+    if (RUMBO0_ORBITANDO && PATEAR_AL_RUMBO0 && giroscopoSano()
+        && millis() - t_muestraOrb >= 20) {
+      t_muestraOrb = millis();
+      float r = rumboActual();
+      giradoOrbita  += diferencia(r, rumboOrbPrevio);
+      rumboOrbPrevio = r;
+      if (t_buscaRumbo0 == 0 && fabs(giradoOrbita) >= 360.0 * VUELTAS_PARA_RUMBO0) {
+        t_buscaRumbo0 = millis();
+        Serial.print("... di "); Serial.print(VUELTAS_PARA_RUMBO0, 0);
+        Serial.println(" vueltas y no patee -> pateo al quedar mirando al rumbo cero");
+      }
+    }
+
     // DIAGNOSTICO [06/10]: una linea por segundo, para saber si la pierde por
     // ANGULO, por DISTANCIA o solo por un parpadeo de la camara.
     static unsigned long t_diagOrb = 0;
@@ -2345,6 +2420,9 @@ void loop() {
       Serial.print("    [orbita] Xp=");  Serial.print(XpBueno);
       Serial.print(" ang=");             Serial.print(angPelota, 1);
       Serial.print(recentrandoOrbita ? "  RECENTRANDO" : "  orbitando");
+      Serial.print("  girado="); Serial.print(giradoOrbita, 0);
+      if (t_buscaRumbo0 != 0) Serial.print(" BUSCA EL CERO");
+      if (veoArcoPropio) Serial.print(" VEO NUESTRO ARCO");
       Serial.print("  sin verla=");
       Serial.print(t_orbSinVerla ? (long)(millis() - t_orbSinVerla) : 0L);
       Serial.print("/"); Serial.print(MS_AGUANTE_ORBITA);
@@ -2376,16 +2454,40 @@ void loop() {
       Serial.println(")  -> PATADA");
       cambiarA(PATEA_ADEL);
     }
-    else if (enEstado > MS_ORBITA_MAX) {            // dio la vuelta y no lo vio
+    // Ya dio las vueltas (o se le acabo el tiempo) y quedo mirando al rumbo
+    // cero con la pelota adelante: patea. rumboOrbPrevio es la lectura de
+    // hace menos de 20 ms; no hace falta otra consulta. [12/10]
+    else if (t_buscaRumbo0 != 0 && giroscopoSano()
+             && fabs(angPelota) <= TOL_ANG_LEJOS_PELOTA
+             && fabs(diferencia(rumboCero, rumboOrbPrevio)) <= TOL_RUMBO
+             && !(VETO_ARCO_PROPIO && veoArcoPropio)) {
+      Serial.print("*** mirando al rumbo cero con la pelota adelante (rumbo ");
+      Serial.print(rumboOrbPrevio, 0); Serial.print(", cero "); Serial.print(rumboCero, 0);
+      Serial.print(", pelota a "); Serial.print(angPelota, 1);
+      Serial.println(" grados)  -> PATADA");
+      cambiarA(PATEA_ADEL);
+    }
+    else if (t_buscaRumbo0 != 0 && millis() - t_buscaRumbo0 > MS_RUMBO0_MAX) {
+      Serial.println("... no llegue a quedar mirando al rumbo cero -> vuelvo a buscar");
+      cambiarA(BUSCANDO);
+    }
+    else if (t_buscaRumbo0 == 0 && enEstado > MS_ORBITA_MAX) {   // se le acabo el tiempo y no lo vio
       Serial.print("... orbite "); Serial.print(MS_ORBITA_MAX / 1000);
       Serial.print(" s y no encontre el arco "); Serial.println(arcoNombre());
 
       // C1: en vez de rendirse, apuntar al rumbo con el que se encendio —
       // que es hacia donde estaba el arco rival cuando lo apoyaron.
       if (PATEAR_AL_RUMBO0 && giroscopoSano()) {
-        Serial.print("    -> voy a apuntar al rumbo de arranque (");
-        Serial.print(rumboCero, 1); Serial.println(" grados) y patear ahi");
-        cambiarA(APUNTA_RUMBO0);
+        if (RUMBO0_ORBITANDO) {
+          // No cambia de estado: sigue orbitando, y la rama de arriba patea
+          // apenas queda mirando al cero con la pelota adelante.
+          t_buscaRumbo0 = millis();
+          Serial.println("    -> sigo orbitando y pateo al quedar mirando al rumbo cero");
+        } else {
+          Serial.print("    -> voy a apuntar al rumbo de arranque (");
+          Serial.print(rumboCero, 1); Serial.println(" grados) y patear ahi");
+          cambiarA(APUNTA_RUMBO0);
+        }
       } else {
         cambiarA(BUSCANDO);
       }

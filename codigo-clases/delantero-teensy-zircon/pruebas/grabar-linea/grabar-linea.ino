@@ -87,7 +87,7 @@ const char* versionPlaca = "?";
 // viejo, el aviso "CRUZA EL UMBRAL DE HOY" miente y es peor que no
 // tenerlo. Cada vez que cambie UMBRAL_LINEA en el firmware, cambiar
 // aca tambien.
-const int UMBRAL_ACTUAL[3] = { 390, 427, 413 };
+const int UMBRAL_ACTUAL[3] = { 335, 401, 403 };   // 2026-10-12, cancha del dia de partido
 
 // ---- la traza ----
 // Un bloque cada 100 ms con minimo, maximo y promedio de cada sensor.

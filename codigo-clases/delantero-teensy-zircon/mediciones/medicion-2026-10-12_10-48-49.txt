@@ -1,0 +1,88 @@
+... retrocedi 210 ms. Sigo sin mirar la linea hasta los 300 ms.
+>>> BUSCANDO   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+!!! LINEA BLANCA: la vio PRIMERO el sensor 1 (DERECHO)   [tambien veian: 2 3  -> los ignoro]
+    estando en BUSCANDO -> RETROCEDO YA 210 ms a 170, ciego hasta los 300 ms
+>>> !LINEA!   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+... retrocedi 210 ms. Sigo sin mirar la linea hasta los 300 ms.
+>>> BUSCANDO   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+!!! LINEA BLANCA: la vio PRIMERO el sensor 1 (DERECHO)   [tambien veian: 2 3  -> los ignoro]
+    estando en BUSCANDO -> RETROCEDO YA 210 ms a 170, ciego hasta los 300 ms
+>>> !LINEA!   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+... retrocedi 210 ms. Sigo sin mirar la linea hasta los 300 ms.
+>>> BUSCANDO   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+!!! LINEA BLANCA: la vio PRIMERO el sensor 1 (DERECHO)   [tambien veian: 2 3  -> los ignoro]
+    estando en BUSCANDO -> RETROCEDO YA 210 ms a 170, ciego hasta los 300 ms
+>>> !LINEA!   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+... retrocedi 210 ms. Sigo sin mirar la linea hasta los 300 ms.
+>>> BUSCANDO   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+!!! LINEA BLANCA: la vio PRIMERO el sensor 1 (DERECHO)   [tambien veian: 2 3  -> los ignoro]
+    estando en BUSCANDO -> RETROCEDO YA 210 ms a 170, ciego hasta los 300 ms
+>>> !LINEA!   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+... retrocedi 210 ms. Sigo sin mirar la linea hasta los 300 ms.
+>>> BUSCANDO   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+   [BUSCANDO]  Xp=77 Yp=34  angPelota=23.8  angArco=--  separacion=--  arcoX=--  tol=12(lejos)  rumbo=360
+        linea: ON   arranque 750/654/744  visto 720..752 549..658 677..746  umbrales 390/427/413
+        camara: 45 paq/s   0 bytes tirados/s   loop: 365152 /s
+!!! LINEA BLANCA: la vio PRIMERO el sensor 1 (DERECHO)   [tambien veian: 2 3  -> los ignoro]
+    estando en BUSCANDO -> RETROCEDO YA 210 ms a 170, ciego hasta los 300 ms
+>>> !LINEA!   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+... retrocedi 210 ms. Sigo sin mirar la linea hasta los 300 ms.
+>>> BUSCANDO   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+!!! LINEA BLANCA: la vio PRIMERO el sensor 1 (DERECHO)   [tambien veian: 2 3  -> los ignoro]
+    estando en BUSCANDO -> RETROCEDO YA 210 ms a 170, ciego hasta los 300 ms
+>>> !LINEA!   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+... retrocedi 210 ms. Sigo sin mirar la linea hasta los 300 ms.
+>>> BUSCANDO   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+!!! LINEA BLANCA: la vio PRIMERO el sensor 1 (DERECHO)   [tambien veian: 2 3  -> los ignoro]
+    estando en BUSCANDO -> RETROCEDO YA 210 ms a 170, ciego hasta los 300 ms
+>>> !LINEA!   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+... retrocedi 210 ms. Sigo sin mirar la linea hasta los 300 ms.
+>>> BUSCANDO   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+!!! LINEA BLANCA: la vio PRIMERO el sensor 1 (DERECHO)   [tambien veian: 2 3  -> los ignoro]
+    estando en BUSCANDO -> RETROCEDO YA 210 ms a 170, ciego hasta los 300 ms
+>>> !LINEA!   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+... retrocedi 210 ms. Sigo sin mirar la linea hasta los 300 ms.
+>>> BUSCANDO   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+!!! LINEA BLANCA: la vio PRIMERO el sensor 1 (DERECHO)   [tambien veian: 2 3  -> los ignoro]
+    estando en BUSCANDO -> RETROCEDO YA 210 ms a 170, ciego hasta los 300 ms
+>>> !LINEA!   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+... retrocedi 210 ms. Sigo sin mirar la linea hasta los 300 ms.
+>>> BUSCANDO   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+!!! LINEA BLANCA: la vio PRIMERO el sensor 1 (DERECHO)   [tambien veian: 2 3  -> los ignoro]
+    estando en BUSCANDO -> RETROCEDO YA 210 ms a 170, ciego hasta los 300 ms
+>>> !LINEA!   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+... retrocedi 210 ms. Sigo sin mirar la linea hasta los 300 ms.
+>>> BUSCANDO   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+   [BUSCANDO]  Xp=77 Yp=34  angPelota=23.8  angArco=--  separacion=--  arcoX=--  tol=12(lejos)  rumbo=360
+        linea: ON   arranque 750/654/744  visto 720..752 549..658 677..746  umbrales 390/427/413
+        camara: 44 paq/s   0 bytes tirados/s   loop: 364934 /s
+!!! LINEA BLANCA: la vio PRIMERO el sensor 1 (DERECHO)   [tambien veian: 2 3  -> los ignoro]
+    estando en BUSCANDO -> RETROCEDO YA 210 ms a 170, ciego hasta los 300 ms
+>>> !LINEA!   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+... retrocedi 210 ms. Sigo sin mirar la linea hasta los 300 ms.
+>>> BUSCANDO   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+!!! LINEA BLANCA: la vio PRIMERO el sensor 1 (DERECHO)   [tambien veian: 2 3  -> los ignoro]
+    estando en BUSCANDO -> RETROCEDO YA 210 ms a 170, ciego hasta los 300 ms
+>>> !LINEA!   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+... retrocedi 210 ms. Sigo sin mirar la linea hasta los 300 ms.
+>>> BUSCANDO   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+!!! LINEA BLANCA: la vio PRIMERO el sensor 1 (DERECHO)   [tambien veian: 2 3  -> los ignoro]
+    estando en BUSCANDO -> RETROCEDO YA 210 ms a 170, ciego hasta los 300 ms
+>>> !LINEA!   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+... retrocedi 210 ms. Sigo sin mirar la linea hasta los 300 ms.
+>>> BUSCANDO   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+!!! LINEA BLANCA: la vio PRIMERO el sensor 1 (DERECHO)   [tambien veian: 2 3  -> los ignoro]
+    estando en BUSCANDO -> RETROCEDO YA 210 ms a 170, ciego hasta los 300 ms
+>>> !LINEA!   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+... retrocedi 210 ms. Sigo sin mirar la linea hasta los 300 ms.
+>>> BUSCANDO   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+!!! LINEA BLANCA: la vio PRIMERO el sensor 1 (DERECHO)   [tambien veian: 2 3  -> los ignoro]
+    estando en BUSCANDO -> RETROCEDO YA 210 ms a 170, ciego hasta los 300 ms
+>>> !LINEA!   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+... retrocedi 210 ms. Sigo sin mirar la linea hasta los 300 ms.
+>>> BUSCANDO   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+!!! LINEA BLANCA: la vio PRIMERO el sensor 1 (DERECHO)   [tambien veian: 2 3  -> los ignoro]
+    estando en BUSCANDO -> RETROCEDO YA 210 ms a 170, ciego hasta los 300 ms
+>>> !LINEA!   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo
+... retrocedi 210 ms. Sigo sin mirar la linea hasta los 300 ms.
+>>> BUSCANDO   Xp=77 Yp=34 (a 23.8 grados)  arco AMARILLO: no lo veo

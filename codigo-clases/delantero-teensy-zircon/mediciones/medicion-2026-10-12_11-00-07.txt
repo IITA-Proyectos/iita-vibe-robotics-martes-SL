@@ -1,0 +1,104 @@
+
+===================================================
+ GRABAR LINEA - lo que se midio en la cancha
+===================================================
+Placa (pin 32): Mark1   pines 25, 27, 26
+Umbrales cargados hoy en el robot: 390 / 427 / 413
+Grabados 758 bloques de 100 ms = 75.8 segundos
+Sensor 1 = DERECHO   2 = IZQUIERDO   3 = DELANTERO   (MEDIDO 2026-09-15)
+
+--- rango de TODA la corrida ---
+  S1: 20 .. 766
+  S2: 20 .. 728
+  S3: 21 .. 754
+
+--- MESETAS (el robot estuvo quieto) ---
+En el orden en que las hiciste: VERDE x3, BLANCO x3, NEGRO.
+
+MESETA 1   t=0.0 s   duro 4.9 s
+    S1 = 66   (visto 33..68, pico 2 arriba)   VERDE
+    S2 = 69   (visto 42..73, pico 4 arriba)   VERDE
+    S3 = 81   (visto 37..84, pico 3 arriba)   VERDE
+
+MESETA 2   t=4.9 s   duro 5.0 s
+    S1 = 62   (visto 29..70, pico 8 arriba)   VERDE
+    S2 = 66   (visto 29..76, pico 10 arriba)   VERDE
+    S3 = 83   (visto 33..96, pico 13 arriba)   VERDE
+
+MESETA 3   t=10.8 s   duro 3.4 s
+    S1 = 71   (visto 68..75, pico 4 arriba)   VERDE
+    S2 = 73   (visto 66..76, pico 3 arriba)   VERDE
+    S3 = 95   (visto 90..101, pico 6 arriba)   VERDE
+
+MESETA 4   t=14.3 s   duro 10.8 s
+    S1 = 60   (visto 28..81, pico 21 arriba)   VERDE
+    S2 = 61   (visto 27..75, pico 14 arriba)   VERDE
+    S3 = 74   (visto 32..93, pico 19 arriba)   VERDE
+
+MESETA 5   t=25.8 s   duro 4.0 s
+    S1 = 613   (visto 538..628, pico 15 arriba)   BLANCO   <<< CRUZA EL UMBRAL DE HOY
+    S2 = 68   (visto 66..71, pico 3 arriba)   VERDE
+    S3 = 81   (visto 74..85, pico 4 arriba)   VERDE
+
+MESETA 6   t=31.6 s   duro 4.5 s
+    S1 = 71   (visto 69..74, pico 3 arriba)   VERDE
+    S2 = 685   (visto 680..704, pico 19 arriba)   BLANCO   <<< CRUZA EL UMBRAL DE HOY
+    S3 = 100   (visto 97..103, pico 3 arriba)   VERDE
+
+MESETA 7   t=38.2 s   duro 5.1 s
+    S1 = 68   (visto 64..73, pico 5 arriba)   VERDE
+    S2 = 64   (visto 59..69, pico 5 arriba)   VERDE
+    S3 = 674   (visto 643..711, pico 37 arriba)   BLANCO   <<< CRUZA EL UMBRAL DE HOY
+
+MESETA 8   t=44.9 s   duro 4.5 s
+    S1 = 128   (visto 95..132, pico 4 arriba)   VERDE
+    S2 = 120   (visto 70..123, pico 3 arriba)   VERDE
+    S3 = 160   (visto 122..163, pico 3 arriba)   VERDE
+
+MESETA 9   t=49.5 s   duro 10.8 s
+    S1 = 53   (visto 20..93, pico 40 arriba)   VERDE
+    S2 = 57   (visto 20..94, pico 37 arriba)   VERDE
+    S3 = 62   (visto 21..99, pico 37 arriba)   VERDE
+
+MESETA 10   t=65.8 s   duro 10.0 s
+    S1 = 762   (visto 761..765, pico 3 arriba)   BLANCO   <<< CRUZA EL UMBRAL DE HOY
+    S2 = 704   (visto 684..728, pico 24 arriba)   BLANCO   <<< CRUZA EL UMBRAL DE HOY
+    S3 = 751   (visto 746..754, pico 3 arriba)   BLANCO   <<< CRUZA EL UMBRAL DE HOY
+
+Total: 10 mesetas.
+
+===================================================
+                   VEREDICTO
+===================================================
+Verde = promedio < 300   Blanco = promedio > 600
+Se toma el PEOR de cada lado: el verde mas ALTO y el
+blanco mas BAJO. El umbral tiene que aguantar el peor
+caso, no el promedio.
+
+---- SENSOR 1  (DERECHO) ----
+  verde hasta  132   (8 mesetas)
+  blanco desde 538   (2 mesetas)
+  separacion: 406
+  UMBRAL PROPUESTO: 335   (margen 203 para cada lado)
+  umbral de hoy 390  (queda en rango, pero mira los margenes)
+
+---- SENSOR 2  (IZQUIERDO) ----
+  verde hasta  123   (8 mesetas)
+  blanco desde 680   (2 mesetas)
+  separacion: 557
+  UMBRAL PROPUESTO: 401   (margen 278 para cada lado)
+  umbral de hoy 427  (queda en rango, pero mira los margenes)
+
+---- SENSOR 3  (DELANTERO) ----
+  verde hasta  163   (8 mesetas)
+  blanco desde 643   (2 mesetas)
+  separacion: 480
+  UMBRAL PROPUESTO: 403   (margen 240 para cada lado)
+  umbral de hoy 413  (queda en rango, pero mira los margenes)
+
+===================================================
+Para pegar en funciona/delantero/delantero.ino:
+int UMBRAL_LINEA[3] = { 335, 401, 403 };
+===================================================
+Para grabar de nuevo: RESET del Teensy, o recargar.
+===================================================

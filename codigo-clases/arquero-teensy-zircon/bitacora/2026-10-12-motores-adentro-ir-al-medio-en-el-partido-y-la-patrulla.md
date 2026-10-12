@@ -449,9 +449,10 @@ nuevos.
 
 ### Del repo
 
-- ⬜ **Todo lo de hoy quedó en la rama `robot/arquero`, no en `main`.** Es código que jugó un solo
-  partido y una patrulla sin probar: que el profe lo mire antes de pasarlo a `main`. Para
-  seguir trabajando en otra PC: `git switch robot/arquero` después de clonar.
+- ✅ **Todo lo de hoy está subido a `main`**, a pedido del equipo (primero se subió a la rama
+  `robot/arquero`, que quedó con los mismos cuatro commits). Ojo: es código que jugó un solo
+  partido, más una patrulla que nunca se cargó en su versión corregida. Si algo anda mal, la
+  versión del 06/10 es el commit `6645727` y la del 29/09 está en `respaldos/estable-0.0929/`.
 
 ### De antes
 

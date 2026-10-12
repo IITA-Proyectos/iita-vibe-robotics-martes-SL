@@ -22,8 +22,9 @@
         (solo si hace falta)                              EN CUALQUIER LADO
      1. de costado hasta ver la LINEA LATERAL        -> fija el ANCHO
      2. se aleja un poquito del lateral              -> ver (*)
-     3. retrocede hasta la LINEA DEL FONDO           -> fija la PROFUNDIDAD
-        (la del borde de la cancha, no la del area)
+     3. retrocede hasta el FONDO                     -> fija la PROFUNDIDAD
+        (el borde de la cancha, no el area. Hasta ver la linea o, si
+        la rampita del borde no lo deja llegar, por tiempo — 2026-10-12)
      4. avanza 50 cm                                 -> sale del area, que
                                                         no sea falta
      5. vuelve al MISMO lateral                      -> ver (**)
@@ -163,7 +164,26 @@ const unsigned long MS_AL_MEDIO = 2228;
 // hasta salirse de la cancha. El cruce entero son ~4450 ms, asi que 6000 es
 // holgado pero no infinito.
 const unsigned long MS_TOPE_LATERAL = 6000;
-const unsigned long MS_TOPE_FONDO   = 4000;
+
+// 2026-10-12, dato del equipo: EL FONDO SE MIDE POR TIEMPO.
+//
+// En los bordes de la cancha hay una rampita, puesta para que la pelota
+// vuelva sola al campo. El robot NO la sube, asi que los sensores de atras
+// no llegan nunca a pisar la linea del fondo: el paso 3 se quedaba esperando
+// hasta el tope (eran 4000 ms) y la rutina terminaba en FALLO.
+//
+// Ahora el paso 3 termina con LO QUE PASE PRIMERO: ve la linea, o se cumple
+// este tiempo. Si se cumple el tiempo se da por hecho que el robot esta
+// apoyado contra la rampa del fondo, y la rutina SIGUE.
+//
+// ⚠️ ES UN NUMERO A OJO, NO UNA MEDICION. A 110 el robot hace 1 cm cada 18
+// a 24 ms: 2000 ms son entre 80 y 110 cm. Como medirlo: mirar en el informe
+// final cuanto tardo el paso 3 cuando SI toco la rampa, y sumarle medio
+// segundo.
+//
+// 🚨 El programa de partido (funciona/seguir-y-despejar) tiene este mismo
+// numero como MS_MEDIO_FONDO_POR_TIEMPO. Si se cambia aca, cambiarlo alla.
+const unsigned long MS_FONDO_POR_TIEMPO = 2000;
 
 // ---- el acomodado final, copiado del programa de juego ----
 //
@@ -557,8 +577,13 @@ void loop() {
       digitalWrite(LED, HIGH);
       deCostado(LADO * VEL_COSTADO_BUSCAR);
       if (algunoDeAtras()) { pasarA(P2_ALEJARSE); break; }
+      // 2026-10-12: si no aparece la linea, POR TIEMPO. Despues de
+      // MS_TOPE_LATERAL empujando para ese lado el robot esta contra el
+      // lateral aunque no haya visto el blanco. Antes aca terminaba en FALLO.
+      // El programa de partido hace lo mismo.
       if (ahora - t_paso >= MS_TOPE_LATERAL) {
-        fallar("no encontro la linea lateral");
+        Serial.println("   (no vio la linea lateral: sigue por tiempo)");
+        pasarA(P2_ALEJARSE);
       }
       break;
 
@@ -577,8 +602,11 @@ void loop() {
       digitalWrite(LED, HIGH);
       atras(VEL_ATRAS);
       if (algunoDeAtras()) { pasarA(P4_ADELANTE); break; }
-      if (ahora - t_paso >= MS_TOPE_FONDO) {
-        fallar("no encontro la linea del fondo");
+      // Sin linea a la vista: por tiempo. La rampita del borde no lo deja
+      // llegar a pisarla, asi que a esta altura ya esta apoyado contra ella.
+      if (ahora - t_paso >= MS_FONDO_POR_TIEMPO) {
+        Serial.println("   (no vio la linea del fondo: sigue por tiempo)");
+        pasarA(P4_ADELANTE);
       }
       break;
 
@@ -597,8 +625,10 @@ void loop() {
       digitalWrite(LED, HIGH);
       deCostado(LADO * VEL_COSTADO_BUSCAR);
       if (algunoDeAtras()) { pasarA(P6_AL_MEDIO); break; }
+      // Igual que el paso 1: sin linea, por tiempo.
       if (ahora - t_paso >= MS_TOPE_LATERAL) {
-        fallar("no encontro la linea lateral la segunda vez");
+        Serial.println("   (no vio la linea lateral: sigue por tiempo)");
+        pasarA(P6_AL_MEDIO);
       }
       break;
 

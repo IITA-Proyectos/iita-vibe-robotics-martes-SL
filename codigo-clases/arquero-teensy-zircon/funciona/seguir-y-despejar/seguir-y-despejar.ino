@@ -1,10 +1,69 @@
 /* =====================================================================
    ARQUERO — sigue la pelota de costado y la despeja
    =====================================================================
-             V E R S I O N   E S T A B L E   0 . 0 9 2 9
+             V E R S I O N   0 . 1 0 1 2   -   E N   P R U E B A
    =====================================================================
    IITA Salta — taller de los martes — Roboliga 2026
-   Ultimo cambio: 2026-09-29
+   Ultimo cambio: 2026-10-12
+   (La ESTABLE 0.0929 es la copia congelada de `respaldos/estable-0.0929/`.
+   Este archivo dejo de ser igual a ella el 06/10.)
+
+   ---------------------------------------------------------------------
+   📋 CAMBIO DEL 2026-10-12: COMO SE UBICA AL ARRANCAR
+   ---------------------------------------------------------------------
+   Pedido del equipo. Al armarse el robot sigue retrocediendo hasta la linea
+   del area, igual que antes. Lo que cambia es lo que hace DESPUES:
+
+        la ENCUENTRA     ->  se endereza y avanza un poquito (~10 cm), para
+                             no quedar sentado sobre el blanco
+        NO la encuentra  ->  hace la rutina de `pruebas/ir-al-medio`: busca
+                             el lateral, el fondo, vuelve al lateral, va al
+                             medio por tiempo y retrocede hasta la linea del
+                             area. Ahi se endereza y avanza el poquito
+
+   El FONDO se busca por linea O POR TIEMPO (2000 ms): la rampita del borde
+   de la cancha no deja que el robot llegue a pisar esa linea.
+
+   ---------------------------------------------------------------------
+   📋 CAMBIO DEL 2026-10-12 (2): PATRULLA, PARA QUE EL JUEZ NO LO SAQUE
+   ---------------------------------------------------------------------
+   Pedido del equipo despues de ganar 2-0: sin pelota a la vista el robot
+   se quedaba quieto para siempre y el juez lo saco creyendo que estaba
+   roto. Ahora, si pasa 15 s sin moverse y sin ver la pelota:
+
+        va al lateral  ->  vuelve al medio por tiempo  ->  retrocede hasta
+        la linea del area  ->  se endereza y avanza el poquito
+
+   Si aparece la pelota en el camino (5 cuadros seguidos), corta y la sigue.
+   Y los laterales ahora tambien terminan POR TIEMPO si no ven la linea,
+   en vez de abandonar y quedar estacionado en el borde.
+
+        patrullarSinPelota = false          ->  vuelve a quedarse quieto
+        MS_QUIETO_PARA_PATRULLAR = 15000    ->  cada cuanto patrulla
+
+   ⚠️ SIN PROBAR EN CANCHA. Cada patrulla son ~8 s y unos 5 con el arco
+   descubierto.
+
+   Antes, en los dos casos se quedaba donde habia frenado.
+
+   Son DOS interruptores, uno por cada cosa, donde dice "UBICACION INICIAL":
+        avanzarAlUbicarse      = false   ->  vuelve a quedarse sobre la linea
+        irAlMedioSiNoHayLinea  = false   ->  vuelve a quedarse donde freno
+
+   ⚠️ TODAVIA NO SE PROBO EN CANCHA. Los tiempos de la rutina son los de
+   `pruebas/ir-al-medio`, medidos el 06/10, ANTES de meter los motores mas
+   adentro. Si termina corrido del medio, hay que volver a medir.
+
+   ---------------------------------------------------------------------
+   🧪 PRUEBA DEL 2026-10-12: LA PREDICCION ESTA APAGADA
+   ---------------------------------------------------------------------
+   El robot oscila de lado a lado cuando la pelota esta lejos. Para saber si
+   la culpa es de la prediccion, se apago:
+
+        predecirTrayectoria   false   ->   true   (para volver a como estaba)
+
+   Es UN interruptor. La explicacion esta donde se declara. Si con esto se
+   queda quieto, era la prediccion; si oscila igual, no era y se vuelve atras.
 
    ---------------------------------------------------------------------
    📋 CAMBIOS DEL 2026-10-06, Y COMO VOLVER ATRAS
@@ -614,21 +673,141 @@ int reintentosAcomodo = 0;
 // ---- UBICACION INICIAL ----
 //
 // Al armarse, el robot retrocede hasta pisar la linea del area y se
-// endereza. Nada mas.
+// endereza. (Desde el 2026-10-12 hace algo mas: ver abajo.)
 //
 // 2026-09-21: SE SACO EL CENTRADO CON EL ARCO DEL RIVAL, a pedido del
 // equipo: "lo centramos nosotros". El robot se apoya a mano en el centro
 // del arco antes de prenderlo.
 bool  ubicandose      = false;
 
+// 2026-10-12, pedido del equipo: DOS COSAS NUEVAS en la ubicacion inicial.
+//
+//   1. Si ENCONTRO la linea del area, despues de enderezarse avanza el mismo
+//      empujoncito de ~10 cm que hace al volver de un despeje. Asi no queda
+//      sentado sobre el blanco, y arranca parado en el mismo lugar en el que
+//      va a quedar despues de cada despeje.
+//
+//   2. Si NO la encontro (retrocedio MS_MAX_RETROCESO y nada), en vez de
+//      quedarse ahi hace la rutina de `pruebas/ir-al-medio`, la que usa las
+//      lineas del costado y del fondo para saber donde esta parado.
+//
+// Cada una tiene su interruptor: se pueden probar y apagar por separado.
+bool avanzarAlUbicarse     = true;
+bool irAlMedioSiNoHayLinea = true;
+
+// Como termino la ubicacion: si hay linea debajo, el robot sabe donde esta.
+bool encontroLaLinea = false;
+
+// El empujoncito del arranque usa la misma fase que el del despeje
+// (ADELANTE_CHICO), pero al terminar NO tiene que enfriarse: el enfriamiento
+// existe para no volver a disparar un despeje, y aca no hubo ninguno. Sin
+// esto el arquero arrancaba ~1,3 s mas tarde sin mirar la pelota.
+bool empujonDeArranque = false;
+
+
+// ---- PATRULLA: no quedarse quieto para siempre ----
+//
+// 2026-10-12, pedido del equipo, despues de ganar 2-0: el robot hacia la
+// rutina, quedaba en el medio y sin pelota a la vista NO SE MOVIA MAS. El
+// juez penso que estaba roto y lo saco. (El 21/09 ya habia pasado lo mismo.)
+//
+// Ahora, si pasa MS_QUIETO_PARA_PATRULLAR sin moverse y sin ver la pelota,
+// va hasta el lateral, vuelve al medio por tiempo, retrocede hasta la linea
+// del area y avanza el poquito. O sea: los pasos 5, 6 y 7 de la rutina de
+// ir al medio. Sirve para dos cosas: el juez ve que esta vivo, y el robot
+// vuelve a quedar CENTRADO (el seguimiento lo va corriendo y nada lo traia).
+//
+// Cuatro cuidados, sacados de la revision del 21/09:
+//   - El reloj cuenta desde la ultima vez que el robot SE MOVIO, no desde la
+//     ultima vez que vio la pelota. Si no, un reflejo naranja cada tanto lo
+//     dejaria quieto para siempre.
+//   - Si aparece la pelota varios cuadros SEGUIDOS, corta la patrulla y la
+//     sigue. Un cuadro suelto no alcanza.
+//   - Termina en la linea del area, asi no se va corriendo en profundidad.
+//   - Sin giroscopio no patrulla: de costado y sin rumbo gira solo.
+//
+// ⚠️ COSTO: cada patrulla son unos 8 s, y 5 de esos el arco queda
+// descubierto. Si el juez aguanta mas de 15 s quieto, conviene subirlo.
+bool patrullarSinPelota = true;
+const unsigned long MS_QUIETO_PARA_PATRULLAR = 15000;
+const int CUADROS_PARA_CORTAR_PATRULLA = 5;     // ~0,2 s viendo la pelota
+
+// Ademas de los 15 s sin moverse, tiene que llevar este rato SEGUIDO sin ver
+// la pelota. Sin esto, si el arquero estuvo 15 s quieto MIRANDO una pelota
+// trabada enfrente y un rival se la tapa un instante, salia al lateral en el
+// acto, justo cuando le llevan la pelota.
+const unsigned long MS_SIN_PELOTA_PARA_PATRULLAR = 3000;
+
+// Con menos que esto en las tres ruedas, el robot no se mueve a la vista.
+const int PWM_CUENTA_COMO_MOVERSE = 60;
+
+// PLAN B, por si la patrulla por el lateral hace algo raro en la cancha: con
+// esto en false la "patrulla" es solo retroceder hasta la linea del area,
+// enderezarse y avanzar el poquito. Dura ~1,3 s y NO descubre el arco; lo
+// que se pierde es que no vuelve a centrarlo de costado.
+bool patrullaPorElLateral = true;
+
+unsigned long t_ultimoMovimiento = 0;   // lo actualiza aplicar()
+unsigned long t_soltoLinea = 0;         // para el paso de despegarse
+bool patrullando = false;
+int  cuadrosConPelota = 0;              // cuadros seguidos con pelota a la vista
+
+// ---- la rutina de ir al medio ----
+//
+// 🚨 SON LOS NUMEROS DE `pruebas/ir-al-medio`, COPIADOS TAL CUAL. Alla estan
+// explicados uno por uno y alla se midieron (2026-10-06). Si se cambia uno
+// en un lado hay que cambiarlo en el otro, o la prueba deja de decir lo que
+// va a hacer el partido.
+//
+// Hay DOS velocidades de costado y no es un descuido: los pasos que
+// terminan al VER una linea pueden ir a cualquier velocidad, pero el que
+// termina por TIEMPO tiene que ir a la velocidad con la que se midio ese
+// tiempo. Los 2228 ms son a velocidad 100.
+const int VEL_MEDIO_BUSCAR = 110;     // de costado, hasta ver una linea
+const int VEL_MEDIO_MEDIR  = 100;     // 🚨 atada a MS_MEDIO_AL_MEDIO
+const int VEL_MEDIO_RECTO  = 110;     // atras y adelante. Atada a MS_MEDIO_ADELANTE
+const int LADO_MEDIO = -1;            // -1 = va a buscar el lateral IZQUIERDO
+
+const unsigned long MS_MEDIO_ALEJARSE = 400;    // despegarse del lateral
+const unsigned long MS_MEDIO_ADELANTE = 943;    // ~50 cm a 110 (regla de tres)
+const unsigned long MS_MEDIO_AL_MEDIO = 2228;   // del lateral izquierdo al medio
+const unsigned long MS_MEDIO_TOPE_LATERAL = 6000;
+const unsigned long MS_MEDIO_QUIETO = 300;      // quieto entre paso y paso
+
+// 2026-10-12, dato del equipo: EL FONDO SE MIDE POR TIEMPO.
+//
+// En los bordes de la cancha hay una rampita, puesta para que la pelota
+// vuelva sola al campo. El robot NO la sube, asi que los sensores de atras
+// no llegan nunca a pisar la linea del fondo y "retroceder hasta ver blanco"
+// no terminaba: se cumplia el tope y la rutina se daba por fallada.
+//
+// Ahora el paso 3 termina con LO QUE PASE PRIMERO: ve la linea, o se cumple
+// este tiempo. Si se cumple el tiempo se da por hecho que el robot esta
+// apoyado contra la rampa del fondo —que es una marca fisica tan buena como
+// la linea— y la rutina SIGUE.
+//
+// ⚠️ ES UN NUMERO A OJO, NO UNA MEDICION. Tiene que alcanzar para llegar al
+// fondo desde donde este (ya viene de retroceder 1200 ms antes de empezar
+// la rutina) y no ser tan largo que se quede empujando la rampa de gusto.
+// A 110 el robot hace 1 cm cada 18 a 24 ms: 2000 ms son entre 80 y 110 cm.
+// Como medirlo: cronometrar cuanto tarda en tocar la rampa desde el lugar
+// mas lejano en el que se lo vaya a apoyar, y sumarle medio segundo.
+const unsigned long MS_MEDIO_FONDO_POR_TIEMPO = 2000;
+
 
 // ---- estado ----
 enum Fase { APAGADO, ARMANDOSE, ESPERANDO, SIGUIENDO,
             ADELANTE, PAUSA_MEDIO, ATRAS_HASTA_LINEA, FRENANDO,
             ACOMODANDO, ACOMODO_ASENTAR, ADELANTE_CHICO, ENFRIANDO,
-            UBIC_ATRAS, UBIC_FRENANDO };
+            UBIC_ATRAS, UBIC_FRENANDO,
+            MEDIO_PAUSA, MEDIO_AL_LATERAL, MEDIO_ALEJARSE, MEDIO_AL_FONDO,
+            MEDIO_ADELANTE, MEDIO_AL_LATERAL_2, MEDIO_AL_MEDIO,
+            MEDIO_AL_AREA, MEDIO_DESPEGARSE };
 Fase fase = APAGADO;
 unsigned long t_fase = 0;
+
+// A que paso de la rutina se va cuando termine la pausa entre pasos.
+Fase faseDespuesDePausa = ESPERANDO;
 
 int vecesSeguidas = 0;
 
@@ -670,7 +849,23 @@ unsigned long t_ultimoPaquete = 0;
 // la resta se lleva los dos errores juntos y ademas se divide por un
 // tiempo muy corto, lo que agranda la equivocacion. Por eso la velocidad
 // no se usa cruda: se promedia con las anteriores, pesando mas lo nuevo.
-bool  predecirTrayectoria = true;
+//
+// 🧪 2026-10-12: APAGADA PARA PROBAR (era true). El robot oscila de lado a
+// lado cuando la pelota esta LEJOS. HIPOTESIS, todavia sin probar: la camara
+// va montada en el robot, asi que la "velocidad de la pelota" es en realidad
+// la velocidad de la pelota RESPECTO DEL ROBOT. Con la pelota quieta, lo que
+// se mide es el movimiento y el giro del propio robot, y girar 1 grado corre
+// la pelota 0,5 cm en la imagen si esta a 30 cm pero 1,75 cm si esta a 1 m.
+// El robot terminaria persiguiendo su propio giro.
+//
+// Con esto en false el seguimiento mira donde la pelota ESTA y nada mas. Es
+// una prueba de si o no: si deja de oscilar, era la prediccion; si oscila
+// igual, no era, y se vuelve a true.
+//
+// No cambia la decision del despeje MIENTRAS msAnticipacion siga en 0.
+// El paso intermedio, si se quiere recuperar algo de adelanto: dejar esto en
+// true y bajar msAnticipacionSeguir de 500 a 250.
+bool  predecirTrayectoria = false;
 float velocidadLateral    = 0;      // cm reales por segundo, + = a la derecha
 float velocidadAcercamiento = 0;    // cm/s, + = se viene encima del robot
 const float SUAVIZADO_VELOCIDAD = 0.3;
@@ -890,6 +1085,18 @@ void aplicar(int v1, int v2, int v3) {
   rueda(INA1, INB1, PWM1, v1);
   rueda(INA2, INB2, PWM2, v2);
   rueda(INA3, INB3, PWM3, v3);
+  // Todo movimiento pasa por aca (parar() y frenar() no): es el reloj de
+  // "hace cuanto que no me muevo" que usa la patrulla.
+  //
+  // Solo cuenta si alguna rueda recibe fuerza de verdad. Sin este piso, un
+  // reflejo naranja de UN cuadro mandaba al robot a seguir "la pelota", se
+  // llamaba aca con la rampa todavia en cero, y el reloj se reiniciaba sin
+  // que el robot se hubiera movido: la patrulla no salia nunca. Todos los
+  // movimientos de verdad pasan de 60 en alguna rueda.
+  if (abs(v1) >= PWM_CUENTA_COMO_MOVERSE || abs(v2) >= PWM_CUENTA_COMO_MOVERSE
+      || abs(v3) >= PWM_CUENTA_COMO_MOVERSE) {
+    t_ultimoMovimiento = millis();
+  }
 }
 
 // Avanzar recto: mismas direcciones que avanzar() de arquero.ino, escritas
@@ -1103,6 +1310,7 @@ void leerCamara() {
       // fresco. Hacerlo en el loop() daria lecturas repetidas y una
       // velocidad falsa de cero.
       if (Xp > 0) {
+        if (cuadrosConPelota < 1000) cuadrosConPelota++;
         unsigned long t = millis();
         if (hayDesvioAnterior) {
           float dt = (t - t_desvioAnterior) / 1000.0;
@@ -1128,6 +1336,7 @@ void leerCamara() {
       } else {
         // Sin pelota a la vista, la velocidad vieja no vale nada: cuando
         // reaparezca puede estar en cualquier lado.
+        cuadrosConPelota  = 0;
         hayDesvioAnterior = false;
         velocidadLateral  = 0;
         velocidadAcercamiento = 0;
@@ -1297,9 +1506,72 @@ void pasarAEsperar() {
 // Arranca la ubicacion inicial: atras hasta la linea y enderezarse.
 void arrancarUbicacion() {
   ubicandose      = true;
+  encontroLaLinea = false;
   reiniciarRampaMovimiento();
   reiniciarCorreccion();
   fase = UBIC_ATRAS; t_fase = millis();
+}
+
+// Entre un paso y el otro de la rutina de ir al medio: frenar, soltar y
+// quedarse quieto un momento. Es lo que hace pasarA() en `pruebas/ir-al-medio`,
+// pero sin delay(), para no dejar de leer la camara.
+void pausaMedio(Fase siguiente) {
+  frenar();
+  faseDespuesDePausa = siguiente;
+  fase = MEDIO_PAUSA; t_fase = millis();
+}
+
+// La rutina no cerro: no aparecio una linea antes del tope. En la prueba el
+// robot se quedaba avisando con el LED; en un partido eso es regalar el
+// arco. Aca frena, se endereza y juega desde donde quedo.
+void abandonarMedio() {
+  encontroLaLinea = false;
+  frenar();
+  fase = UBIC_FRENANDO; t_fase = millis();
+}
+
+// ¿Esta en alguno de los pasos de la rutina de ir al medio?
+bool enFaseDeMedio() {
+  switch (fase) {
+    case MEDIO_PAUSA:        case MEDIO_DESPEGARSE:  case MEDIO_AL_LATERAL:
+    case MEDIO_ALEJARSE:     case MEDIO_AL_FONDO:    case MEDIO_ADELANTE:
+    case MEDIO_AL_LATERAL_2: case MEDIO_AL_MEDIO:    case MEDIO_AL_AREA:
+      return true;
+    default:
+      return false;
+  }
+}
+
+// La patrulla entra a la rutina de ir al medio por el paso 5 (ir al lateral)
+// y la termina por el mismo camino que la ubicacion inicial: linea del area,
+// enderezarse y avanzar el poquito.
+//
+// Si arranca parado sobre una linea, primero se despega (el paso 0 de
+// `pruebas/ir-al-medio`). Sin eso el paso 5 terminaria al instante, creyendo
+// que ya llego al lateral, y "volveria al medio" desde cualquier lado.
+void arrancarPatrulla() {
+  cuadrosConPelota = 0;         // los cuadros del corte se cuentan desde aca
+  if (!patrullaPorElLateral) {
+    // Plan B: lo mismo que al arrancar el partido (atras hasta la linea,
+    // enderezarse, avanzar el poquito).
+    arrancarUbicacion();
+    patrullando = true;
+    return;
+  }
+  patrullando     = true;
+  ubicandose      = true;
+  encontroLaLinea = false;
+  pausaMedio(algunoDeAtrasVeBlanco() ? MEDIO_DESPEGARSE : MEDIO_AL_LATERAL_2);
+}
+
+// Aparecio la pelota en plena patrulla: a jugar. Queda donde esta, corrido
+// del medio; la proxima patrulla lo vuelve a centrar.
+void cortarPatrulla() {
+  patrullando = false;
+  ubicandose  = false;
+  reiniciarRampaMovimiento();
+  reiniciarCorreccion();
+  fase = SIGUIENDO; t_fase = millis();
 }
 
 // Pasa al enderezado. Lo usan la ubicacion inicial y el enderezado que
@@ -1351,13 +1623,22 @@ void terminarDespeje() {
     pasarAEsperar();
     return;
   }
-  // Si lo que acaba de terminar era la UBICACION INICIAL y no un despeje,
-  // no corresponde el empujoncito de 10 cm: el robot ya esta donde tiene
-  // que estar. Se reusa toda la maquinaria de enderezarse, solo cambia
-  // adonde va despues.
+  // Si lo que acaba de terminar era la UBICACION INICIAL y no un despeje.
+  // Se reusa toda la maquinaria de enderezarse, solo cambia adonde va
+  // despues.
+  //
+  // 2026-10-12, pedido del equipo: si encontro la linea, avanza el poquito.
+  // (Antes no: se quedaba parado sobre la linea.) Si NO la encontro no
+  // avanza nada, porque no sabe donde esta parado.
   if (ubicandose) {
     ubicandose = false;
-    pasarAEsperar();
+    patrullando = false;        // la patrulla termina por este mismo camino
+    if (avanzarAlUbicarse && encontroLaLinea) {
+      empujonDeArranque = true;
+      fase = ADELANTE_CHICO; t_fase = millis();
+    } else {
+      pasarAEsperar();
+    }
     return;
   }
   if (empujonFinal) {
@@ -1376,7 +1657,9 @@ void terminarDespeje() {
 // arrancar y nada mas — el 21/09 se saco toda la consola del programa de
 // juego porque en la cancha no hay cable, y eso sigue igual: esta linea no
 // se lee en la cancha, se lee cuando el robot vuelve a la mesa.
-const char* VERSION = "ESTABLE 0.0929";
+// 2026-10-12: dejo de decir ESTABLE. Desde el 06/10 este archivo ya no es el
+// del 29/09, y el cartel no lo distinguia del respaldo congelado.
+const char* VERSION = "0.1012 EN PRUEBA (ubicacion nueva + patrulla corregida)";
 
 void setup() {
   Serial.begin(19200);
@@ -1463,6 +1746,14 @@ void loop() {
   leerCamara();
   unsigned long ahora = millis();
 
+  // Patrullando y aparecio la pelota: se corta la patrulla y se la sigue.
+  // Varios cuadros SEGUIDOS, para que no la corte un reflejo suelto. Solo
+  // la patrulla: la ubicacion del arranque se deja terminar.
+  if (patrullando && enFaseDeMedio() && veLaPelota()
+      && cuadrosConPelota >= CUADROS_PARA_CORTAR_PATRULLA) {
+    cortarPatrulla();
+  }
+
   switch (fase) {
 
     case APAGADO:
@@ -1503,13 +1794,29 @@ void loop() {
       digitalWrite(LED, ((ahora / 200) % 2) ? HIGH : LOW);
       atrasControlado(potenciaRetroceso);
       if (algunoDeAtrasVeBlanco()) {
+        encontroLaLinea = true;
         frenar();
         fase = UBIC_FRENANDO; t_fase = ahora;
         break;
       }
       if (ahora - t_fase >= MS_MAX_RETROCESO) {
-        frenar();
-        fase = UBIC_FRENANDO; t_fase = ahora;
+        // 2026-10-12: no aparecio la linea. Antes se quedaba aca; ahora va
+        // a buscar el medio con los laterales. Sin giroscopio NO: de costado
+        // y sin rumbo el robot gira solo y la rutina no tiene sentido. Se
+        // mira que conteste AHORA, no solo que haya contestado al armarse.
+        //
+        // ⚠️ Si el giroscopio se cae A MITAD de la rutina, sigue igual hasta
+        // el tope de ese paso, sin corregir el rumbo (lo mismo que hace la
+        // prueba). No se corta ahi a proposito: la unica senal que hay de
+        // "se cayo" son tres ceros seguidos, y con el robot quieto cerca del
+        // rumbo 0 esa senal puede dar falsa (bitacora del 29/09).
+        if (irAlMedioSiNoHayLinea && enderezarActivado && rumboBase >= 0
+            && giroscopoRespondiendo) {
+          pausaMedio(MEDIO_AL_LATERAL);
+        } else {
+          frenar();
+          fase = UBIC_FRENANDO; t_fase = ahora;
+        }
       }
       break;
 
@@ -1521,6 +1828,120 @@ void loop() {
         // Se queda donde encontro la linea y pasa a enderezarse.
         pasarAEnderezarse();
       }
+      break;
+
+    // ---------- sin linea: ir al medio usando los laterales ----------
+    //
+    // Es la rutina de `pruebas/ir-al-medio`, con los mismos pasos y los
+    // mismos numeros. Arranca cuando el retroceso de arriba no encontro la
+    // linea del area, o sea que el robot NO esta parado sobre ningun blanco
+    // (por eso aca no hace falta el paso 0 de la prueba, el de despegarse).
+    //
+    //   1. de costado hasta la linea LATERAL       fija el ANCHO
+    //   2. se aleja un poquito                     para que "ver blanco"
+    //                                              vuelva a significar algo
+    //   3. retrocede hasta el FONDO                fija la PROFUNDIDAD
+    //      (hasta ver la linea o, si la rampita del borde no lo deja
+    //      llegar, por tiempo: MS_MEDIO_FONDO_POR_TIEMPO)
+    //   4. avanza ~50 cm                           sale del area
+    //   5. vuelve al MISMO lateral                 por si se corrio
+    //   6. al medio por TIEMPO                     ahora si
+    //   7. atras hasta la linea del AREA           igual que el arranque
+    //
+    // Y de ahi sigue por el camino de siempre: frena, se endereza y avanza
+    // el poquito. Si en algun paso no aparece la linea antes del tope, no se
+    // queda clavado: abandonarMedio() lo manda a enderezarse y a jugar desde
+    // donde quedo.
+
+    case MEDIO_PAUSA:
+      if (ahora - t_fase < msFreno) { frenar(); break; }
+      parar();
+      if (ahora - t_fase >= msFreno + MS_MEDIO_QUIETO) {
+        reiniciarRampaMovimiento();
+        reiniciarCorreccion();
+        // El retroceso miro el blanco EN MOVIMIENTO. Si con el envion del
+        // freno termino parado sobre una linea, es la que venia buscando:
+        // la encontro tarde, pero la encontro. Sin este chequeo el paso 1
+        // terminaria al instante creyendo que ya llego al lateral.
+        if (faseDespuesDePausa == MEDIO_AL_LATERAL && algunoDeAtrasVeBlanco()) {
+          encontroLaLinea = true;
+          pasarAEnderezarse();
+          break;
+        }
+        fase = faseDespuesDePausa; t_fase = ahora;
+        t_soltoLinea = ahora;     // el margen de despegarse cuenta desde ACA
+      }
+      break;
+
+    // Paso 0, solo si la patrulla arranco parado sobre una linea: irse para
+    // el mismo lado al que va a ir despues, hasta dejar de ver blanco, y un
+    // rato mas (MS_MEDIO_ALEJARSE) para no quedar justo en el borde.
+    case MEDIO_DESPEGARSE:
+      digitalWrite(LED, HIGH);
+      moverDeCostado(LADO_MEDIO * VEL_MEDIO_BUSCAR);
+      if (algunoDeAtrasVeBlanco()) {
+        t_soltoLinea = ahora;                    // sigue encima del blanco
+      } else if (ahora - t_soltoLinea >= MS_MEDIO_ALEJARSE) {
+        pausaMedio(MEDIO_AL_LATERAL_2);
+        break;
+      }
+      // No logro salirse: lleva MS_MEDIO_TOPE_LATERAL yendo para ese lado,
+      // asi que esta contra el lateral. Vuelve al medio por tiempo.
+      if (ahora - t_fase >= MS_MEDIO_TOPE_LATERAL) pausaMedio(MEDIO_AL_MEDIO);
+      break;
+
+    case MEDIO_AL_LATERAL:            // paso 1
+    case MEDIO_AL_LATERAL_2:          // paso 5
+      digitalWrite(LED, HIGH);
+      moverDeCostado(LADO_MEDIO * VEL_MEDIO_BUSCAR);
+      // Termina al VER la linea o, si no aparece, POR TIEMPO: despues de
+      // MS_MEDIO_TOPE_LATERAL empujando para ese lado el robot esta contra
+      // el lateral aunque no haya visto el blanco. Antes aca abandonaba y
+      // quedaba estacionado en el borde; con una patrulla que se repite
+      // eso era un robot atascado.
+      if (algunoDeAtrasVeBlanco()
+          || ahora - t_fase >= MS_MEDIO_TOPE_LATERAL) {
+        pausaMedio(fase == MEDIO_AL_LATERAL ? MEDIO_ALEJARSE : MEDIO_AL_MEDIO);
+      }
+      break;
+
+    case MEDIO_ALEJARSE:              // paso 2
+      digitalWrite(LED, HIGH);
+      moverDeCostado(-LADO_MEDIO * VEL_MEDIO_BUSCAR);
+      if (ahora - t_fase >= MS_MEDIO_ALEJARSE) pausaMedio(MEDIO_AL_FONDO);
+      break;
+
+    case MEDIO_AL_FONDO:              // paso 3
+      digitalWrite(LED, HIGH);
+      atrasControlado(VEL_MEDIO_RECTO);
+      if (algunoDeAtrasVeBlanco()) { pausaMedio(MEDIO_ADELANTE); break; }
+      // Sin linea a la vista: por tiempo. La rampita del borde no lo deja
+      // llegar a pisarla, asi que a esta altura ya esta apoyado contra ella.
+      if (ahora - t_fase >= MS_MEDIO_FONDO_POR_TIEMPO) pausaMedio(MEDIO_ADELANTE);
+      break;
+
+    case MEDIO_ADELANTE:              // paso 4
+      digitalWrite(LED, HIGH);
+      adelanteControlado(VEL_MEDIO_RECTO);
+      if (ahora - t_fase >= MS_MEDIO_ADELANTE) pausaMedio(MEDIO_AL_LATERAL_2);
+      break;
+
+    case MEDIO_AL_MEDIO:              // paso 6
+      digitalWrite(LED, HIGH);
+      moverDeCostado(-LADO_MEDIO * VEL_MEDIO_MEDIR);   // 🚨 100, no 110
+      if (ahora - t_fase >= MS_MEDIO_AL_MEDIO) pausaMedio(MEDIO_AL_AREA);
+      break;
+
+    case MEDIO_AL_AREA:               // paso 7
+      digitalWrite(LED, ((ahora / 200) % 2) ? HIGH : LOW);
+      atrasControlado(VEL_MEDIO_RECTO);
+      if (algunoDeAtrasVeBlanco()) {
+        encontroLaLinea = true;
+        frenar();
+        fase = UBIC_FRENANDO; t_fase = ahora;
+        break;
+      }
+      if (ahora - t_fase >= MS_MAX_RETROCESO) abandonarMedio();
       break;
 
     case ESPERANDO:
@@ -1561,6 +1982,13 @@ void loop() {
         fase = SIGUIENDO; t_fase = ahora;
         reiniciarRampaMovimiento();
         reiniciarCorreccion();
+      } else if (patrullarSinPelota && enderezarActivado && rumboBase >= 0
+                 && giroscopoRespondiendo
+                 && ahora - t_fase >= MS_SIN_PELOTA_PARA_PATRULLAR
+                 && ahora - t_ultimoMovimiento >= MS_QUIETO_PARA_PATRULLAR) {
+        // 2026-10-12: sin pelota a la vista y hace rato que no se mueve.
+        // A patrullar, que el juez vea que esta vivo (y de paso se centra).
+        arrancarPatrulla();
       }
       break;
 
@@ -1787,7 +2215,15 @@ void loop() {
         frenar();
         delay(msFreno);
         parar();
-        fase = ENFRIANDO; t_fase = ahora;
+        if (empujonDeArranque) {
+          // Era el poquito del arranque, no el final de un despeje: a
+          // esperar la pelota ya mismo, sin enfriarse.
+          empujonDeArranque = false;
+          reiniciarCorreccion();
+          pasarAEsperar();
+        } else {
+          fase = ENFRIANDO; t_fase = ahora;
+        }
       }
       break;
 

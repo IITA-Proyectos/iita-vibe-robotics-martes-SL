@@ -23,7 +23,6 @@ Es la distinción que importa cuando hay que elegir cuál cargar antes de un par
 | `delantero-2026-09-15-freno1s-antes-de-retroceso300.ino` | probado en cancha | Cancha de tela recalibrada (umbrales 390/427/413), freno activo, espera de 1 s antes de retroceder de la línea. |
 | `partido1-2026-09-21/` | **probado en partido** | Lo que se usó en el partido 1: arco fijo por programa y escape de línea. |
 | `delantero-2026-09-29-giro-continuo-centrado-por-angulo-destrabe.ino` | compila y carga (lo reemplaza el del 06/10) | Búsqueda con giro continuo a 50 con rampa, freno de 200 ms al ver la pelota, centrado **por ángulo** (12°/6°) y destrabe (5 s sin recortar 10 cm → avanza 1 s a 150). |
-
 | `delantero-2026-10-06-destrabe-y-orbita-que-no-pierde-la-pelota.ino` | **probado en cancha** | Todo lo del 29/09 **más**: destrabe funcionando de verdad (3 s sin recortar 10 cm → avanza 0,5 s a 150 y busca de vuelta), órbita que aguanta 1 s sin ver la pelota frenada y la recentra si se corre de 18°, puntería apretada (arco 8° en vez de 15°), `XP_ORBITA` 32 cm y patada de 500 ms. |
 
 ### Sobre el del 06/10 — el más nuevo y el más probado

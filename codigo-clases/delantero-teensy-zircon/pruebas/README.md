@@ -38,7 +38,7 @@ pregunta concreta.
 | Prueba | Responde / hace | cable |
 |---|---|---|
 | [`tabla-camara/`](tabla-camara/) | ⭐ ¿Cuántos cm es un `Xp`? Cierra lo de `XP_ORBITA` | sí |
-| [`patada-derecha/`](patada-derecha/) | ¿Cuántos grados se tuerce al patear? ⚠️ mide 240×1000 y hoy patea 215×420 | sí |
+| [`patada-derecha/`](patada-derecha/) | ⭐ La patada **completa** (golpe + retroceso), medida y con gráfico. `p` patea; los números se cambian con teclas. Se abre con [`../PROBAR-PATADA.bat`](../PROBAR-PATADA.bat). Reescrita el 13/10 (150×500, copia del principal de ese día) | sí |
 | [`identificar-robot/`](identificar-robot/) | ¿Este robot es el arquero o el delantero? | sí |
 
 > 🗑️ **Borrados el 2026-09-22.** `grabar-verde`, `medir-verde`, `calibrar-linea` y

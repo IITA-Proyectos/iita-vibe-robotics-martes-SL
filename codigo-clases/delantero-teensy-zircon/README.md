@@ -109,7 +109,7 @@ al robot de frente en vez de desde el robot. La tabla de arriba es lo medido. Ve
 | Prueba | Responde |
 |---|---|
 | [`tabla-camara/`](pruebas/tabla-camara/) | ⭐ ¿Cuántos cm es un `Xp`? Cierra lo de `XP_ORBITA`. **Nunca se corrió** |
-| [`patada-derecha/`](pruebas/patada-derecha/) | ¿Cuántos grados se tuerce al patear? ⚠️ mide 240×1000 ms y hoy patea 215×420 |
+| [`patada-derecha/`](pruebas/patada-derecha/) | ⭐ La patada **completa** (golpe + retroceso), medida y con gráfico. `p` patea; trim, KP, KD, potencia y duración se cambian con teclas. Se abre con [`PROBAR-PATADA.bat`](PROBAR-PATADA.bat). Reescrita el 13/10: copia la patada del principal de ese día (150×500) |
 | [`identificar-robot/`](pruebas/identificar-robot/) | ¿Este robot es el arquero o el delantero? |
 
 > 🗑️ **Borrados el 2026-09-22** porque `grabar-linea` los reemplazó o ya habían cumplido:

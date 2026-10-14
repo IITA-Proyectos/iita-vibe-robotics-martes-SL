@@ -181,6 +181,14 @@ disparaba a 30 cm.
 - ⬜ **Una herramienta simple para ajustar la corrección de rumbo en el avance**, de a poco, para
   que no oscile ni zigzaguee.
 
+### 💡 Ideas (del profe, sin decidir)
+
+- 💡 **Que la herramienta de estabilidad se autodiagnostique con el giroscopio.** En vez de
+  mirar a ojo si el despeje o el movimiento de costado salen derechos, que el propio robot lea
+  el giroscopio durante la corrida y diga con números cuánto se torció y cuánto osciló. Punto de
+  partida que ya existe: [`pruebas/derecho-y-vuelta`](../pruebas/derecho-y-vuelta/), que mide con
+  el giroscopio cuánto se tuerce al avanzar y guarda el historial en la EEPROM.
+
 ### ⬜ Arrastres
 
 - ⬜ **Revisar el código del límite lateral** antes de la Roboliga (§6, error 1).

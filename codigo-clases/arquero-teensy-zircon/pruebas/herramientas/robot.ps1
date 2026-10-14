@@ -6,9 +6,17 @@ param(
     [Parameter(Mandatory = $true)][string]$sketch
 )
 
-$cli  = "C:\Users\alumnos\Documents\OTTO\arduino\Arduino IDE\resources\app\lib\backend\resources\arduino-cli.exe"
-$cfg  = "C:\Users\alumnos\.arduinoIDE\arduino-cli.yaml"
-$base = "C:\Users\alumnos\IITA Martes Vibe Robotics\iita-vibe-robotics-martes-SL\codigo-clases\arquero-teensy-zircon"
+# El arduino-cli viene adentro del Arduino IDE 2.x. Se busca primero donde esta en la
+# compu del taller (portable) y despues donde lo deja el instalador comun.
+$cli  = @(
+    "C:\Users\alumnos\Documents\OTTO\arduino\Arduino IDE\resources\app\lib\backend\resources\arduino-cli.exe",
+    "$env:ProgramFiles\Arduino IDE\resources\app\lib\backend\resources\arduino-cli.exe",
+    "$env:LOCALAPPDATA\Programs\Arduino IDE\resources\app\lib\backend\resources\arduino-cli.exe"
+) | Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $cli) { Write-Output "No encuentro el arduino-cli del Arduino IDE 2.x"; exit 1 }
+$cfg  = "$env:USERPROFILE\.arduinoIDE\arduino-cli.yaml"
+# La carpeta del arquero: dos niveles arriba de este script (pruebas\herramientas).
+$base = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $fqbn = "teensy:avr:teensy41"
 
 $ruta = Join-Path $base $sketch

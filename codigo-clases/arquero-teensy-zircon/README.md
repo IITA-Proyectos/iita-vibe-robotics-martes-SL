@@ -105,6 +105,7 @@ al robot de frente en vez de desde el robot. La tabla de arriba es lo medido. Ve
 | Programa | Qué hace |
 |---|---|
 | [`seguir-y-despejar/`](funciona/seguir-y-despejar/) | ⭐ **El arquero completo.** Sigue la pelota de costado sin dejar de mirar al frente, y la despeja cuando se acerca |
+| [`../respaldos/estable1013conlimiteslaterales/`](respaldos/estable1013conlimiteslaterales/) | 🧊 **Copia congelada de la version ESTABLE 0.1013** (13/10): patrulla a los 10 s, limite lateral que vuelve al medio y despeje de 35 cm. No se toca. Es la ultima que el equipo declaro estable |
 | [`../respaldos/estable-0.0929/`](respaldos/estable-0.0929/) | 🧊 **Copia congelada de la version ESTABLE 0.0929** (29/09). No se toca. Si algo se rompe experimentando, se carga esta y el robot vuelve a como estaba |
 | [`despeje-pelota/`](funciona/despeje-pelota/) | Solo el despeje, sin seguimiento. Más simple para probar de a una cosa |
 

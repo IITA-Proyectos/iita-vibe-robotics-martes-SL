@@ -1,12 +1,70 @@
 /* =====================================================================
    ARQUERO — sigue la pelota de costado y la despeja
    =====================================================================
-             V E R S I O N   0 . 1 0 1 2   -   E N   P R U E B A
+             V E R S I O N   0 . 1 0 1 3   -   E N   P R U E B A
    =====================================================================
    IITA Salta — taller de los martes — Roboliga 2026
-   Ultimo cambio: 2026-10-12
-   (La ESTABLE 0.0929 es la copia congelada de `respaldos/estable-0.0929/`.
-   Este archivo dejo de ser igual a ella el 06/10.)
+   Ultimo cambio: 2026-10-13
+   (Es la ESTABLE 0.1013, la copia congelada de
+   `respaldos/estable1013conlimiteslaterales/`, con UNA diferencia: la
+   prediccion prendida. La ESTABLE anterior, la 0.0929, sigue en
+   `respaldos/estable-0.0929/`.)
+
+   ---------------------------------------------------------------------
+   📋 CAMBIO DEL 2026-10-13 (4): LA PREDICCION VUELVE A ESTAR PRENDIDA
+   ---------------------------------------------------------------------
+   Pedido del equipo, despues de congelar la ESTABLE 0.1013. Es UN
+   interruptor:
+
+        predecirTrayectoria   false   ->   true   (para volver: false)
+
+   Se habia apagado el 12/10 porque el robot oscilaba de lado a lado con la
+   pelota lejos; no quedo anotado si apagada dejo de oscilar. Si prendida
+   vuelve a oscilar, el paso intermedio es dejarla en true y bajar
+   msAnticipacionSeguir de 500 a 250.
+
+   ---------------------------------------------------------------------
+   📋 CAMBIO DEL 2026-10-13: LA PATRULLA SALE A LOS 10 s
+   ---------------------------------------------------------------------
+   Pedido del equipo. Es UN numero: cuanto espera quieto y sin ver la
+   pelota antes de salir al lateral y volver al medio.
+
+        MS_QUIETO_PARA_PATRULLAR   15000   ->   10000   (para volver: 15000)
+
+   La patrulla en si no cambia (~8 s, unos 5 con el arco descubierto), pero
+   ahora sale mas seguido, asi que el arco queda descubierto mas seguido.
+
+   ---------------------------------------------------------------------
+   📋 CAMBIO DEL 2026-10-13 (2): LIMITE LATERAL, VUELVE AL MEDIO
+   ---------------------------------------------------------------------
+   Pedido del equipo: siguiendo la pelota se iba de largo por el costado,
+   chocaba el muro de afuera y el juez lo sacaba 1 minuto. Ahora, si
+   siguiendo la pelota pisa la linea blanca del lateral:
+
+        frena  ->  vuelve al medio por tiempo  ->  retrocede hasta la linea
+        del area  ->  se endereza y avanza el poquito
+
+   Cuenta como lateral solo si ve blanco el sensor de atras del lado hacia
+   el que va y el otro NO (los dos juntos es la linea del area). El tiempo
+   de vuelta es el MISMO desde los dos laterales (MS_MEDIO_AL_MEDIO, 2228),
+   decision del equipo. Desde el derecho la cuenta del 06/10 da 2331.
+
+        volverAlMedioEnElLateral = false   ->  sin limite, como antes
+
+   El equipo lo probo en cancha el 13/10 y dijo que anda bien (no quedaron
+   numeros anotados). ⚠️ Mientras vuelve al medio (~2,7 s) no mira la
+   pelota. Sin giroscopio no hay limite (no puede volver por tiempo).
+
+   ---------------------------------------------------------------------
+   📋 CAMBIO DEL 2026-10-13 (3): EL DESPEJE SALE 35 cm EN VEZ DE 50
+   ---------------------------------------------------------------------
+   Pedido del equipo: sale a buscar una pelota que esta a 30 cm y se iba de
+   largo hasta los 50. Es UN numero. El disparo sigue en 30 cm.
+
+        msAdelante   533 (~50 cm)   ->   383 (~35 cm)   (para volver: 533)
+
+   ⚠️ SIN PROBAR EN CANCHA. Le quedan 5 cm para empujar la pelota (antes
+   20). El 15/09, con 0 de sobra, no llegaba a tocarla.
 
    ---------------------------------------------------------------------
    📋 CAMBIO DEL 2026-10-12: COMO SE UBICA AL ARRANCAR
@@ -40,6 +98,7 @@
 
         patrullarSinPelota = false          ->  vuelve a quedarse quieto
         MS_QUIETO_PARA_PATRULLAR = 15000    ->  cada cuanto patrulla
+                                                (10000 desde el 13/10)
 
    ⚠️ SIN PROBAR EN CANCHA. Cada patrulla son ~8 s y unos 5 con el arco
    descubierto.
@@ -94,23 +153,30 @@
    ESTE ES EL PROGRAMA DE PARTIDO. Es el que se carga para jugar.
    Todo lo que esta en `pruebas/` son herramientas de medicion: no juegan.
 
-   El numero de version es la fecha: 0.0929 = 2026-09-29. Hay una copia
+   El numero de version es la fecha: 0.1013 = 2026-10-13. Hay una copia
    congelada de esta misma version en
-        funciona/seguir-y-despejar/../../respaldos/estable-0.0929/
+        funciona/seguir-y-despejar/../../respaldos/estable1013conlimiteslaterales/
    que se carga tal cual y no se toca nunca mas. Si algo se rompe mientras
-   se experimenta aca, se vuelve a esa carpeta y listo.
+   se experimenta aca, se vuelve a esa carpeta y listo. (La ESTABLE anterior,
+   la 0.0929, sigue en respaldos/estable-0.0929/.)
 
    ⚠️ QUE TAN "ESTABLE" ES, dicho con honestidad:
-   La version que gano los amistosos del 2026-09-21 (5-0 y 3-2, con una
-   derrota 3-1) es esta misma con UNA diferencia: aquella preguntaba por el
-   giroscopio hasta 10 veces al arrancar y esta pregunta UNA sola
-   (INTENTOS_GIRO, pedido del equipo el 29/09). Ese cambio NO SE PROBO en
-   cancha. Si el arranque del giroscopio empieza a fallar mas seguido,
-   ese numero es el primer sospechoso.
+   La declaro estable el equipo el 2026-10-13, probandola en cancha ese
+   mismo dia: dijo que andan bien el despeje, la vuelta al medio del area y
+   el limite lateral ("la version actual esta buena"). Eso fue ANTES del
+   ultimo cambio, el despeje de 50 a 35 cm, que se cargo junto con este
+   cartel: al congelarla no quedo anotado si se probo. No jugo ningun
+   partido, no hay numeros medidos de ese dia, y los tiempos de costado son
+   de antes de mover los motores (12/10).
 
-   ⚠️ Y el 2026-09-29 se descubrio que EL CABLE DEL GIROSCOPIO ESTA ROTO.
-   Hasta que se cambie, el robot juega sin rumbo (parpadeo rapido del LED) y
-   eso NO es culpa de este programa.
+   Lo que este lugar decia de la ESTABLE anterior (0.0929), por si se vuelve
+   a ella: la version que gano los amistosos del 2026-09-21 (5-0 y 3-2, con
+   una derrota 3-1) era la 0.0929 con UNA diferencia: aquella preguntaba por
+   el giroscopio hasta 10 veces al arrancar y la 0.0929 pregunta UNA sola
+   (INTENTOS_GIRO, pedido del equipo el 29/09; sigue asi). Ese cambio no se
+   probo en cancha antes de congelarla. Y el 2026-09-29 se descubrio que el
+   cable del giroscopio estaba roto: sin rumbo el LED parpadea rapido, y eso
+   no es culpa del programa.
    =====================================================================
 
    QUE HACE
@@ -120,21 +186,22 @@
         1. Sin pelota a la vista: quieto.
         2. Ve la pelota lejos  -> se corre DE COSTADO para ponerse enfrente
                                   de ella, sin dejar de mirar al frente.
-        3. La pelota llega a 30 cm -> DESPEJA: sale ~50 cm, la saca, vuelve
+        3. La pelota llega a 30 cm -> DESPEJA: sale ~35 cm, la saca, vuelve
                                   hasta pisar la linea, se endereza, y da
                                   un empujoncito de 10 cm.
 
-   ⚠️ Sale 50 cm para una pelota que estaba a 30. Queda mas lejos del arco
-   de lo necesario. Achicar la ida es el proximo ajuste pendiente, y es una
-   decision de estrategia de arquero, no una cuenta.
+   ⚠️ Sale 35 cm para una pelota que estaba a 30 (desde el 2026-10-13; antes
+   salia 50 y quedaba lejos del arco). Le sobran 5 cm para empujarla: si no
+   llega a tocarla, hay que subir la ida.
 
-   ⚠️ EL SEGUIMIENTO DE COSTADO NO TIENE LIMITE (cambio del 2026-08-18).
-   Lo unico que lo detiene es perder de vista la pelota. Antes se frenaba al
-   pisar la linea del costado del area, pero el robot vuelve chueco de
-   algunos despejes y estando torcido pisaba la linea antes de tiempo.
+   ⚠️ EL LIMITE DEL SEGUIMIENTO DE COSTADO. Hasta el 2026-08-18 se frenaba
+   al pisar una linea; se saco porque el robot vuelve chueco de algunos
+   despejes y estando torcido la pisaba antes de tiempo. Desde el
+   2026-10-13 hay limite otra vez, distinto: al pisar el LATERAL vuelve al
+   medio (ver el cambio del 13/10 (2), arriba).
 
-   La linea SIGUE usandose para volver del despeje. Son dos usos distintos
-   de los mismos dos sensores de atras, y solo se saco el primero.
+   La linea tambien se usa para volver del despeje. Son dos usos distintos
+   de los mismos dos sensores de atras.
 
    ---------------------------------------------------------------------
    POR QUE EL GIROSCOPIO NO PUEDE MEDIR CUANTO SE MOVIO DE COSTADO
@@ -386,7 +453,13 @@ int potenciaRetroceso = 110;
 // para que quede parejo: dispara a 30 y avanza 50 -> sobran 20 de empuje,
 // igual que antes (20 y 40).
 //        50 cm  ->  (50 + 3,3) x 10 = 533 ms
-int msAdelante        = 533;     // ~50 cm
+// 2026-10-13: 533 (~50 cm) -> 383 (~35), pedido del equipo: salia a buscar
+// una pelota que estaba a 30 y se iba de largo hasta los 50. El disparo
+// sigue en 30, asi que ahora sobran 5 cm de empuje (antes 20).
+// ⚠️ SIN PROBAR EN CANCHA. El 15/09, con 0 cm de sobra (30 y 30), no llegaba
+// a tocar la pelota. Si con 5 pasa lo mismo, subir este numero.
+//        35 cm  ->  (35 + 3,3) x 10 = 383 ms
+int msAdelante        = 383;     // ~35 cm (era 533, ~50)
 int msAdelanteChico   = 133;     // 10 cm
 // 🚨 2026-09-15 — CANCHA NUEVA, UMBRAL NUEVO. Era 620.
 //
@@ -423,6 +496,7 @@ int umbralBlanco      = 425;     // medido en cancha el 2026-09-15
 // cancha — que salga a despejar con la pelota mas cerca. En la cancha
 // nueva, que es mas chica, salir a buscarla a 30 cm era salir demasiado.
 // 2026-09-21: 20 -> 30 cm a pedido del equipo, junto con la ida (+10 cm).
+// 2026-10-13: la ida bajo a ~35. Dispara a 30, la ida son ~35: se cumple.
 float umbralCm        = 30.0;    // cm REALES: despeja si esta a esto o menos
 
 // Cuan de frente tiene que estar la pelota para disparar. 15 de camara /
@@ -727,13 +801,13 @@ bool empujonDeArranque = false;
 //   - Sin giroscopio no patrulla: de costado y sin rumbo gira solo.
 //
 // ⚠️ COSTO: cada patrulla son unos 8 s, y 5 de esos el arco queda
-// descubierto. Si el juez aguanta mas de 15 s quieto, conviene subirlo.
+// descubierto. Si el juez aguanta mas de 10 s quieto, conviene subirlo.
 bool patrullarSinPelota = true;
-const unsigned long MS_QUIETO_PARA_PATRULLAR = 15000;
+const unsigned long MS_QUIETO_PARA_PATRULLAR = 10000;   // era 15000, bajado el 2026-10-13
 const int CUADROS_PARA_CORTAR_PATRULLA = 5;     // ~0,2 s viendo la pelota
 
-// Ademas de los 15 s sin moverse, tiene que llevar este rato SEGUIDO sin ver
-// la pelota. Sin esto, si el arquero estuvo 15 s quieto MIRANDO una pelota
+// Ademas de los 10 s sin moverse, tiene que llevar este rato SEGUIDO sin ver
+// la pelota. Sin esto, si el arquero estuvo 10 s quieto MIRANDO una pelota
 // trabada enfrente y un rival se la tapa un instante, salia al lateral en el
 // acto, justo cuando le llevan la pelota.
 const unsigned long MS_SIN_PELOTA_PARA_PATRULLAR = 3000;
@@ -795,6 +869,47 @@ const unsigned long MS_MEDIO_QUIETO = 300;      // quieto entre paso y paso
 const unsigned long MS_MEDIO_FONDO_POR_TIEMPO = 2000;
 
 
+// ---- LIMITE LATERAL: al pisar el lateral, volver al medio ----
+//
+// 2026-10-13, pedido del equipo: siguiendo la pelota el robot se iba de
+// largo por el costado, chocaba el muro de afuera de la cancha y el juez lo
+// sacaba 1 minuto. Ahora, si mientras sigue la pelota pisa la linea blanca
+// del lateral, frena y vuelve al medio.
+//
+// COMO SABE QUE ES EL LATERAL Y NO LA LINEA DEL AREA. El limite que hubo
+// del 11/08 al 18/08 ya miraba solo el sensor del lado hacia el que iba, y
+// igual se saco porque cortaba de mas: torcido, ese sensor pisaba otra
+// linea antes de tiempo. Este pide ademas que el OTRO sensor siga en verde
+// y varias lecturas seguidas. Las dos lineas se distinguen por como cruzan
+// el par de sensores:
+//
+//     lateral   (va de adelante hacia atras)  ->  la pisa PRIMERO el sensor
+//               del lado hacia el que va el robot; el otro sigue en verde
+//     del area  (va de costado a costado)     ->  la pisan LOS DOS
+//
+// Por eso cuenta solo si ve blanco el sensor del lado hacia el que va Y el
+// otro no. ⚠️ No es infalible: corrido para atras Y torcido puede quedar
+// un solo sensor sobre la linea del area. Para eso esta el cuidado de la
+// vuelta: si volviendo al medio pisa el OTRO lateral, frena ahi.
+//
+// EL MISMO TIEMPO DESDE LOS DOS LATERALES, decision del equipo: usa
+// MS_MEDIO_AL_MEDIO (2228), que sale de los cruces desde el IZQUIERDO.
+// Desde el derecho la misma cuenta del 06/10 da 2331 ms (103 mas): si de
+// ese lado queda corto del medio, ese es el numero. Los dos son de antes
+// de mover los motores.
+//
+// Mientras vuelve al medio NO mira la pelota (~2,7 s): la pelota esta de
+// ese lado y lo llevaria derecho de vuelta al lateral. Una vez en el medio,
+// si la ve, la sigue ahi mismo.
+//
+// SIN GIROSCOPIO NO HAY LIMITE: de costado y sin rumbo gira solo, asi que
+// no puede volver por tiempo. Es lo mismo que pasa con la patrulla.
+bool volverAlMedioEnElLateral = true;       // false -> sin limite, como antes
+const int LECTURAS_PARA_CREER_LATERAL = 3;  // vueltas seguidas viendolo
+int lecturasDeLateral = 0;
+int ladoDelLateral = 0;                     // -1 = piso el izquierdo, +1 = el derecho
+
+
 // ---- estado ----
 enum Fase { APAGADO, ARMANDOSE, ESPERANDO, SIGUIENDO,
             ADELANTE, PAUSA_MEDIO, ATRAS_HASTA_LINEA, FRENANDO,
@@ -802,7 +917,8 @@ enum Fase { APAGADO, ARMANDOSE, ESPERANDO, SIGUIENDO,
             UBIC_ATRAS, UBIC_FRENANDO,
             MEDIO_PAUSA, MEDIO_AL_LATERAL, MEDIO_ALEJARSE, MEDIO_AL_FONDO,
             MEDIO_ADELANTE, MEDIO_AL_LATERAL_2, MEDIO_AL_MEDIO,
-            MEDIO_AL_AREA, MEDIO_DESPEGARSE };
+            MEDIO_AL_AREA, MEDIO_DESPEGARSE,
+            LATERAL_AL_MEDIO };
 Fase fase = APAGADO;
 unsigned long t_fase = 0;
 
@@ -865,7 +981,10 @@ unsigned long t_ultimoPaquete = 0;
 // No cambia la decision del despeje MIENTRAS msAnticipacion siga en 0.
 // El paso intermedio, si se quiere recuperar algo de adelanto: dejar esto en
 // true y bajar msAnticipacionSeguir de 500 a 250.
-bool  predecirTrayectoria = false;
+//
+// 2026-10-13: PRENDIDA de nuevo, pedido del equipo. La ESTABLE 0.1013
+// congelada quedo con esto en false.
+bool  predecirTrayectoria = true;
 float velocidadLateral    = 0;      // cm reales por segundo, + = a la derecha
 float velocidadAcercamiento = 0;    // cm/s, + = se viene encima del robot
 const float SUAVIZADO_VELOCIDAD = 0.3;
@@ -1204,6 +1323,14 @@ int correccionDeRumbo() {
 bool veBlancoIzq() { return analogRead(LINEA_ATRAS_IZQ) >= umbralBlanco; }
 bool veBlancoDer() { return analogRead(LINEA_ATRAS_DER) >= umbralBlanco; }
 bool algunoDeAtrasVeBlanco() { return veBlancoIzq() || veBlancoDer(); }
+
+// ¿Pisa el lateral de ese lado? (-1 izquierdo, +1 derecho). Solo el sensor
+// de ese lado en blanco y el otro en verde: ver "LIMITE LATERAL".
+bool pisaElLateral(int lado) {
+  bool izq = veBlancoIzq();
+  bool der = veBlancoDer();
+  return (lado < 0) ? (izq && !der) : (der && !izq);
+}
 
 
 // ------------------------------------------------------- moverse de costado
@@ -1574,6 +1701,18 @@ void cortarPatrulla() {
   fase = SIGUIENDO; t_fase = millis();
 }
 
+// Piso el lateral siguiendo la pelota: frena y vuelve al medio por tiempo.
+// No es una patrulla (patrullando = false): mientras vuelve, la pelota NO
+// lo corta. Termina por el camino de la ubicacion, igual que la patrulla.
+void arrancarVueltaDelLateral(int lado) {
+  ladoDelLateral    = lado;
+  lecturasDeLateral = 0;
+  patrullando       = false;
+  ubicandose        = true;
+  encontroLaLinea   = false;
+  pausaMedio(LATERAL_AL_MEDIO);
+}
+
 // Pasa al enderezado. Lo usan la ubicacion inicial y el enderezado que
 // se hace mientras espera.
 void pasarAEnderezarse() {
@@ -1659,7 +1798,10 @@ void terminarDespeje() {
 // se lee en la cancha, se lee cuando el robot vuelve a la mesa.
 // 2026-10-12: dejo de decir ESTABLE. Desde el 06/10 este archivo ya no es el
 // del 29/09, y el cartel no lo distinguia del respaldo congelado.
-const char* VERSION = "0.1012 EN PRUEBA (ubicacion nueva + patrulla corregida)";
+// 2026-10-13: vuelve a decir ESTABLE, pedido del equipo. La copia congelada
+// de esta version es `respaldos/estable1013conlimiteslaterales/`; su cartel dice RESPALDO.
+// Con la prediccion prendida ya no es igual a la copia congelada: EN PRUEBA.
+const char* VERSION = "0.1013 EN PRUEBA (ESTABLE 0.1013 + prediccion prendida)";
 
 void setup() {
   Serial.begin(19200);
@@ -1944,6 +2086,24 @@ void loop() {
       if (ahora - t_fase >= MS_MAX_RETROCESO) abandonarMedio();
       break;
 
+    // 2026-10-13: la vuelta al medio despues de pisar un lateral siguiendo
+    // la pelota. Es el paso 6 de arriba, pero para el lado que haga falta.
+    case LATERAL_AL_MEDIO:
+      digitalWrite(LED, HIGH);
+      moverDeCostado(-ladoDelLateral * VEL_MEDIO_MEDIR);   // 🚨 100, no 110
+      // Si aparece el OTRO lateral, no salio de donde creia: frena ahi.
+      if (pisaElLateral(-ladoDelLateral)) lecturasDeLateral++;
+      else                                lecturasDeLateral = 0;
+      if (ahora - t_fase >= MS_MEDIO_AL_MEDIO
+          || lecturasDeLateral >= LECTURAS_PARA_CREER_LATERAL) {
+        lecturasDeLateral = 0;
+        // Desde aca es el final de una patrulla: si ve la pelota la sigue,
+        // y si no, se acomoda contra la linea del area.
+        patrullando = true;
+        pausaMedio(MEDIO_AL_AREA);
+      }
+      break;
+
     case ESPERANDO:
       parar();
       digitalWrite(LED, ((ahora / 800) % 2) ? HIGH : LOW);
@@ -2061,6 +2221,21 @@ void loop() {
       //
       // La linea SIGUE usandose para volver del despeje (ATRAS_HASTA_LINEA).
       // Eso no se toco.
+      //
+      // 2026-10-13: VUELVE A HABER LIMITE, pero distinto del que se saco.
+      // Mira solo el sensor del lado hacia el que va (ver "LIMITE LATERAL",
+      // donde esta el interruptor) y en vez de frenarse vuelve al medio.
+      // Sin giroscopio no: no puede volver por tiempo.
+      if (volverAlMedioEnElLateral && enderezarActivado && rumboBase >= 0
+          && giroscopoRespondiendo) {
+        int lado = hayQueIrDerecha ? +1 : -1;
+        if (pisaElLateral(lado)) lecturasDeLateral++;
+        else                     lecturasDeLateral = 0;
+        if (lecturasDeLateral >= LECTURAS_PARA_CREER_LATERAL) {
+          arrancarVueltaDelLateral(lado);
+          break;
+        }
+      }
 
       moverDeCostado(hayQueIrDerecha ? fuerza : -fuerza);
       break;

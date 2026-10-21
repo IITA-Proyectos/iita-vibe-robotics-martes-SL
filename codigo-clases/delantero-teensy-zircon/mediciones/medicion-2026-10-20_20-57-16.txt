@@ -1,0 +1,90 @@
+﻿
+===================================================
+ GRABAR LINEA - lo que se midio en la cancha
+===================================================
+Placa (pin 32): Mark1   pines 25, 27, 26
+Umbrales cargados hoy en el robot: 335 / 401 / 403
+Grabados 531 bloques de 100 ms = 53.1 segundos
+Sensor 1 = DERECHO   2 = IZQUIERDO   3 = DELANTERO   (MEDIDO 2026-09-15)
+
+--- rango de TODA la corrida ---
+  S1: 35 .. 768
+  S2: 28 .. 765
+  S3: 41 .. 768
+
+--- MESETAS (el robot estuvo quieto) ---
+En el orden en que las hiciste: VERDE x3, BLANCO x3, NEGRO.
+
+MESETA 1   t=0.0 s   duro 15.5 s
+    S1 = 74   (visto 39..95, pico 21 arriba)   VERDE
+    S2 = 72   (visto 36..95, pico 23 arriba)   VERDE
+    S3 = 89   (visto 51..121, pico 32 arriba)   VERDE
+
+MESETA 2   t=15.9 s   duro 3.3 s
+    S1 = 68   (visto 51..78, pico 10 arriba)   VERDE
+    S2 = 64   (visto 50..76, pico 12 arriba)   VERDE
+    S3 = 76   (visto 52..94, pico 18 arriba)   VERDE
+
+MESETA 3   t=19.7 s   duro 2.1 s
+    S1 = 728   (visto 714..732, pico 4 arriba)   BLANCO   <<< CRUZA EL UMBRAL DE HOY
+    S2 = 83   (visto 82..86, pico 3 arriba)   VERDE
+    S3 = 90   (visto 89..95, pico 5 arriba)   VERDE
+
+MESETA 4   t=23.3 s   duro 2.6 s
+    S1 = 77   (visto 72..83, pico 6 arriba)   VERDE
+    S2 = 749   (visto 747..752, pico 3 arriba)   BLANCO   <<< CRUZA EL UMBRAL DE HOY
+    S3 = 104   (visto 93..109, pico 5 arriba)   VERDE
+
+MESETA 5   t=27.5 s   duro 5.0 s
+    S1 = 71   (visto 68..74, pico 3 arriba)   VERDE
+    S2 = 101   (visto 67..119, pico 18 arriba)   VERDE
+    S3 = 717   (visto 705..742, pico 25 arriba)   BLANCO   <<< CRUZA EL UMBRAL DE HOY
+
+MESETA 6   t=33.9 s   duro 4.4 s
+    S1 = 130   (visto 108..134, pico 4 arriba)   VERDE
+    S2 = 119   (visto 101..122, pico 3 arriba)   VERDE
+    S3 = 171   (visto 161..175, pico 4 arriba)   VERDE
+
+MESETA 7   t=39.6 s   duro 13.5 s
+    S1 = 764   (visto 743..768, pico 4 arriba)   BLANCO   <<< CRUZA EL UMBRAL DE HOY
+    S2 = 763   (visto 752..765, pico 2 arriba)   BLANCO   <<< CRUZA EL UMBRAL DE HOY
+    S3 = 764   (visto 753..768, pico 4 arriba)   BLANCO   <<< CRUZA EL UMBRAL DE HOY
+
+Total: 7 mesetas.
+
+===================================================
+                   VEREDICTO
+===================================================
+Verde = promedio < 300   Blanco = promedio > 600
+Se toma el PEOR de cada lado: el verde mas ALTO y el
+blanco mas BAJO. El umbral tiene que aguantar el peor
+caso, no el promedio.
+
+---- SENSOR 1  (DERECHO) ----
+  verde hasta  134   (5 mesetas)
+  blanco desde 714   (2 mesetas)
+  separacion: 580
+  UMBRAL PROPUESTO: 424   (margen 290 para cada lado)
+  umbral de hoy 335  (queda en rango, pero mira los margenes)
+
+---- SENSOR 2  (IZQUIERDO) ----
+  verde hasta  122   (5 mesetas)
+  blanco desde 747   (2 mesetas)
+  separacion: 625
+  UMBRAL PROPUESTO: 434   (margen 312 para cada lado)
+  umbral de hoy 401  (queda en rango, pero mira los margenes)
+
+---- SENSOR 3  (DELANTERO) ----
+  verde hasta  175   (5 mesetas)
+  blanco desde 705   (2 mesetas)
+  separacion: 530
+  UMBRAL PROPUESTO: 440   (margen 265 para cada lado)
+  umbral de hoy 403  (queda en rango, pero mira los margenes)
+
+===================================================
+Para pegar en funciona/delantero/delantero.ino:
+int UMBRAL_LINEA[3] = { 424, 434, 440 };
+===================================================
+Para grabar de nuevo: RESET del Teensy, o recargar.
+===================================================
+

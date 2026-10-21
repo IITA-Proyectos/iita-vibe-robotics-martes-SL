@@ -7,7 +7,8 @@ Arduino IDE, pero sin abrir el IDE.
   python mirar.py                 (busca el Teensy solo)
   python mirar.py --puerto COM7   (si queres forzarlo)
 
-Se cierra con Ctrl+C.
+Se cierra con Ctrl+C. Si se desenchufa el cable NO se cierra: espera y se
+reconecta solo cuando lo vuelven a enchufar.
 
 Las teclas que escribas se le mandan al robot tal cual. Cuales sirven
 depende del programa que tenga cargado: casi todos contestan con ? la
@@ -66,41 +67,38 @@ def buscar_teensy():
     return None
 
 
+def esperar_y_abrir(puerto_forzado, baud, vaciar_teclado):
+    """Abre el puerto del Teensy. Si no esta, ESPERA a que lo enchufen.
+
+    2026-10-20, pedido del equipo: antes, al desenchufar el cable el monitor
+    se cerraba, y para las pruebas sin cable (corre suelto en la cancha y
+    se vuelve a enchufar para ver el resultado) habia que abrirlo de nuevo
+    cada vez. Ahora se queda esperando y se reconecta solo.
+
+    El programa del robot NO se reinicia al desenchufar ni al volver a
+    enchufar: si la bateria esta prendida, sigue corriendo.
+    """
+    aviso = False
+    while True:
+        puerto = puerto_forzado or buscar_teensy()
+        if puerto:
+            try:
+                return serial.Serial(puerto, baud, timeout=0.05), puerto
+            except (serial.SerialException, OSError):
+                pass        # recien aparecido: Windows todavia no lo suelta
+        if not aviso:
+            print()
+            print("--- esperando que enchufen el robot (Ctrl+C para salir) ---")
+            aviso = True
+        vaciar_teclado()    # lo que se teclee mientras tanto no se manda
+        time.sleep(0.3)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--puerto", default=None)
     ap.add_argument("--baud", type=int, default=19200)
     a = ap.parse_args()
-
-    puerto = a.puerto or buscar_teensy()
-    if not puerto:
-        print("NO ENCONTRE NINGUN TEENSY ENCHUFADO.")
-        print("Fijate que el cable USB este puesto, o pasa el puerto a mano:")
-        print("    python mirar.py --puerto COM5")
-        return 2
-
-    try:
-        s = serial.Serial(puerto, a.baud, timeout=0.05)
-    except serial.SerialException as e:
-        print(f"NO SE PUDO ABRIR {puerto}: {e}")
-        return 2
-
-    habilitar_ansi()
-
-    print("=" * 60)
-    print(f" MONITOR DEL ARQUERO  —  {puerto} a {a.baud}")
-    print("=" * 60)
-    print(" Lo que escribas se le manda al robot tal cual.")
-    print(" Cada programa tiene sus propias teclas: casi todos contestan")
-    print(" con ? la lista de las que entienden.")
-    print()
-    print(" Para salir: Ctrl+C")
-    if not habilitar_ansi():
-        print()
-        print(" (esta consola no entiende los codigos de pantalla: si el")
-        print("  monitor se ve con basura, apreta la tecla l)")
-    print("=" * 60)
-    print()
 
     # Para leer el teclado sin frenar la lectura del puerto. Solo Windows,
     # que es donde corre esto.
@@ -109,35 +107,72 @@ def main():
         hay_teclado = True
     except ImportError:
         hay_teclado = False
-        print("(sin teclado interactivo en este sistema: solo lectura)")
+
+    def vaciar_teclado():
+        while hay_teclado and msvcrt.kbhit():
+            msvcrt.getwch()
+
+    habilitar_ansi()
+
+    print("=" * 60)
+    print(" MONITOR DEL ARQUERO")
+    print("=" * 60)
+    print(" Lo que escribas se le manda al robot tal cual.")
+    print(" Cada programa tiene sus propias teclas: casi todos contestan")
+    print(" con ? la lista de las que entienden.")
+    print()
+    print(" Si desenchufan el cable, esto espera y se reconecta solo.")
+    print(" Para salir: Ctrl+C")
+    if not habilitar_ansi():
+        print()
+        print(" (esta consola no entiende los codigos de pantalla: si el")
+        print("  monitor se ve con basura, apreta la tecla l)")
+    if not hay_teclado:
+        print(" (sin teclado interactivo en este sistema: solo lectura)")
+    print("=" * 60)
 
     try:
-        with s:
-            while True:
-                n = s.in_waiting
-                if n:
-                    datos = s.read(n).decode("utf-8", "replace")
-                    sys.stdout.write(datos)
-                    sys.stdout.flush()
+        while True:
+            s, puerto = esperar_y_abrir(a.puerto, a.baud, vaciar_teclado)
+            print(f"--- conectado: {puerto} a {a.baud} ---")
+            print()
+            try:
+                with s:
+                  try:
+                    while True:
+                        n = s.in_waiting
+                        if n:
+                            datos = s.read(n).decode("utf-8", "replace")
+                            sys.stdout.write(datos)
+                            sys.stdout.flush()
 
-                if hay_teclado and msvcrt.kbhit():
-                    tecla = msvcrt.getwch()
-                    if tecla in ("\r", "\n"):
-                        continue
-                    s.write((tecla + "\n").encode())
-                    s.flush()
+                        if hay_teclado and msvcrt.kbhit():
+                            tecla = msvcrt.getwch()
+                            if tecla in ("\r", "\n"):
+                                continue
+                            s.write((tecla + "\n").encode())
+                            s.flush()
 
-                if not n:
-                    time.sleep(0.01)
+                        if not n:
+                            time.sleep(0.01)
+                  except KeyboardInterrupt:
+                    # Ctrl+C: antes de cerrar, PARAR el robot. El 0 es la
+                    # parada de todas las herramientas. Si no, cerrar la
+                    # consola a mitad de un movimiento lo deja andando.
+                    try:
+                        s.write(b"0\n")
+                        s.flush()
+                    except (serial.SerialException, OSError):
+                        pass
+                    raise
+            except (serial.SerialException, OSError):
+                print()
+                print("--- se desenchufo el cable (o se reinicio el robot) ---")
+                print("--- al volver a enchufarlo se reconecta solo ---")
     except KeyboardInterrupt:
         print()
         print("--- cerrado ---")
         return 0
-    except serial.SerialException as e:
-        print()
-        print(f"--- se corto la conexion: {e} ---")
-        print("--- ¿se desenchufo el cable? ---")
-        return 3
 
 
 if __name__ == "__main__":

@@ -232,7 +232,8 @@ struct Cabecera {
 //
 //      0  ..  255   medir-ancho / medir-ancho-sin-giro  (tiempos de cruce)
 //    256  ..  767   derecho-y-vuelta  (este historial)
-//    768  .. 4095   libre
+//   1024  .. 1535   ajustar-movimientos (desde el 2026-10-20)
+//    768  .. 1023 y 1536 .. 4095   libre
 const int DIR_CABECERA = 256;
 const int DIR_TABLA    = DIR_CABECERA + sizeof(Cabecera);
 

@@ -1,6 +1,6 @@
 # Manejar el robot sin abrir el Arduino IDE
 
-Dos scripts para compilar, cargar y hablarle al robot desde la consola. Sirven para trabajar
+Scripts para compilar, cargar y hablarle al robot desde la consola. Sirven para trabajar
 rápido (no hay que apuntar con el mouse) y para que quede **escrito** qué se le mandó y qué
 contestó — que es justo lo que después va a la bitácora.
 
@@ -36,6 +36,32 @@ python serie.py --enviar 0                  # PARAR (emergencia)
 ```
 
 Reemplaza al Monitor Serie. Necesita `pyserial`.
+
+## `cargar.py` — compilar y cargar SIN PowerShell (2026-10-20)
+
+```
+python cargar.py ..\..\funciona\seguir-y-despejar
+python cargar.py ..\ajustar-movimientos --mirar
+```
+
+Lo usan los `.bat` de doble clic: `funciona/seguir-y-despejar/CARGAR-PARTIDO.bat` y
+`pruebas/ajustar-movimientos/AJUSTAR.bat`. Anda sin internet (usa el PlatformIO instalado) y
+en una PC con los scripts de PowerShell bloqueados. Antes de cargar:
+
+- exige **un solo Teensy** enchufado y se niega si es el del delantero (serie `15708680`);
+  si no es el del arquero (`13348550`), pregunta;
+- avisa si **otra ventana tiene tomado el robot** (un monitor abierto no deja reiniciarlo);
+- cierra el Teensy Loader si quedó abierto, para que no grabe otro programa.
+
+Después lee el cartel de arranque, o con `--mirar` abre el monitor.
+
+## `mirar.py` — el monitor en vivo
+
+Lo abren `mirar.bat`, `MONITOR.bat`, `MIRAR.bat` y `AJUSTAR.bat`. Desde el 2026-10-20:
+
+- **si se desenchufa el cable no se cierra**: espera y se reconecta solo al volver a
+  enchufar (el robot sigue corriendo con la batería);
+- **Ctrl+C manda un `0` antes de cerrar**, para que el robot no quede andando.
 
 ---
 

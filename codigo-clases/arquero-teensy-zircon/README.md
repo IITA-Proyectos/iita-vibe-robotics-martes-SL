@@ -98,7 +98,8 @@ al robot de frente en vez de desde el robot. La tabla de arriba es lo medido. Ve
 | [`ir-al-medio/`](pruebas/ir-al-medio/) | ⭐ Volver al centro del arco usando las líneas: busca el lateral, el fondo y el área para saber dónde está en los dos ejes, y recién entonces cruza al medio por tiempo. Se puede apoyar en cualquier lado de la cancha |
 | [`ver-prediccion/`](pruebas/ver-prediccion/) | ⭐ ¿La predicción de la pelota acierta? Dibuja una regla con dos marcas: dónde **está** y dónde se **predice**. Si la P queda detrás de la o, el signo está invertido. Con `MIRAR.bat` |
 | [`giroscopo-dfrobot/`](pruebas/giroscopo-dfrobot/) | El mismo BNO055 con la librería de DFRobot en vez de Adafruit. Si contesta acá y no allá, el problema era la librería |
-| [`herramientas/`](pruebas/herramientas/) | Compilar, cargar y hablarle al robot **sin el Arduino IDE** |
+| [`ajustar-movimientos/`](pruebas/ajustar-movimientos/) | ⭐ **Para ajustar solos la prolijidad.** El robot hace un movimiento (de costado, despeje, retroceso, seguir la pelota) con el código del partido, el giroscopio mide cuánto se torció y zigzagueó, y da una nota y qué número tocar. Los números se cambian con teclas, sin compilar, y la tecla `v` dice qué copiar al partido. Con `AJUSTAR.bat` |
+| [`herramientas/`](pruebas/herramientas/) | Compilar, cargar y hablarle al robot **sin el Arduino IDE**. `cargar.py` carga cualquier programa sin PowerShell (lo usan `AJUSTAR.bat` y `funciona/seguir-y-despejar/CARGAR-PARTIDO.bat`) |
 
 ### `funciona/`
 

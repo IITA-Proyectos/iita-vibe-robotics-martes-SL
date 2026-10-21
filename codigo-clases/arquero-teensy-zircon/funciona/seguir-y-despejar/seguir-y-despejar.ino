@@ -1,14 +1,39 @@
 /* =====================================================================
    ARQUERO — sigue la pelota de costado y la despeja
    =====================================================================
-             V E R S I O N   0 . 1 0 1 3   -   E N   P R U E B A
+             V E R S I O N   0 . 1 0 2 0   -   E N   P R U E B A
    =====================================================================
    IITA Salta — taller de los martes — Roboliga 2026
-   Ultimo cambio: 2026-10-13
+   Ultimo cambio: 2026-10-20
    (Es la ESTABLE 0.1013, la copia congelada de
-   `respaldos/estable1013conlimiteslaterales/`, con UNA diferencia: la
-   prediccion prendida. La ESTABLE anterior, la 0.0929, sigue en
+   `respaldos/estable1013conlimiteslaterales/`, con UNA diferencia: el freno
+   antes de volver del despeje. La prediccion volvio a quedar APAGADA, como
+   en la estable. La ESTABLE anterior, la 0.0929, sigue en
    `respaldos/estable-0.0929/`.)
+
+   ---------------------------------------------------------------------
+   📋 CAMBIO DEL 2026-10-20 (2): LA PREDICCION SE APAGA DE NUEVO
+   ---------------------------------------------------------------------
+   Con la pelota quieta enfrente, prendida hacia ir y venir al robot sin
+   centrarse (lo vio el equipo y lo midio ajustar-movimientos). Ver donde
+   se declara.
+
+        predecirTrayectoria   true   ->   false   (para volver: true)
+
+   ---------------------------------------------------------------------
+   📋 CAMBIO DEL 2026-10-20: EL DESPEJE FRENA ANTES DE VOLVER
+   ---------------------------------------------------------------------
+   Pedido del equipo: al llegar al tope de la ida el robot se inclina y
+   recien despues vuelve al piso. Ahora, al terminar la ida, FRENA, se
+   queda frenado 400 ms y recien ahi retrocede hasta la linea. Antes
+   soltaba los motores 150 ms y arrancaba para atras de golpe.
+
+        frenarAntesDeVolver         true   ->   false   (para volver)
+        MS_ESPERA_ANTES_DE_VOLVER   400 ms (cuanto se queda frenado)
+
+   Primero se puso 100; el equipo probo en `pruebas/ajustar-movimientos`
+   (movimiento 6) y con 400 anduvo "decentemente mejor". Falta verlo en el
+   programa de partido, en cancha.
 
    ---------------------------------------------------------------------
    📋 CAMBIO DEL 2026-10-13 (4): LA PREDICCION VUELVE A ESTAR PRENDIDA
@@ -570,6 +595,27 @@ float kpPersecucion = 6.0;
 const int PWM_MAX_PERSECUCION = 60;
 
 const unsigned long MS_PAUSA_MEDIO   = 150;
+
+// 2026-10-20, pedido del equipo, mirando el despeje: al llegar al tope de
+// la ida el robot "hace como una inclinacion y recien vuelve al piso".
+// Hasta hoy, al terminar la ida SOLTABA los motores yendo a 200 (parar()),
+// esperaba MS_PAUSA_MEDIO suelto y arrancaba para atras de golpe. Ahora
+// FRENA, se queda frenado MS_ESPERA_ANTES_DE_VOLVER para asentarse, y recien
+// ahi retrocede.
+//
+// Lo midio el giroscopio con `pruebas/ajustar-movimientos` el mismo dia, con
+// el despeje como estaba: 6 corridas, ninguna prolija, y la peor torcida
+// SIEMPRE a los 0,3-0,4 s, o sea justo en ese cambio (7 a 25 grados). El
+// retroceso solo, arrancando quieto, dio 2 grados. ⚠️ SIN PROBAR con esto.
+//
+//      frenarAntesDeVolver = false   ->   vuelve a soltar 150 ms, como antes
+//
+// 2026-10-20: 100 -> 400 ms. El equipo lo probo en ajustar-movimientos
+// (movimiento 6) y con 400 "funciona decentemente mejor". Cuesta 0,25 s mas
+// de despeje que antes (400 contra los 150 de la pausa vieja). No quedaron
+// anotados los grados de cada corrida.
+bool frenarAntesDeVolver = true;
+const unsigned long MS_ESPERA_ANTES_DE_VOLVER = 400;
 const unsigned long MS_MAX_RETROCESO = 1200;
 
 // Cuanto se sostiene el freno electrico. Despues se sueltan los motores:
@@ -984,7 +1030,16 @@ unsigned long t_ultimoPaquete = 0;
 //
 // 2026-10-13: PRENDIDA de nuevo, pedido del equipo. La ESTABLE 0.1013
 // congelada quedo con esto en false.
-bool  predecirTrayectoria = true;
+//
+// 2026-10-20: APAGADA OTRA VEZ, y ahora con datos. El equipo puso la pelota
+// QUIETA enfrente: con esto en true el robot iba y venia sin centrarse y se
+// alejaba del arco; con la estable (false) no. La herramienta
+// `pruebas/ajustar-movimientos` (movimiento 8) midio, con la pelota quieta,
+// que la pelota "se movia" a 6,2 cm/s (el piso de ruido es 4) y 11 cambios de
+// lado. Es la hipotesis del 12/10 confirmada: la camara va arriba del robot,
+// el robot se mueve, la pelota parece moverse, y la prediccion lo manda mas
+// lejos.
+bool  predecirTrayectoria = false;
 float velocidadLateral    = 0;      // cm reales por segundo, + = a la derecha
 float velocidadAcercamiento = 0;    // cm/s, + = se viene encima del robot
 const float SUAVIZADO_VELOCIDAD = 0.3;
@@ -1801,7 +1856,7 @@ void terminarDespeje() {
 // 2026-10-13: vuelve a decir ESTABLE, pedido del equipo. La copia congelada
 // de esta version es `respaldos/estable1013conlimiteslaterales/`; su cartel dice RESPALDO.
 // Con la prediccion prendida ya no es igual a la copia congelada: EN PRUEBA.
-const char* VERSION = "0.1013 EN PRUEBA (ESTABLE 0.1013 + prediccion prendida)";
+const char* VERSION = "0.1020 EN PRUEBA (ESTABLE 0.1013 + frena 400 ms antes de volver; prediccion apagada)";
 
 void setup() {
   Serial.begin(19200);
@@ -2268,14 +2323,18 @@ void loop() {
       avanzarPersiguiendo(pwmAvanceDespeje, lateral);
 
       if (ahora - t_fase >= msIdaDespeje) {
-        parar(); fase = PAUSA_MEDIO; t_fase = ahora;
+        if (frenarAntesDeVolver) frenar(); else parar();
+        fase = PAUSA_MEDIO; t_fase = ahora;
       }
       break;
     }
 
     case PAUSA_MEDIO:
-      parar();
-      if (ahora - t_fase >= MS_PAUSA_MEDIO) {
+      // 2026-10-20: frena y se queda quieto antes de volver (ver donde se
+      // declara frenarAntesDeVolver). Con false, suelta como antes.
+      if (frenarAntesDeVolver) frenar(); else parar();
+      if (ahora - t_fase >= (frenarAntesDeVolver ? MS_ESPERA_ANTES_DE_VOLVER
+                                                 : MS_PAUSA_MEDIO)) {
         fase = ATRAS_HASTA_LINEA; t_fase = ahora;
       }
       break;

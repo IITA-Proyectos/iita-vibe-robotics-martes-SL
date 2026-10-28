@@ -61,10 +61,10 @@
 //   LOS NUMEROS DE LA PATADA — los mismos del panel del principal (13/10)
 //   Estos cinco se cambian con teclas. Arrancan con el valor de partido.
 // =====================================================================
-int   VEL_PATADA  = 150;   // potencia del golpe            teclas v / V
-int   MS_PATADA   = 500;   // cuanto dura el golpe          teclas m / M
+int   VEL_PATADA  = 180;   // potencia del golpe            teclas v / V
+int   MS_PATADA   = 450;   // cuanto dura el golpe          teclas m / M
 int   TRIM_PATADA = 5;     // compensacion fija             teclas t / T
-float KP_PATADA   = 4.0;   // corrige por GRADO de desvio   teclas k / K
+float KP_PATADA   = 6.0;   // corrige por GRADO de desvio   teclas k / K
 float KD_PATADA   = 0.6;   // corrige por GRADO/SEGUNDO     teclas d / D
 
 // Estos no se cambian con teclas. Son los del principal.
@@ -477,11 +477,17 @@ void empezarGolpe() {
   }
 
   // EN EL PARTIDO se llega a la patada desde la orbita, que le pregunta el
-  // rumbo al giroscopio cada 20 ms; o sea que el chequeo de cada 500 ms cae en
-  // CUALQUIER momento del golpe. Aca se sortea ese momento, para que la prueba
-  // no caiga siempre en el mismo lugar. El informe dice donde cayo.
+  // rumbo al giroscopio cada 20 ms: el chequeo de 200 ms se repite cada
+  // ~500-520 ms, y mientras esta clavado no puede decidir patear. Entonces al
+  // entrar a la patada el ultimo chequeo fue hace entre ~200 y ~520 ms, y el
+  // siguiente cae en los primeros ~300 ms del golpe (o al entrar, todavia
+  // quieto, si ya pasaron mas de 500). Aca se sortea esa EDAD del ultimo
+  // chequeo, entre 200 y 520 ms (random(a, b) da de a hasta b-1), para que la
+  // prueba no caiga siempre en el mismo lugar. El informe dice donde cayo.
+  // [27/10] Antes era random(0, 500) y 4 de cada 10 patadas caian despues de
+  // los 300 ms, cosa que en el partido no pasa. Igual que pruebas/tablero.
   randomSeed(micros());
-  t_chequeoGiro = millis() - random(0, MS_CHEQUEO_GIRO);
+  t_chequeoGiro = millis() - random(200, MS_CHEQUEO_GIRO + 21);
 
   digitalWrite(LED, HIGH);
   unsigned long t0 = millis();

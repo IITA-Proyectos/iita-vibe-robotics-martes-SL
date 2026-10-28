@@ -109,6 +109,7 @@ al robot de frente en vez de desde el robot. La tabla de arriba es lo medido. Ve
 | Prueba | Responde |
 |---|---|
 | [`tabla-camara/`](pruebas/tabla-camara/) | ⭐ ¿Cuántos cm es un `Xp`? Cierra lo de `XP_ORBITA`. **Nunca se corrió** |
+| ⭐ [`tablero/`](pruebas/tablero/) | **El tablero: una ventana con botones.** Ver la pelota y los arcos desde arriba, los sensores y el giroscopio, y probar los movimientos (patada, avance, escape de línea, órbita, giro) con nota, gráfico y `Copiar al panel`. Se abre con [`TABLERO.bat`](TABLERO.bat); sin robot, [`TABLERO-DEMO.bat`](TABLERO-DEMO.bat). Desde el 27/10 |
 | [`patada-derecha/`](pruebas/patada-derecha/) | ⭐ La patada **completa** (golpe + retroceso), medida y con gráfico. `p` patea; trim, KP, KD, potencia y duración se cambian con teclas. Se abre con [`PROBAR-PATADA.bat`](PROBAR-PATADA.bat). Reescrita el 13/10: copia la patada del principal de ese día (150×500) |
 | [`identificar-robot/`](pruebas/identificar-robot/) | ¿Este robot es el arquero o el delantero? |
 

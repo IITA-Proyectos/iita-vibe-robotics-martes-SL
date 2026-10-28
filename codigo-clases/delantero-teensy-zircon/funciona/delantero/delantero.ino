@@ -1,71 +1,18 @@
 /* =====================================================================
-   DELANTERO — firmware del robot, Roboliga 2026
-   IITA Salta — taller de los martes
+   DELANTERO - programa de partido - Roboliga 2026 - IITA Salta
    =====================================================================
+   Robot 2 (ROBOT2 del codigo 2025) - Teensy 4.1 + Zircon - serie 15708680
+   Ruedas (medido en banco): 8/7/6 IZQUIERDA - 11/12/4 DERECHA - 2/5/3 TRASERA
 
-   ESTE ES EL FIRMWARE VIVO DEL DELANTERO. Lo que se prueba y anda termina
-   aca. Las pruebas sueltas de diagnostico viven en ../../pruebas/ y son
-   descartables; esto no.
+   QUE HACE:  BUSCANDO -> CENTRANDO -> AVANZANDO -> ORBITANDO -> PATEA_ADEL
+              -> PATEA_ATRAS -> BUSCANDO. La LINEA BLANCA interrumpe todo.
 
-   Arranca como copia de pruebas/buscar-pelota/ (borrado el 22/09: era
-   una foto congelada de este mismo firmware), validado en banco el
-   2026-07-28. Robot: el que el equipo llama "robot 2" = DELANTERO.
+   CARGAR:    CARGAR-ROBOT.bat (1 azul / 2 amarillo) y leer el cartel del
+              robot (monitor a 19200). El SUCCESS del cargador no prueba nada.
+   REGLAS:    un cambio por vez, y anotar en la bitacora que se vio.
 
-   Mapeo de ruedas MEDIDO en banco (no deducido del codigo):
-        pines  8 / 7 / 6   = IZQUIERDA
-        pines 11 / 12 / 4  = DERECHA
-        pines  2 / 5 / 3   = TRASERA
-
-   Antes de tocar nada, leer ../README.md: que se sabe medido, que NO esta
-   confirmado, y como no pisarse con la sesion del arquero.
-
-   ---------------------------------------------------------------------
-   LA MAQUINA DE ESTADOS
-   ---------------------------------------------------------------------
-
-     BUSCANDO    no ve la pelota           -> gira lento a pulsitos
-     CENTRANDO   la ve de costado          -> gira a pulsitos HACIA ella
-     AVANZANDO   la ve y centrada          -> va derecho hacia ella
-     ORBITANDO   la tiene cerca (<25 cm)   -> da la vuelta ALREDEDOR de la
-                                              pelota buscando el arco AZUL
-     PATEA_ADEL  pelota alineada con arco  -> 1 s a maxima potencia
-     PATEA_ATRAS despues de patear         -> retrocede y vuelve a buscar
-
-   ---------------------------------------------------------------------
-   LA ORBITA — de donde sale
-   ---------------------------------------------------------------------
-   No la invente: es la maniobra del delantero que gano el Nacional 2025,
-   estado CENTRANDO_horario (delantero.ino:613-617). Manda las dos ruedas
-   de adelante SUAVE para un lado y la TRASERA FUERTE para el otro, en
-   relacion 1 : 1 : 3.
-
-   Esa asimetria es la clave: si las tres fueran iguales el robot giraria
-   sobre su propio eje y la pelota se le escaparia. Con la trasera
-   empujando mucho mas, el robot describe un ARCO AMPLIO y la pelota le
-   queda adentro de la curva. Por eso "orbita" en vez de "girar".
-
-   Los numeros originales (60/60/180 x c=0.4 => 24/24/72) quedan por
-   DEBAJO del piso de arranque de este robot hoy, asi que estan escalados
-   manteniendo la relacion.
-
-   ---------------------------------------------------------------------
-   CUANDO PATEA — el criterio del 2025
-   ---------------------------------------------------------------------
-   NO alcanza con "ver el arco": hay que verlo DETRAS de la pelota. O sea:
-   robot -> pelota -> arco, los tres en la misma linea. Ahi empujar la
-   pelota derecho la manda al arco.
-
-   Hasta el 2026-08-11 eso se decidia restando CENTIMETROS
-   (abs(Yp - Yarco) <= 12) y estaba mal, porque los centimetros de la
-   pelota se miden a 17 cm y los del arco a 100. Ahora se comparan
-   ANGULOS, como hacia el campeon 2025 (delantero.ino:311-313). El detalle
-   completo, con el numero que muestra el error, esta en el bloque
-   "A. ALINEACION POR ANGULO" mas abajo.
-
-   ---------------------------------------------------------------------
-   El arco AMARILLO es el byte 202 del paquete de la camara y el AZUL el 203.
-   A cual se le apunta lo decide objetivoEsAmarillo (ver bloque B).
-   Correr en el PISO, con espacio. Monitor serie a 19200.
+   La historia de cada numero esta en bitacora/ y en
+   respaldos/delantero-2026-10-27-con-comentarios-largos.ino
    ===================================================================== */
 
 #include <Wire.h>
@@ -73,36 +20,52 @@
 #include <Adafruit_BNO055.h>
 
 // =====================================================================
-//                    P A N E L   D E   C O N T R O L
-// =====================================================================
-//
-//   TODO LO QUE SE PUEDE AJUSTAR ESTA ACA ARRIBA, y en ningun otro lado.
-//   [2026-10-20, pedido del profe Franco y del equipo: "todo lo ajustable
-//   arriba, en un solo bloque", para poder cambiar cosas sin Claude y sin
-//   internet.] Los valores son los mismos que antes: solo se mudaron.
-//
-//   COMO SE LEE:   NOMBRE = valor;   // que hace, y que pasa si lo cambias
-//     ms   = milisegundos (1000 ms = 1 segundo)
-//     cm   = centimetros, medidos por la camara
-//     fuerza (PWM) = 0 nada, 255 a fondo. Desde QUIETO una rueda necesita
-//            ~70 para arrancar; YA RODANDO alcanza ~40 (medido en la cancha
-//            vieja: en la de hoy nunca se midio)
-//     true / false = prendido / apagado
-//
-//   REGLAS QUE NO SE NEGOCIAN
-//     1. UN CAMBIO POR VEZ. Si se tocan tres y el robot empeora, no se
-//        sabe cual fue.
-//     2. Anotar en la bitacora que se cambio, de cuanto a cuanto, y QUE SE VIO.
-//     3. Despues de cargar, LEER EL CARTEL del monitor (19200): el robot
-//        imprime estos valores. El SUCCESS del cargador no prueba nada.
-//     4. Lo marcado [MEDIDO] salio de una prueba: se vuelve a medir, no se tantea.
-//
-//   De donde salio cada numero y que se probo antes: en las NOTAS DEL
-//   PANEL, justo abajo, y en el bloque de cada tema mas abajo (buscar el
-//   nombre y aparece).
+//   LO ESENCIAL: lo que se ajusta en clase y en la cancha
+//   ms = milisegundos - cm = centimetros de la camara - fuerza 0..255
+//   (desde QUIETO una rueda necesita ~70 para arrancar; YA RODANDO ~40)
 // =====================================================================
 
-// ---------- 1. INTERRUPTORES: que cosas estan prendidas (true = si, false = no) ----------
+// ---- BUSCAR, CENTRAR Y AVANZAR ----
+const int VEL_GIRO_CONTINUO            = 35;               // fuerza del giro buscando. Si zumba y no gira: subir a 45 o 50
+const int VEL_CENT                     = 78;               // fuerza de cada pulsito. Tambien al recentrarla orbitando y al apuntar al cero
+const int VEL_AVANCE                   = 95;               // fuerza yendo hacia la pelota cuando esta LEJOS
+const int VEL_AVANCE_CERCA             = 70;               // fuerza al llegar. Si la empuja al llegar: bajar de a 5, pero debajo de ~70 puede quedarse plantado
+const int XP_FRENAR                    = 70;               // desde estos cm empieza a aflojar, de VEL_AVANCE a VEL_AVANCE_CERCA
+
+// ---- RODEAR LA PELOTA (ORBITA) ----
+const int XP_ORBITA                    = 32;               // a estos cm deja de avanzar y empieza a rodearla. Si la choca al empezar: subir
+const int XP_SUELTA                    = 55;               // si se aleja mas que esto (cm) vuelve a avanzar. Siempre MAYOR que XP_ORBITA
+const int VEL_ORB_IMPULSO              = 120;              // golpe de la rueda trasera para arrancar la orbita
+const int VEL_ORB_TRASERA              = 67;               // fuerza de la vuelta, y al rearrancar despues de recentrar (ahi no hay golpe). Mas = mas rapida. Si se planta: subir
+const unsigned long MS_ORBITA_MAX      = 10000;            // cuanto orbita buscando el arco antes de pasar al plan B (ms)
+
+// ---- PATEAR ----
+const int VEL_PATADA                   = 180;              // fuerza del golpe. Mas = llega mas lejos, pero se levanta y vuelca mas facil
+const int MS_PATADA                    = 450;              // cuanto dura el golpe (ms). Mas = llega mas lejos y se pasa mas cerca de la linea
+const int TRIM_PATADA                  = 5;                // compensacion fija. Si se va siempre a la DERECHA: subir. A la IZQUIERDA: bajar
+const float KP_PATADA                  = 6.0;              // corrige por GRADO torcido. Mas = corrige mas fuerte (y puede zigzaguear)
+const float KD_PATADA                  = 0.6;              // corrige por GRADO/SEGUNDO: frena el giro antes de que crezca (baja el pico)
+const int VEL_RETROCESO                = 110;              // despues del golpe, marcha atras con esta fuerza...
+const int MS_RETROCESO                 = 700;              // ...durante esto (ms), y vuelve a buscar
+
+// ---- PUNTERIA (con el arco lejos, que es casi siempre) ----
+const float TOL_ANG_LEJOS_PELOTA       = 12.0;             // grados, pelota adelante, con el arco lejos. Tambien para patear al rumbo cero
+const float TOL_ANG_LEJOS_ARCO         = 8.0;              // grados, punteria con el arco lejos. Si orbita y no patea: subir a 10 o 12
+
+// ---- RUMBO CERO (plan B: el cero es hacia donde mira AL PRENDER la bateria) ----
+const float VUELTAS_PARA_RUMBO0        = 1.0;              // vueltas alrededor de la pelota sin patear antes del plan B
+
+// ---- LINEA BLANCA (UMBRAL_LINEA se MIDE en cada cancha con grabar-linea: 1 DER, 2 IZQ, 3 DEL) ----
+int UMBRAL_LINEA[3]                    = { 424, 434, 440 }; // [MEDIDO 20/10, base nueva] desde que lectura cada sensor dice "esto es blanco"
+const unsigned long MS_RETROCESO_LINEA = 210;              // al verla, retrocede esto (ms)...
+const int VEL_ESCAPE_FUERTE            = 135;              // ...con esta fuerza. Mas = se despega mas rapido, pero se levanta
+const unsigned long MS_CIEGO_LINEA     = 300;              // despues de verla no la mira durante esto (ms). NUNCA menos que MS_RETROCESO_LINEA
+
+// =====================================================================
+//   OTROS AJUSTES: casi nunca se tocan
+// =====================================================================
+
+// ---- INTERRUPTORES (true = prendido) ----
 const bool BUSCA_CONTINUO              = true;             // buscar la pelota girando continuo (true) o a pulsitos (false)
 const bool LINEA_ACTIVA                = true;             // escapar de la linea blanca. En false puede salirse de la cancha
 const bool PROTECCION_ARRANQUE         = false;            // true = si al prenderse ya ve blanco, APAGA el escape de linea todo el partido
@@ -115,23 +78,19 @@ const bool ORBITA_CAMINO_CORTO         = true;             // elegir para que la
 const bool TOLERANCIA_ADAPTATIVA       = true;             // con el arco lejos, apuntar con las tolerancias de "lejos" (seccion 7)
 const bool ELEGIR_ARCO_AL_ENCENDER     = true;             // true: al prenderse mira y elige el arco (si no ve ninguno: AZUL). false: siempre AZUL. Con CARGAR-ROBOT.bat se ignora
 
-// ---------- 2. BUSCAR LA PELOTA ----------
-const int VEL_GIRO_CONTINUO            = 40;               // fuerza del giro buscando. Si zumba y no gira: subir a 45 o 50
+// ---- BUSCAR Y CENTRAR ----
 const int RAMPA_GIRO_PASO              = 10;               // el giro arranca suave: sube esto de fuerza...
 const unsigned long RAMPA_GIRO_MS      = 10;               // ...cada esta cantidad de ms
 const unsigned long MS_FRENO_AL_VER    = 200;              // al verla frena esto (ms), para no pasarse de largo
 const int VEL_GIRO                     = 95;               // fuerza buscando A PULSOS (solo si BUSCA_CONTINUO = false)
 const int MS_PULSO_BUSC                = 60;               // a pulsos: cuanto dura cada empujon (ms)
 const int MS_ESPERA_BUSC               = 200;              // a pulsos: pausa frenada entre empujones (ms). Menos = barre mas rapido
-
-// ---------- 3. CENTRAR LA PELOTA (gira a pulsitos hacia ella) ----------
-const int VEL_CENT                     = 78;               // fuerza de cada pulsito. Tambien al recentrarla orbitando y al apuntar al cero
 const int MS_PULSO_CENT                = 32;               // cuanto dura cada pulsito (ms)
 const int MS_ESPERA_CENT               = 320;              // pausa frenada entre pulsitos (ms): es cuando la camara mira
 const float TOL_ANG_ENTRA              = 12.0;             // grados: mas torcida que esto -> se pone a centrar
 const float TOL_ANG_SALE               = 6.0;              // grados: mas derecha que esto -> avanza. Siempre MENOR que TOL_ANG_ENTRA
 
-// ---------- 4. DESTRABE: la ve y no se le acerca ----------
+// ---- DESTRABE ----
 const unsigned long MS_LIMITE_CENTRAR  = 3000;             // si pasa esto (ms) viendola sin acercarse...
 const int MEJORA_DESTRABE              = 10;               // ...("acercarse" = recortar al menos estos cm)...
 const unsigned long MS_AVANCE_DESTRABE = 500;              // ...avanza a lo bruto esto (ms)...
@@ -139,76 +98,44 @@ const int VEL_DESTRABE                 = 150;              // ...con esta fuerza
 const int MAX_DESTRABES                = 5;                // destrabes por tanda. Gastados, espera otro MS_LIMITE_CENTRAR y vuelve a 0: NO es un tope y NO suelta la pelota. 0 = sin destrabe
 const unsigned long MS_PERDIDA_REAL    = 1000;             // solo para el destrabe: sin verla esto (ms, mas 300 de MS_GRACIA) su reloj y su cupo vuelven a 0. No cambia cuando vuelve a buscar
 
-// ---------- 5. AVANZAR HACIA LA PELOTA ----------
-const int VEL_AVANCE                   = 95;               // fuerza yendo hacia la pelota cuando esta LEJOS
-const int VEL_AVANCE_CERCA             = 70;               // fuerza al llegar. Si la empuja al llegar: bajar de a 5, pero debajo de ~70 puede quedarse plantado
-const int XP_FRENAR                    = 70;               // desde estos cm empieza a aflojar, de VEL_AVANCE a VEL_AVANCE_CERCA
-
-// ---------- 6. RODEAR LA PELOTA (ORBITA) ----------
-const int XP_ORBITA                    = 32;               // a estos cm deja de avanzar y empieza a rodearla. Si la choca al empezar: subir
-const int XP_SUELTA                    = 55;               // si se aleja mas que esto (cm) vuelve a avanzar. Siempre MAYOR que XP_ORBITA
-const int VEL_ORB_IMPULSO              = 120;              // golpe de la rueda trasera para arrancar la orbita
+// ---- ORBITA ----
 const int MS_ORB_IMPULSO               = 300;              // cuanto dura ese golpe (ms), SOLO al entrar a orbitar. Si no arranca: subir esto. Si se planta despues: VEL_ORB_TRASERA
-const int VEL_ORB_TRASERA              = 67;               // fuerza de la vuelta, y al rearrancar despues de recentrar (ahi no hay golpe). Mas = mas rapida. Si se planta: subir
 const int VEL_ORB_FRENTE               = 30;               // las dos de adelante, DEBAJO del piso a proposito para que no giren. Nunca cerca de 70
 const unsigned long MS_AGUANTE_ORBITA  = 1000;             // si deja de verla orbitando, frena y la espera esto (ms) antes de volver a buscar
 const float TOL_ANG_ORB_ENTRA          = 18.0;             // grados: si la pelota se corre mas que esto, deja de rodear y la recentra
 const float TOL_ANG_ORB_SALE           = 9.0;              // grados: ya mas derecha que esto, sigue rodeando. Siempre MENOR que ENTRA
-const unsigned long MS_ORBITA_MAX      = 10000;            // cuanto orbita buscando el arco antes de pasar al plan B (ms)
 
-// ---------- 7. CUANDO PATEA (la punteria) ----------
+// ---- PUNTERIA CON EL ARCO CERCA ----
 const float TOL_ANG_PELOTA             = 8.0;              // grados: la pelota a menos de esto del frente. Solo con el arco CERCA (menos de ARCO_LEJOS_MIN); lejos manda TOL_ANG_LEJOS_PELOTA
 const float TOL_ANG_ALINEADO           = 8.0;              // grados: punteria SOLO con el arco CERCA (menos de ARCO_LEJOS_MIN). Lejos (casi siempre) manda TOL_ANG_LEJOS_ARCO
 const int ARCO_LEJOS_MIN               = 50;               // con el arco entre MIN y MAX (cm) se usan las dos de "lejos" de abajo...
 const int ARCO_LEJOS_MAX               = 200;              // ...(200 es el tope de la camara: o sea "de MIN para arriba")
-const float TOL_ANG_LEJOS_PELOTA       = 12.0;             // grados, pelota adelante, con el arco lejos. Tambien para patear al rumbo cero
-const float TOL_ANG_LEJOS_ARCO         = 8.0;              // grados, punteria con el arco lejos. Si orbita y no patea: subir a 10 o 12
 
-// ---------- 8. LA PATADA ----------
-const int VEL_PATADA                   = 150;              // fuerza del golpe. Mas = llega mas lejos, pero se levanta y vuelca mas facil
-const int MS_PATADA                    = 500;              // cuanto dura el golpe (ms). Mas = llega mas lejos y se pasa mas cerca de la linea
+// ---- PATADA (finos) ----
 const int RAMPA_PATADA_PASO            = 15;               // el golpe arranca suave: sube esto de fuerza...
 const unsigned long RAMPA_PATADA_MS    = 5;                // ...cada esta cantidad de ms (para que no patinen las ruedas)
-const int VEL_RETROCESO                = 110;              // despues del golpe, marcha atras con esta fuerza...
-const int MS_RETROCESO                 = 700;              // ...durante esto (ms), y vuelve a buscar
-
-// ---------- 9. QUE LA PATADA VAYA DERECHA (corrige con el giroscopio) ----------
-// Se ajustan con pruebas/patada-derecha (PROBAR-PATADA.bat): las mismas
-// teclas cambian estos numeros sin recargar. Lo que ande, se copia aca.
-const int TRIM_PATADA                  = 5;                // compensacion fija. Si se va siempre a la DERECHA: subir. A la IZQUIERDA: bajar
-const float KP_PATADA                  = 4.0;              // corrige por GRADO torcido. Mas = corrige mas fuerte (y puede zigzaguear)
-const float KD_PATADA                  = 0.6;              // corrige por GRADO/SEGUNDO: frena el giro antes de que crezca (baja el pico)
 const int RESTA_MAX                    = 120;              // tope de la correccion, en fuerza
 
-// ---------- 10. RUMBO CERO (el plan B del giroscopio) ----------
-// El "cero" es hacia donde mira el robot AL PRENDER LA BATERIA:
-// hay que apoyarlo mirando al arco rival, y recien ahi prenderlo.
-const float VUELTAS_PARA_RUMBO0        = 1.0;              // vueltas alrededor de la pelota sin patear antes del plan B
+// ---- RUMBO CERO (finos) ----
 const unsigned long MS_RUMBO0_MAX      = 15000;            // si en este tiempo (ms) no queda mirando al cero, vuelve a buscar
 const float TOL_RUMBO                  = 12.0;             // grados: "ya estoy mirando al cero"
 const unsigned long MS_APUNTAR_MAX     = 6000;             // solo con RUMBO0_ORBITANDO = false: cuanto gira en el lugar buscando el cero (ms)
 
-// ---------- 11. LINEA BLANCA ----------
-// UMBRAL_LINEA se MIDE en cada cancha (grabar-linea o CALIBRAR-ROBOT.bat):
-// no se tantea. Orden: sensor 1 DERECHO, 2 IZQUIERDO, 3 DELANTERO.
-int UMBRAL_LINEA[3]                    = { 424, 434, 440 }; // [MEDIDO 20/10, base nueva] desde que lectura cada sensor dice "esto es blanco"
+// ---- LINEA (finos) ----
 const unsigned long MS_LINEA_CONFIRMA  = 5;                // tiene que verla seguida esto (ms) para creerle
-const unsigned long MS_RETROCESO_LINEA = 210;              // al verla, retrocede esto (ms)...
-const int VEL_ESCAPE_FUERTE            = 135;              // ...con esta fuerza. Mas = se despega mas rapido, pero se levanta
-const unsigned long MS_CIEGO_LINEA     = 300;              // despues de verla no la mira durante esto (ms). NUNCA menos que MS_RETROCESO_LINEA
 
-// ---------- 12. ARRANQUE ----------
+// ---- ARRANQUE ----
 const unsigned long MS_ESPERA_ARRANQUE = 2000;             // cuenta regresiva al prenderlo, para sacar la mano (ms)
 const unsigned long MS_MIRAR_ARCOS     = 2000;             // sin arco fijo: cuanto mira al prenderse para elegir el arco (ms)...
 const int MUESTRAS_MINIMAS_ARCO        = 3;                // ...y cuantas veces tiene que ver un arco para creerle
 
-// ---------- 13. PARA QUE LADO GIRA: tocar SOLO si gira para el lado equivocado (leer cada linea) ----------
+// ---- PARA QUE LADO GIRA: tocar SOLO si gira para el lado equivocado ----
 const bool GIRO_INVERTIDO              = true;             // sentido al buscar, centrar y recentrar orbitando. Cambiar SOLO si al centrar se aleja de la pelota
 const bool ORBITA_INVERTIDA            = true;             // lado de la orbita: SIEMPRE si ORBITA_CAMINO_CORTO = false; si no, solo sin ver el arco ni giroscopio
 const bool SENTIDO_ORBITA_INVERTIDO    = false;            // [01/09] cambiar SOLO si para quedar detras de la pelota da la vuelta larga (pasa entre pelota y arco). Irse al lado contrario al arco esta BIEN
 const bool GIRO_RUMBO_INVERTIDO        = false;            // [sin verificar] si al apuntar al cero girando en el lugar se aleja del cero
 
-// ---------- 14. AVANZADO: casi nunca se tocan ----------
+// ---- CAMARA Y GIROSCOPIO ----
 const int XP_MAX                       = 150;              // mas lejos que esto (cm) no le cree a la PELOTA: suelen ser manchas naranjas
 const int XARCO_MAX                    = 200;              // el techo para el ARCO. 200 = lo maximo que manda la camara: acepta todo
 const unsigned long MS_GRACIA          = 300;              // sin ver la pelota (o el arco) menos que esto (ms), cuenta como que la ve
@@ -216,166 +143,11 @@ const unsigned long SIN_DATOS_MS       = 1500;             // sin datos de la ca
 const unsigned long MS_CHEQUEO_GIRO    = 500;              // cada cuanto pregunta si el giroscopio sigue vivo (ms). OJO: cada pregunta clava el programa 200 ms (bitacora 13/10)
 const unsigned long MS_DERIVADA_PATADA = 10;               // cada cuanto calcula el KD de la patada (ms). Es el ritmo del sensor: no tocar
 
-// =====================================================================
-//                       fin del panel de control
-// =====================================================================
+// OJO: no escribir ninguna funcion antes de 'enum Estado' (mas abajo): el
+// preprocesador de Arduino pone los prototipos antes de la primera funcion y
+// el build se rompe con "'Estado' was not declared".
 
-// =====================================================================
-//   NOTAS DEL PANEL: de donde salio cada numero y que se probo antes
-//   Hasta el 20/10 esto ERA el panel. Los valores ahora estan arriba, en
-//   el PANEL DE CONTROL; aca quedo la historia. No hace falta leerla para
-//   jugar, pero antes de cambiar un numero conviene mirar por donde paso.
-// =====================================================================
-
-// ---------- IR A BUSCAR LA PELOTA ----------
-//   VEL_GIRO: potencia girando en el lugar para BUSCAR la pelota. 80 -> 95 el 29/09,
-                                 // despues de que la pausa pasara a FRENAR: antes subirla era peligroso
-                                 // porque la inercia se la comia la pausa suelta y se pasaba de la pelota
-//   VEL_CENT: potencia girando para CENTRARLA una vez que la ve
-//   VEL_AVANCE: potencia yendo hacia la pelota, de LEJOS. Era 55: no arrancaba en la tela
-//   VEL_AVANCE_CERCA: ...y con cuanta llega, ya CERCA. Si la desacomoda al llegar, bajar esto
-//   XP_FRENAR: desde que distancia empieza a aflojar (entre esta y XP_ORBITA baja de a poco)
-
-// ---------- RODEAR LA PELOTA (ORBITA) ----------
-//   XP_ORBITA: a que distancia deja de avanzar y empieza a rodearla (cm). 22->34->38->34->28->30->32 (06/10)
-                                 // OJO: bajarlo es acercarse MAS antes de rodear, que es la direccion
-                                 // que el 15/09 hacia que CHOCARA la pelota. Si la desacomoda al empezar
-                                 // a orbitar, subirlo es lo primero que hay que probar.
-//   XP_SUELTA: si la pelota se le aleja MAS que esto, vuelve a avanzar. XP_ORBITA nunca debe acercarsele
-//   VEL_ORB_IMPULSO: el golpe inicial para despegar la orbita. 99->130->120
-
-// --- NO PERDER LA PELOTA ORBITANDO [2026-10-06, pedido del equipo] ---
-// El equipo reporto: "muchas veces pierde la pelota mientras orbita y tiene
-// que buscar de vuelta".
-//
-// 1) UN PARPADEO NO TIRA LA ORBITA. laVeo se vuelve falso con solo 300 ms sin
-//    ver la pelota (MS_GRACIA), o sea unos 13 cuadros de los 45/s que manda la
-//    camara. Orbitando el robot ROTA, asi que la pelota se le va del cuadro un
-//    instante seguido. Y abandonar es carisimo: vuelve a buscar/centrar/avanzar
-//    desde cero, y al reentrar a ORBITANDO repite el golpe de arranque de 120,
-//    que EMPUJA la pelota. Asi que ahora, si no la ve, FRENA Y ESPERA hasta
-//    MS_AGUANTE_ORBITA, sin salir de ORBITANDO (salir y volver repetiria el
-//    golpe y re-decidiria el sentido). Frena y no sigue a ciegas porque esta
-//    medido: con el robot quieto la camara ve la pelota en el 98% de los
-//    cuadros, moviendose en el 45% (29/09).
-//   MS_AGUANTE_ORBITA:
-
-// 2) BANDA DE ANGULO, CON HISTERESIS. La orbita es a ciegas: traba las dos
-//    ruedas de adelante y empuja con la trasera, asi que gira alrededor de un
-//    punto FIJO a R = 2*L = 17,5 cm. Pero la pelota esta a XP_ORBITA (30 cm),
-//    12 cm mas lejos que ese punto: no esta en el centro del giro, y mientras
-//    el robot rota la pelota se le pasea por el cuadro. Subir XP_ORBITA (22 ->
-//    34 -> 30) arreglo que CHOCARA la pelota y de paso rompio la orbita.
-//    Con el centro del giro fijo no hay XP_ORBITA que sirva para las dos cosas.
-//    Entonces: si la pelota se corre mas de TOL_ANG_ORB_ENTRA, se interrumpe el
-//    empuje y se la recentra a pulsos hasta tenerla mejor que TOL_ANG_ORB_SALE.
-//    La banda (entrar con un numero y salir con otro) es imprescindible: pedir
-//    el angulo exacto no se cumple nunca y el robot oscila. Misma leccion que
-//    TOL_ANG_ENTRA/TOL_ANG_SALE del centrado.
-//   TOL_ANG_ORB_ENTRA: se corrio mas que esto -> recentrar
-//   TOL_ANG_ORB_SALE: mejor que esto -> seguir orbitando
-//   VEL_ORB_TRASERA: potencia de la vuelta, ya rodando. 48->75->67
-//   MS_ORBITA_MAX: cuanto orbita buscando el arco antes de rendirse. 20 s -> 10 s el 12/10
-
-// --- DOS VUELTAS SIN PATEAR -> PATEAR AL RUMBO CERO [2026-10-12, pedido del equipo] ---
-// Si rodea la pelota VUELTAS_PARA_RUMBO0 veces sin patear (lo mide el
-// giroscopio: una vuelta alrededor de la pelota son 360 grados de rumbo), o
-// pasan los MS_ORBITA_MAX, deja de esperar al arco: SIGUE ORBITANDO y patea
-// apenas queda mirando al rumbo con el que se encendio (el "cero"), con la
-// pelota adelante.
-// No gira en el lugar como APUNTA_RUMBO0: girando en el lugar la pelota se le
-// va del cuadro y termina buscando de nuevo. Orbitando, la pelota queda siempre
-// adelante, asi que cuando el rumbo pasa por el cero el robot ya esta detras
-// de la pelota y empujarla la manda para alla.
-// OJO: el cero es hacia donde miraba AL PRENDER LA BATERIA. Hay que apoyarlo
-// mirando al arco rival, si no patea para cualquier lado.
-// SIN PROBAR. Para volver a lo de antes (girar en el lugar): poner false.
-//   RUMBO0_ORBITANDO:
-//   VUELTAS_PARA_RUMBO0: 2 -> 1 el 12/10: con la luz de esa cancha la camara casi no ve los arcos
-//   MS_RUMBO0_MAX: cuanto mas orbita esperando quedar mirando al cero
-
-// --- QUE EL "CERO" NO SE MUEVA, Y NO PATEAR A NUESTRO ARCO [2026-10-12, despues del partido] ---
-// En el partido (1-1) el equipo vio que "el 0 grados se descalibro" y el robot
-// pateo casi hacia nuestro arco. Dos protecciones, cada una con su interruptor:
-//
-// 1) GIRO_SIN_BRUJULA. El BNO055 venia en su modo por defecto (NDOF), que usa
-//    la BRUJULA para el rumbo. Al lado de tres motores la brujula miente, y
-//    ademas ese modo CORRIGE el rumbo de golpe cuando la brujula termina de
-//    calibrarse, cosa que pasa despues de girar un rato. En modo IMU el rumbo
-//    sale solo del giroscopio y el acelerometro: es relativo a como estaba al
-//    encenderse (justo lo que llamamos "cero") y no pega saltos.
-//    HIPOTESIS, NO MEDIDO: no sabemos si el salto del partido fue la brujula.
-//    La otra causa posible es que el robot se haya REINICIADO en la cancha
-//    mirando para otro lado: el cero se toma cada vez que arranca.
-// 2) VETO_ARCO_PROPIO. Si la camara esta viendo NUESTRO arco, no patea al
-//    rumbo cero aunque el giroscopio diga que mira al rival: sigue orbitando.
-//    Cerca de nuestro arco es justo donde la camara lo ve grande.
-// SIN PROBAR. Para volver a lo de antes: los dos en false.
-//   GIRO_SIN_BRUJULA:
-//   VETO_ARCO_PROPIO:
-
-// ---------- PATEAR ----------
-//   VEL_PATADA: potencia de la patada. 110 es "modo prueba lenta" para poder mirarla
-                                 // 215 -> 152 -> 145 -> 150 el 12/10 (dia de partido): robot achicado, para que no vuelque. SIN PROBAR
-//   MS_PATADA: cuanto dura el golpe. Mas largo = la pelota llega mas lejos y el robot se pasa mas
-                                 // 420 -> 500 el 06/10: el equipo reporto que pateando de lejos la pelota
-                                 // se queda corta y no llega al arco. Si sigue cortandose, la otra perilla
-                                 // es VEL_PATADA (215, hay lugar hasta 255): mas potencia = mas velocidad
-                                 // de salida de la pelota. Ojo que alargar el golpe tambien hace que el
-                                 // robot se pase mas y se acerque mas a la linea.
-
-// ---------- QUE LA PATADA VAYA DERECHA ----------
-// MEDIDO el 2026-09-22 con pruebas/patada-derecha/, sobre la tela:
-//     sin corregir nada ......... se torcio 28,4 grados (siempre a la DERECHA)
-//     con el heading-hold ....... 4,4 grados, pero con un PICO de 12,9
-// La pelota se va en los primeros ~200 ms, o sea que la pelota ve el PICO,
-// no el 4,4 del final. Por eso se ataca el pico, no el promedio.
-// Compensacion FIJA: le saca esto a la rueda izquierda y se lo da a la derecha.
-// Sube si curva para un lado, baja si curva para el otro.
-//
-// 15 -> 5 el 06/10. El 15 se eligio cuando el robot curvaba -28,4 grados. La
-// medicion nueva (mediciones/medicion-2026-10-06_20-28-09.txt) dio:
-//     sin correccion  -11,9 grados   /   con el giroscopio solo  +1,9 grados
-// O sea que el giroscopio SOLO, sin nada de trim, ya hace el trabajo completo
-// y hasta se pasa un poco (el crudo era negativo y termino positivo: cruzo el
-// cero). Un trim de 15 arriba de eso compensa una curva que ya no existe, y
-// empuja de mas. No se baja a 0 porque el trim es la red de seguridad para
-// cuando el giroscopio falla: ahi no hay lazo, pero un numero fijo sirve igual.
-//   TRIM_PATADA:
-//   KP_PATADA: cuanto corrige por GRADO de desvio
-// Cuanto corrige por GRADO/SEGUNDO de giro: frena el desvio ANTES de que crezca.
-//
-// 0,3 -> 0,6 el 06/10. Lo midio el robot solo: de las 5 patadas guardadas, los
-// PICOS eran 3 a 5 veces mas grandes que los desvios finales (pico -19,4 con
-// final +3,7; pico -14,9 con final +4,8). O sea que el robot se tuerce fuerte y
-// despues el corrector lo endereza... pero la pelota ya salio. Para donde va la
-// pelota lo decide el PICO, no el final. Ese patron "se va lejos y vuelve" es
-// sobreoscilacion, y el derivativo es el que la amortigua. Subir KP haria lo
-// contrario: mas fuerza y mas sobreoscilacion.
-//   KD_PATADA:
-
-// ---------- LINEA BLANCA ----------
-// Estos tres salen de MEDIR con pruebas/grabar-linea/ en la cancha. NO se
-// tantean: si la cancha cambia, se vuelven a medir. Orden: 1 DERECHO,
-// 2 IZQUIERDO, 3 DELANTERO.
-// 2026-10-12, cancha del dia de partido (grabar-linea, 10 mesetas, guardado en
-// mediciones/medicion-2026-10-12_11-00-07.txt): verde hasta 132/123/163,
-// blanco desde 538/680/643. Antes 390/427/413, que eran de la tela.
-// 2026-10-20, cancha del aula, CON LA BASE NUEVA (grabar-linea, 7 mesetas,
-// mediciones/medicion-2026-10-20_20-57-16.txt): verde hasta 134/122/175,
-// blanco desde 714/747/705, separacion 580/625/530. Antes 335/401/403 (12/10).
-//   UMBRAL_LINEA: desde que lectura cada sensor dice "esto es blanco"
-//   MS_LINEA_CONFIRMA: cuanto tiene que verla SEGUIDA para creerle (mata los picos sueltos)
-//   MS_RETROCESO_LINEA: cuanto retrocede apenas la ve. 300->200->250->210
-//   VEL_ESCAPE_FUERTE: con cuanta potencia retrocede. 200->170: a 200 se levantaba.
-                                              // 170->150->140->135 el 12/10: robot achicado (ruedas mas adentro, base mas alta), vuelca mas facil. SIN PROBAR
-//   MS_CIEGO_LINEA: cuanto IGNORA la linea despues de ver una. NO bajar de MS_RETROCESO_LINEA
-
-// =====================================================================
-//              fin de las notas: de aca para abajo casi no se toca
-// =====================================================================
-
-// Mapeo MEDIDO en banco 2026-07-28 (robot DELANTERO)
+// ===== PINES (medidos en banco el 28/07) =====
 #define IZQ_INA 8
 #define IZQ_INB 7
 #define IZQ_PWM 6
@@ -388,989 +160,10 @@ const unsigned long MS_DERIVADA_PATADA = 10;               // cada cuanto calcul
 #define TRA_INB 5
 #define TRA_PWM 3
 
-
-// ================= PERILLAS =================
-
-// GIRO_INVERTIDO: en el PANEL DE CONTROL (arriba).  sentido del giro de busqueda/centrado
-// ORBITA_INVERTIDA: en el PANEL DE CONTROL (arriba).  <<< para que orbite al otro lado
-
-// --- BUSCAR GIRANDO CONTINUO, no a pulsos (2026-09-29) ---
-// MEDIDO en pruebas/calibracion-busqueda/: girando continuo a 50 con rampa
-// llego a la pelota en 3,5 s; girando a pulsos, en 5,7 s. Al equipo y al
-// profe les gusto mas como queda. La rampa es para no pedirle un tiron
-// desde quieto, que hacia patinar las ruedas en la tela.
-// BUSCA_CONTINUO: en el PANEL DE CONTROL (arriba).  false vuelve al giro a pulsos de antes
-// VEL_GIRO_CONTINUO: en el PANEL DE CONTROL (arriba).  70 se pasaba de la pelota; 50 quedo. 50->45->40 el 12/10 (robot achicado). SIN PROBAR:
-                                      // si se queda zumbando sin girar al buscar, volver a 50
-// RAMPA_GIRO_PASO: en el PANEL DE CONTROL (arriba).  cuanto sube el PWM en cada escalon
-// RAMPA_GIRO_MS: en el PANEL DE CONTROL (arriba).  cada cuanto sube un escalon
-// Girando continuo lleva envion: al ver la pelota hay que sacarselo o se
-// pasa de largo y la pierde. [pedido del equipo, 29/09]
-// MS_FRENO_AL_VER: en el PANEL DE CONTROL (arriba).
-
-// --- DESTRABE: LA VE Y NO SE LE ACERCA (2026-09-29, pedido del equipo) ---
-// De lejos le costaba centrarse y avanzar. La idea del equipo: si pasa un
-// rato viendola sin llegar, que se acerque un poco a lo bruto, porque de
-// cerca centrar le sale facil.
-//
-// OJO CON QUE MIDE EL RELOJ. La primera version media "tiempo seguido
-// girando", y con la histeresis eso se reinicia a cada rato (gira, se
-// alinea, avanza, se tuerce): nunca llegaba a los 5 s y el destrabe casi no
-// saltaba. Ahora mide TIEMPO VIENDOLA SIN ACERCARSE: vuelve a cero solo si
-// recorta MEJORA_DESTRABE cm de verdad, o si pierde la pelota.
-// MS_LIMITE_CENTRAR: en el PANEL DE CONTROL (arriba).  viendola sin acercarse. 5000 -> 3000 el 06/10, pedido del equipo
-// MEJORA_DESTRABE: en el PANEL DE CONTROL (arriba).  cm que tiene que recortar
-// MS_AVANCE_DESTRABE: en el PANEL DE CONTROL (arriba).  cuanto avanza a lo bruto. 1000 -> 500 el 06/10
-// Cuanto tiene que estar SIN VER la pelota para que cuente como "la perdi".
-// MS_GRACIA (300 ms) es muy poco para esto: girando a pulsos el robot la pierde
-// de vista un instante todo el tiempo, y si cada parpadeo borrara el reloj del
-// destrabe, el reloj no llegaria nunca a MS_LIMITE_CENTRAR. Eso es exactamente
-// lo que pasaba y por que el destrabe no saltaba. [06/10, reportado 3 veces]
-// MS_PERDIDA_REAL: en el PANEL DE CONTROL (arriba).
-// VEL_DESTRABE: en el PANEL DE CONTROL (arriba).
-// Cupo de destrabes. Se repone cuando llega a la pelota Y cuando la pierde y
-// vuelve a buscar, o sea una vez por cada ida a buscar. NO es un cupo por
-// partido: eso era un error, ver el comentario de nDestrabes = 0 abajo.
-// MAX_DESTRABES: en el PANEL DE CONTROL (arriba).
-
-// --- histeresis del centrado: AHORA EN GRADOS (2026-09-29) ---
-// Antes eran 10 y 5 comparados contra Yp CRUDO. Yp esta en CENTIMETROS (lo
-// dice el script que corre en la camara: "Retornamos coordenadas reales
-// (cm)"), asi que el ANGULO que representan depende de la distancia: con la
-// pelota a 150 cm, 10 y 5 son 3,8 y 1,9 grados. Toda la ventana de histeresis
-// era mas angosta que lo que el robot gira en UN pulso de centrado, asi que
-// de lejos entraba y salia de CENTRANDO sin parar y no avanzaba nunca.
-// En grados la ventana vale lo mismo este cerca o lejos.
-// TOL_ANG_ENTRA: en el PANEL DE CONTROL (arriba).  mas torcida que esto -> a centrar
-// TOL_ANG_SALE: en el PANEL DE CONTROL (arriba).  mas derecha que esto -> a avanzar
-
-// --- distancias ---
-// 2026-09-15: subido de 22 a 34. El equipo reporto que al llegar a la
-// distancia de orbita CHOCA CON LA PELOTA: entraba a orbitar demasiado
-// encima y la empujaba en vez de rodearla.
-//
-// Por que ahora y no antes: el mismo dia se subio VEL_AVANCE de 55 a 95.
-// Llega mas rapido, asi que para cuando el estado cambia ya se comio la
-// distancia que le quedaba. Subir el umbral es empezar a rodearla ANTES.
-//
-// ✅ 2026-09-29: SON CENTIMETROS. Este comentario decia "unidades
-// desconocidas" y estaba mal. Lo confirman dos fuentes: el script que corre
-// DENTRO de la camara (h = 18.7 cm de altura, r = 13.5/(2*pi) cm de radio de
-// pelota, y "return X, Y  # Retornamos coordenadas reales (cm)"), y la tabla
-// fila -> cm de vision/README.md (fila 240 = 17,4 cm; fila 33 = 150 cm).
-// Asi que 34 son 34 CENTIMETROS, y se puede calcular en vez de tantear.
-// De hecho cierra: la orbita gira alrededor de un punto a R = 2*L = 17,5 cm
-// adelante del centro del robot, y 34 esta comodamente por encima de eso,
-// que es justo lo que este comentario pedia comprobar.
-//
-// Sigue debajo de XP_SUELTA = 55, que es lo unico que no se puede cruzar:
-// si XP_ORBITA llegara a XP_SUELTA, el robot entraria y saldria de la
-// orbita sin parar.
-// XP_ORBITA vive ahora en el PANEL DE CONTROL, arriba de todo.
-// El por que y la historia quedaron aca, que es donde tienen sentido.
-// XP_SUELTA vive ahora en el PANEL DE CONTROL, arriba de todo.
-// El por que y la historia quedaron aca, que es donde tienen sentido.
-// XP_MAX: en el PANEL DE CONTROL (arriba).  arriba de esto no le creo A LA PELOTA (la camara recorta en 200)
-
-// EL ARCO NO LLEVA EL MISMO TECHO QUE LA PELOTA. [2026-08-11]
-// Hasta hoy se le aplicaba XP_MAX = 150 tambien al arco, y estaba mal: el arco
-// casi siempre esta LEJOS. Un arco a 170 cm se tiraba a la basura, y por eso el
-// robot decia "no veo el arco" mientras la camara lo estaba viendo perfecto.
-// Sintomas que explicaba: angArco = -- siempre, y "0 muestras" de los dos arcos
-// al arrancar.
-//
-// El campeon 2025 no tenia techo para el arco (delantero.ino:335-345): le
-// alcanzaba con  Xam != 0.  Le copiamos el criterio de la pelota al arco sin
-// preguntarnos si tenia sentido. Una pelota lejos es sospechosa (es chiquita y
-// se confunde con cualquier mancha naranja); un arco lejos es simplemente un
-// arco lejos: es un objeto grande y la camara le pide 300-600 pixeles.
-//
-// Ademas, para ALINEAR no nos importa a que distancia esta el arco: nos importa
-// en que DIRECCION. El angulo sirve igual este a 80 o a 200 cm.
-// XARCO_MAX: en el PANEL DE CONTROL (arriba).  200 es el tope que manda la camara: acepto todo
-
-// --- giro para BUSCAR ---
-// VEL_GIRO vive ahora en el PANEL DE CONTROL, arriba de todo.
-// El por que y la historia quedaron aca, que es donde tienen sentido.
-// MS_PULSO_BUSC: en el PANEL DE CONTROL (arriba).
-// 2026-09-29: 380 -> 200. MEDIDO con pruebas/calibracion-busqueda/:
-// con la pausa en 380 el robot llegaba a la pelota en 10,2 s; con 200,
-// en 5,3 s. Casi el doble de rapido, solo por acortar la pausa.
-// La camara manda 46 cuadros/s, asi que en 200 ms ve unos 9: sigue
-// siendo de sobra para decidir. Es la perilla correcta para barrer mas
-// rapido — subir VEL_GIRO seria al reves, mas inercia y peor deteccion.
-// MS_ESPERA_BUSC: en el PANEL DE CONTROL (arriba).  era 380
-
-// --- giro para CENTRAR ---
-// VEL_CENT vive ahora en el PANEL DE CONTROL, arriba de todo.
-// El por que y la historia quedaron aca, que es donde tienen sentido.
-// MS_PULSO_CENT: en el PANEL DE CONTROL (arriba).
-// MS_ESPERA_CENT: en el PANEL DE CONTROL (arriba).
-
-// --- avance ---
-// 2026-09-15: subido de 55 a 95, a pedido del equipo — y con motivo.
-//
-// 55 estaba POR DEBAJO del piso de arranque (~70 desde quieto). Y a
-// AVANZANDO se entra desde CENTRANDO, que usa rotarPulsado() y por lo
-// tanto deja el robot PARADO entre pulso y pulso: o sea que arrancaba a
-// avanzar desde quieto con 55, que no deberia alcanzarle. Estaba anotado
-// como pendiente en MEJORAS-PENDIENTES desde el 04/08 y nunca se toco.
-//
-// Encima ahora la cancha es de TELA, que agarra distinto: el piso de PWM
-// puede ser mas alto todavia. 95 le deja margen por arriba del piso.
-//
-// ⚠ Si el robot se pasa de largo y pierde la pelota, el problema NO es
-// este numero sino que llega muy rapido a XP_ORBITA. Bajar XP_ORBITA
-// antes que volver a bajar esto.
-// VEL_AVANCE vive ahora en el PANEL DE CONTROL, arriba de todo.
-// El por que y la historia quedaron aca, que es donde tienen sentido.
-
-// ============ AFLOJAR AL ACERCARSE A LA PELOTA (2026-09-22) ============
-// Sintoma reportado por el equipo:
-//
-//   "cuando encuentra la pelota y se dirige a la pelota, la toca a veces
-//    por la inercia y la desacomoda, y tiene que buscarla de nuevo."
-//
-// LA CAUSA: avanzar(VEL_AVANCE) manda 95 FIJO desde lejos hasta cruzar
-// XP_ORBITA. O sea que el robot llega a la pelota a toda velocidad y
-// recien ahi cambia de estado — pero ya trae el envion encima, y el envion
-// no lo frena un cambio de estado.
-//
-// Aparecio al subir VEL_AVANCE de 55 a 95 el 15/09. A 55 casi no arrancaba
-// (estaba debajo del piso), pero tampoco llegaba con inercia.
-//
-// EL ARREGLO: no cambiar CUANDO empieza a orbitar, sino COMO llega. Entre
-// XP_FRENAR y XP_ORBITA la velocidad baja de a poco, asi que cruza el
-// umbral ya despacio. La distancia de decision queda igual (XP_ORBITA
-// sigue en 34, que es donde la orbita anda bien): lo que cambia es que
-// llega suave en vez de de golpe.
-//
-// ⚠ VEL_AVANCE_CERCA no puede bajar mucho mas sin medir: el piso de PWM
-// sobre la TELA nunca se midio (pruebas/piso-de-pwm/ sigue sin correrse
-// desde julio, y ademas tiene los pines del ARQUERO). Si se pone por
-// debajo del piso, el robot se planta antes de llegar. 70 es conservador.
-// Si sigue tocando la pelota: bajar VEL_AVANCE_CERCA de a 5, o subir
-// XP_FRENAR para que afloje desde mas lejos.
-// XP_FRENAR vive ahora en el PANEL DE CONTROL, arriba de todo.
-// El por que y la historia quedaron aca, que es donde tienen sentido.
-// VEL_AVANCE_CERCA vive ahora en el PANEL DE CONTROL, arriba de todo.
-// El por que y la historia quedaron aca, que es donde tienen sentido.
-// La funcion velAcercarse() esta abajo, al lado de avanzar(). NO ponerla
-// aca: el preprocesador de Arduino inserta los prototipos justo antes de
-// la PRIMERA funcion del archivo, y si esa primera funcion queda arriba
-// del "enum Estado" el build muere con "'Estado' was not declared".
-// [2026-09-22, pasado en vivo]
-
-// --- ORBITA PEGADA A LA PELOTA (2026-08-04) ---
-//
-// OBJETIVO: girar alrededor de la pelota casi rozandola, ~5 cm de aire entre
-// el robot y la pelota. En numeros: el centro del robot a unos 17-18 cm del
-// centro de la pelota.
-//
-// POR QUE ESE NUMERO SALE GRATIS. La cinematica del omni de 3 ruedas dice que
-// si las dos de ADELANTE no giran (velocidad cero) y solo empuja la TRASERA,
-// el radio del circulo queda clavado en:
-//
-//         R = 2 * L        (L = del centro del robot al centro de una rueda)
-//
-// Con L medido con regla = 8,75 cm  ->  R = 17,5 cm. Justo lo que queremos.
-// Y fijate lo que NO hace falta: ni la curva PWM->velocidad, ni la camara, ni
-// ningun lazo de control. El radio no depende de con cuanta fuerza empujes:
-// solo de la geometria del chasis. La trasera decide la VELOCIDAD, no el radio.
-//
-// COMO SE LOGRA QUE LAS DE ADELANTE "NO GIREN". No se apagan: se les manda un
-// PWM por DEBAJO del piso de arranque (~70). Con eso el motor queda energizado
-// pero no llega a vencer el rozamiento del engranaje: zumba y se planta. Una
-// rueda omni plantada es justo la condicion v=0 que pide la formula.
-//
-// ASI LO HACIA EL CAMPEON 2025. Su orbita (delantero.ino:613-617, con c=0.4)
-// mandaba 24 / 24 / 72. Ese 24 esta MUY por debajo de cualquier piso: sus
-// ruedas de adelante NO giraban. O sea que su "relacion 1:3" nunca fue una
-// relacion — era exactamente este caso, la trasera sola. Nos costo toda una
-// tarde entenderlo.
-//
-// EL IMPULSO DE ARRANQUE (2026-08-04) — recuperado del delantero campeon 2025.
-//
-// EL PROBLEMA. Un motor parado necesita ~70 de PWM para arrancar, pero YA
-// RODANDO se sostiene con ~40. Son dos numeros distintos. Si mandas 48 desde
-// quieto, el motor zumba y no arranca; si mandas 48 cuando ya viene girando,
-// sigue girando tranquilo. O sea: la velocidad lenta que queremos EXISTE, pero
-// no se puede alcanzar desde el reposo yendo directo.
-//
-// LA SOLUCION. Arrancar fuerte un ratito y despues bajar. El golpe vence el
-// rozamiento estatico; una vez en movimiento, la inercia hace el resto y el
-// motor se sostiene muy por debajo de su piso de arranque. Es lo mismo que
-// empujar un auto: cuesta despegarlo, despues rueda con un dedo.
-//
-// ASI LO HACIA EL CAMPEON 2025 (robots-2025/delantero/delantero.ino, bloque
-// ROBOT2, con c=0.4 e ic=0.55). Su orbita eran DOS estados encadenados:
-//
-//   IMPULSO_CENTRANDO_horario      33 / 33 /  99   durante 300 ms
-//   CENTRANDO_horario              24 / 24 /  72   el resto del tiempo
-//
-// (en el otro sentido el impulso duraba 500 ms). Nunca orbito a potencia alta
-// sostenida. Nosotros veniamos corriendo la trasera a 120 FIJO, sin impulso.
-//
-// POR QUE EL IMPULSO DE LA ORBITA ES MAS SUAVE QUE EL DE GIRAR EN EL EJE. Para
-// girar sobre su propio eje el 2025 usaba 150; para orbitar, 99. No es un
-// descuido: orbitando la pelota esta a ~17 cm, y un golpe muy bruto LA EMPUJA.
-// Si la pelota se corre, deja de estar en el centro de la orbita y el robot se
-// descentra solo. Impulso suave = la pelota se queda quieta.
-//
-// SINTONIA — dos perillas y un tiempo:
-//   VEL_ORB_TRASERA  = velocidad de la vuelta, YA rodando. Mas bajo = mas lento.
-//                      NO cambia el radio. El 2025 uso 72; abajo de 40 se planta.
-//   VEL_ORB_IMPULSO  = el golpe inicial. Si la orbita no arranca, NO subas esto
-//                      primero: subi MS_ORB_IMPULSO. Mas golpe empuja la pelota.
-//   MS_ORB_IMPULSO   = cuanto dura el golpe. Es la perilla correcta para "no
-//                      arranca".
-//   VEL_ORB_FRENTE   = 30. Tiene que quedar DEBAJO del piso (~70) para que las
-//                      de adelante no giren. Si al mirarlas ves que giran,
-//                      bajalo a 20. Si el robot se traba y no avanza, subilo
-//                      de a 5 — pero nunca cerca de 70.
-//
-// COMO VOLVER A LO DE ANTES, exacto: VEL_ORB_IMPULSO = VEL_ORB_TRASERA = 120
-// y MS_ORBITA_MAX = 9000. Queda igual que el 2026-08-04 a la manana.
-// 2026-09-15: impulso y crucero SUBIDOS a pedido del equipo, por la tela.
-// El crucero estaba en 48, apenas arriba del piso de rodadura (~40) que se
-// midio en la cancha VIEJA. En tela el agarre es otro y ese margen de 8
-// cuentas no aguanta nada: la orbita se plantaba a mitad de vuelta.
-// Valores anteriores, por si hay que volver: impulso 99, crucero 48.
-// VEL_ORB_FRENTE: en el PANEL DE CONTROL (arriba).  DEBAJO del piso a proposito: no deben girar
-// VEL_ORB_IMPULSO vive ahora en el PANEL DE CONTROL, arriba de todo.
-// El por que y la historia quedaron aca, que es donde tienen sentido.
-// MS_ORB_IMPULSO: en el PANEL DE CONTROL (arriba).  cuanto dura el golpe. El 2025: 300 y 500 ms.
-// VEL_ORB_TRASERA vive ahora en el PANEL DE CONTROL, arriba de todo.
-// El por que y la historia quedaron aca, que es donde tienen sentido.
-
-// OJO: esto va de la mano con VEL_ORB_TRASERA. Si la vuelta se hace mas lenta y
-// el tiempo maximo no se sube, el robot SE RINDE ANTES DE COMPLETAR UNA VUELTA
-// y parece que "empeoro al ir mas lento". Tiene que alcanzar para ~2 vueltas:
-// cronometren una vuelta y pongan el doble.
-// MS_ORBITA_MAX vive ahora en el PANEL DE CONTROL, arriba de todo.
-// El por que y la historia quedaron aca, que es donde tienen sentido.
-
-// --- patada ---
-// PATADA DERECHA — heading-hold con el giroscopo [2026-09-01]
-//
-// MEDIDO con pruebas/patada-derecha/, que reproduce la patada exacta y usa el
-// giroscopo para medir cuantos grados se tuerce el robot:
-//
-//     A) sin correccion (como venia):  10.1 grados   (pico 11.3)
-//     B) con heading-hold, KP = 4.0:    4.2 grados   (pico  5.4)
-//
-// El robot CURVA. Diez grados en un segundo a fondo explica por que la pelota
-// sale desviada: el robot ya esta girando mientras la empuja. No era el
-// contacto con la pelota — es la trayectoria.
-//
-// POR QUE CURVA. avanzar() manda el MISMO PWM a las dos ruedas de adelante,
-// pero el mismo PWM no es la misma velocidad: son dos motores distintos. Y la
-// trasera queda SUELTA durante la patada, asi que no hay nada que se oponga al
-// giro. Cualquier desbalance se convierte en curva y nadie la corrige.
-//
-// LA CORRECCION SOLO FRENA, NUNCA ACELERA. A 240 sobre un maximo de 255 no
-// queda lugar para subir: si el lazo pidiera acelerar, saturaria y no haria
-// nada. Restando siempre, funciona a plena potencia.
-//
-// SI TODAVIA SALE TORCIDA: subir KP_PATADA de a 2. Si empieza a zigzaguear,
-// bajarlo. Y evaluar bajar VEL_PATADA a 200, que ademas deja margen al lazo.
-// KP_PATADA vive ahora en el PANEL DE CONTROL, arriba de todo.
-// El por que y la historia quedaron aca, que es donde tienen sentido.
-// RESTA_MAX: en el PANEL DE CONTROL (arriba).  tope de la correccion
-// PATADA MAS CORTA Y MENOS BRUTA [2026-09-01, a pedido de Maximo]
-//     240 x 1000 ms  ->  200 x 420 ms
-//
-// POR QUE MAS CORTA. La pelota se va del robot en los primeros ~200 ms. Los
-// otros 800 ms de la patada vieja YA NO EMPUJABAN LA PELOTA: empujaban al
-// ROBOT. Eso es envion generado despues de que la jugada termino, y es lo que
-// lo sacaba de la cancha. 420 ms alcanzan para el golpe con margen.
-//
-// Y ATACA EL REBOTE. El heading-hold vuelve al rumbo en ~700 ms pero se pasa de
-// largo (medido: de +33 se fue a -9.4). Con una patada de 420 ms, el rebote NI
-// SIQUIERA LLEGA A ENTRAR en la ventana de la patada.
-//
-// POR QUE MENOS FUERTE. A 240 sobre un maximo de 255 el lazo casi no tiene
-// margen: solo puede FRENAR una rueda, nunca acelerar. A 200 quedan 55 puntos
-// libres para arriba. Y menos velocidad es menos envion, o sea menos curva que
-// corregir y menos distancia de sobrepaso al llegar a la linea.
-//
-// EL PRECIO, para tenerlo presente: la pelota va a llegar MENOS LEJOS. Es un
-// canje deliberado — puntería y no salirse de la cancha, a cambio de alcance.
-// Si queda demasiado corta, subir VEL_PATADA de a 10 antes que alargar el
-// tiempo: alargar el tiempo trae de vuelta los dos problemas.
-// ====== MODO PRUEBA LENTA (2026-09-15) — TERMINADO el 2026-09-21 ======
-// A pedido del equipo: bajar MUCHO la velocidad de la patada para poder
-// VER que hace — si detecta el blanco y si no hace cualquier cosa. A 215
-// el golpe dura 420 ms y no se llega a mirar nada.
-//
-// SOLO se toca la velocidad. El tiempo queda en 420 ms, tal cual el de
-// juego, por decision del equipo.
-//
-// Consecuencia, para que no sorprenda: la distancia es velocidad x
-// tiempo, asi que con el mismo tiempo y menos velocidad la patada
-// tambien RECORRE MENOS — alrededor del 40% de lo que recorria. Se va a
-// ver lento y corto. Es lo buscado: el objetivo es mirarlo, no medir
-// alcance.
-//
-// 2026-09-21: VUELTA A 215 a pedido del equipo ("quedo muy lento").
-// VEL_PATADA vive ahora en el PANEL DE CONTROL, arriba de todo.
-// El por que y la historia quedaron aca, que es donde tienen sentido.
-// MS_PATADA vive ahora en el PANEL DE CONTROL, arriba de todo.
-// El por que y la historia quedaron aca, que es donde tienen sentido.
-// VEL_RETROCESO: en el PANEL DE CONTROL (arriba).
-// MS_RETROCESO: en el PANEL DE CONTROL (arriba).
-
-// MS_GRACIA: en el PANEL DE CONTROL (arriba).
-// SIN_DATOS_MS: en el PANEL DE CONTROL (arriba).
-
-
-// =====================================================================
-//  LO NUEVO (2026-08-11) — tres cosas, cada una con SU interruptor
-// =====================================================================
-//
-//  Se agregaron juntas pero NO se prueban juntas. Si se encienden las tres
-//  y el robot empeora, no se sabe cual fue. El orden para probarlas esta
-//  abajo de todo, en el comentario "COMO PROBAR ESTO".
-//
-//  ---------------------------------------------------------------------
-//  A. ALINEACION POR ANGULO — activa
-//  ---------------------------------------------------------------------
-//  ANTES pateabamos con  abs(Yp - Yarco) <= 12 cm.  Eso esta MAL, y no por
-//  poco: Yp se mide a la distancia de la PELOTA (~17-22 cm) y Yarco a la
-//  distancia del ARCO (~100 cm o mas). Son centimetros medidos a distintas
-//  distancias — restarlos es como restar "3 pasos mios" menos "3 pasos de
-//  un gigante".
-//
-//  El numero: una pelota con Yp = 12 cm a 17 cm de distancia esta a 35
-//  grados. Un arco con Yarco = 12 cm a 100 cm esta a 6,8 grados. La cuenta
-//  vieja da |12-12| = 0 y canta "alineado" cuando en realidad estan a 28
-//  grados uno del otro. Por eso pateaba desviado.
-//
-//  La solucion es del propio delantero campeon 2025 (delantero.ino:311-313),
-//  que ya calculaba los angulos y nosotros no habiamos copiado:
-//
-//        angulo = atan2(Y, X) * 180 / PI
-//
-//  Un angulo NO depende de la distancia: 35 grados son 35 grados este la
-//  pelota cerca o lejos. Ahora se comparan angulos con angulos.
-//
-//  Y se pide una condicion mas, que el 2025 tambien tenia
-//  (tolerancia_apuntado): la pelota tiene que estar ADELANTE. Si la pelota
-//  esta a 40 grados y el arco tambien, la resta da 0 — pero el robot al
-//  avanzar derecho ni la toca.
-// TOL_ANG_PELOTA: en el PANEL DE CONTROL (arriba).  la pelota tiene que estar a menos de esto del frente
-// TOL_ANG_ALINEADO: en el PANEL DE CONTROL (arriba).  y el arco a menos de esto de la pelota
-//         ^ el 2025 usaba 15 grados (tolerancia_apuntado). Arrancamos en 15 y
-//           el 2026-08-11 Gustavo lo probo en el piso: "es mucho y patea muy
-//           mal de direccion". Bajados los dos a 8.
-//
-//           POR QUE LOS DOS Y NO SOLO EL DEL ARCO. El robot empuja DERECHO.
-//           Si la pelota esta 14 grados al costado, la toca de refilon y sale
-//           para cualquier lado — o sea que la direccion tambien la arruina
-//           TOL_ANG_PELOTA, no solo la del arco. Por eso bajan juntos.
-
-//  ---------------------------------------------------------------------
-//  TOLERANCIA ADAPTATIVA POR DISTANCIA AL ARCO — [2026-08-25, idea de Maximo]
-//  ---------------------------------------------------------------------
-//  LA OBSERVACION, que es un dato y no una impresion: DE LEJOS NO PATEA.
-//  Orbita, no cumple nunca la condicion, y se rinde a los 20 s sin tirar.
-//
-//  LA REGLA: si arcoX cae en la banda ARCO_LEJOS_MIN..ARCO_LEJOS_MAX (50 a
-//  200), las dos tolerancias pasan a 15 grados. Fuera de esa banda quedan en 8.
-//  Con el arco NO visible, arcoX() vale 0 y no entra en la banda: queda en 8.
-//  Si esta cerca, quedan en 8 como estaban.
-//
-//  ⚠️ OJO CON LA GEOMETRIA, PORQUE VA AL REVES DE LO QUE PARECE. Un angulo
-//  fijo se ABRE con la distancia: 8 grados son 7 cm de desvio a 50 cm, 14 cm
-//  a 100 cm y 28 cm a 200 cm. Con 15 grados a 200 cm son 54 cm. O sea que
-//  aflojar de lejos afloja justo donde ya se es mas impreciso, y si el arco
-//  mide ~45 cm ese tiro se va afuera.
-//
-//  ENTONCES POR QUE SE HACE IGUAL. No por punteria, sino por oportunidad: si
-//  de lejos NUNCA cumple, no patea nunca. Un tiro torcido que al menos manda
-//  la pelota al lado correcto de la cancha le gana a orbitar 20 s y rendirse.
-//  Es una apuesta consciente, no un descuido.
-//
-//  ⚠️ Y PUEDE NO ALCANZAR. El 25/08 se midio en vivo que la condicion que
-//  bloquea es la de la PELOTA, no la del arco: se vieron separaciones con el
-//  arco de 0.3 y 0.8 grados (perfectas) con angPelota en 21 y 29 grados. Por
-//  eso aflojan LAS DOS y no solo la del arco — aflojar sola la del arco no
-//  cambiaria nada. Si aun asi sigue sin patear, el problema no es la
-//  tolerancia: es que la orbita termina donde no debe, y ahi hay que medir el
-//  Xp con cinta metrica (ver MEJORAS-PENDIENTES).
-//
-//  HISTORIAL DE ESTE NUMERO. Arranco en 10 el 25/08 y se subio a 15 el mismo
-//  dia a pedido de Maximo. 15 es el valor del campeon 2025 (tolerancia_apuntado)
-//  y es el que Gustavo probo el 11/08 y bajo a 8 porque "es mucho y patea muy
-//  mal de direccion" — pero ahi era la tolerancia UNICA, para toda distancia.
-//  Aca solo aplica con el arco lejos, asi que es una prueba distinta. Si patea
-//  torcido, la escalera para bajar es 15 -> 12 -> 10.
-//
-//  SI HACE CUALQUIER COSA: poner TOLERANCIA_ADAPTATIVA en false y queda como
-//  estaba, en 8 fijo.
-// TOLERANCIA_ADAPTATIVA: en el PANEL DE CONTROL (arriba).
-// ARCO_LEJOS_MIN: en el PANEL DE CONTROL (arriba).  la banda de "lejos": desde aca...
-// ARCO_LEJOS_MAX: en el PANEL DE CONTROL (arriba).  ...hasta aca. 200 es el tope que manda
-                                    // la camara (ver XARCO_MAX), asi que en la
-                                    // practica el techo no recorta nada: la
-                                    // banda es "de 50 para arriba".
-// 2026-10-06: ESTE NUMERO ERA UNO SOLO PARA LAS DOS CONDICIONES, y ahora son
-// dos, porque controlan cosas distintas.
-//
-// POR QUE SE PUEDE APRETAR AHORA. El 15 era un parche: el 25/08 se midio que
-// la condicion que BLOQUEABA era la de la PELOTA (angPelota en 21 y 29 grados)
-// mientras la del arco ya estaba perfecta (0,3 y 0,8 grados). O sea que la
-// orbita terminaba con la pelota de costado, y se aflojaban LAS DOS para que
-// al menos pateara. Este mismo dia se le puso a la orbita una banda de angulo
-// (TOL_ANG_ORB_ENTRA/SALE) que mantiene la pelota adelante: el parche ya no
-// hace falta. Si la orbita vuelve a dejarla de costado, esto hay que soltarlo.
-//
-// Y LA DEL ARCO ES LA QUE DA PUNTERIA: 15 grados a 200 cm son 54 cm de desvio
-// y el arco mide ~45 cm, asi que ese tiro se iba afuera igual. Apretarla casi
-// no cuesta oportunidades, porque ya se cumplia con menos de 1 grado.
-// TOL_ANG_LEJOS_PELOTA: en el PANEL DE CONTROL (arriba).  la pelota, lejos. Era 15
-// TOL_ANG_LEJOS_ARCO: en el PANEL DE CONTROL (arriba).  la punteria, lejos. Era 15
-// Si orbita y NO patea, la perilla es subir TOL_ANG_LEJOS_ARCO a 10 o 12.
-//
-//           A 100 cm del arco, 8 grados son ~14 cm de desvio. La escalera si
-//           ahora NUNCA patea: 8 -> 10 -> 12. Si sigue pateando torcido: 6.
-//           OJO: antes la perilla era TOL_ALINEADO y estaba en CENTIMETROS.
-//           Estas son GRADOS. No son la misma cosa.
-
-//  ---------------------------------------------------------------------
-//  B. A QUE ARCO ATACAR, decidido AL ENCENDER — arranca APAGADA
-//  ---------------------------------------------------------------------
-//  En un partido no siempre atacamos el azul: se cambia de lado. Hasta hoy
-//  el arco estaba clavado en el codigo.
-//
-//  EL RITUAL: se apoya el robot MIRANDO AL ARCO RIVAL y se lo enciende.
-//  Durante los primeros MS_MIRAR_ARCOS el robot mira sin moverse y se queda
-//  con el arco que ve MAS CENTRADO. Ese pasa a ser su objetivo.
-//
-//  El mismo gesto sirve para dos cosas: define el arco Y define el "cero"
-//  del giroscopio (C). Un solo ritual, dos funciones.
-// ELEGIR_ARCO_AL_ENCENDER: en el PANEL DE CONTROL (arriba).  2026-08-11: ENCENDIDA a pedido de Gustavo
-// MS_MIRAR_ARCOS: en el PANEL DE CONTROL (arriba).
-// MUESTRAS_MINIMAS_ARCO: en el PANEL DE CONTROL (arriba).  menos que esto, no le creo
-
-//  ---------------------------------------------------------------------
-//  C. GIROSCOPO (BNO055 en I2C 0x28) — arranca APAGADA
-//  ---------------------------------------------------------------------
-//  ⚠️ EL FIRMWARE NUNCA LO USO. El codigo 2025 y el arquero de hoy si, pero
-//  en ESTA placa no esta comprobado que el sensor conteste. Por eso arranca
-//  apagado y por eso, si falla, el robot sigue andando como hasta ayer.
-//
-//  Dos usos:
-//   C1. Si da la vuelta entera y no encuentra el arco, en vez de rendirse
-//       gira hasta mirar al rumbo de arranque (el "cero") y patea ahi.
-//   C2. Elegir para que lado orbitar: el camino MAS CORTO hasta el arco.
-// USAR_GIROSCOPO: en el PANEL DE CONTROL (arriba).  2026-08-11: ENCENDIDA a pedido de Gustavo
-// PATEAR_AL_RUMBO0: en el PANEL DE CONTROL (arriba).  C1 (solo hace algo si USAR_GIROSCOPO)
-// ENCENDIDA el 2026-09-01, despues de MEDIR el signo con pruebas/signos/.
-// Estuvo apagada desde el 11/08 por dos motivos, y hoy cayeron los dos:
-//   - el signo de SENTIDO_ORBITA_INVERTIDO era una hipotesis sin verificar;
-//     ahora esta medido (y estaba al reves: ver ese bloque).
-//   - la rama que elige el lado SIN ver el arco depende de giroscopoSano(),
-//     que devolvia false desde el 11/08 por la verificacion rota.
-// Con el arco a la vista orbita hacia el; sin verlo, hacia el rumbo de
-// arranque por el camino mas corto; y si no hay giroscopo, al lado de siempre.
-// ORBITA_CAMINO_CORTO: en el PANEL DE CONTROL (arriba).  C2 — antes apagada para que el flasheo
-                                       // cambie UNA sola cosa (la patada por angulo).
-                                       // Anda con el arco a la vista aunque no haya
-                                       // giroscopo; con giroscopo anda tambien a ciegas.
-// TOL_RUMBO: en el PANEL DE CONTROL (arriba).  grados: "ya estoy mirando al cero"
-// MS_APUNTAR_MAX: en el PANEL DE CONTROL (arriba).
-
-//  ---------------------------------------------------------------------
-//  PERILLAS DE SIGNO — [SIN VERIFICAR EN BANCO]
-//  ---------------------------------------------------------------------
-//  No sabemos de que lado del robot es "Y positivo", ni que sentido de giro
-//  produce sentidoA = true. El equipo ya lo venia tapando por prueba y error
-//  con GIRO_INVERTIDO. Estas dos son lo mismo para lo nuevo: si el robot
-//  gira PARA EL LADO CONTRARIO al que deberia, se da vuelta la que
-//  corresponda. Son un booleano, no una cuenta: se prueban en 2 minutos.
-// MEDIDO el 2026-09-01 con pruebas/signos/, y despues CORREGIDO EN CANCHA.
-//
-// Lo que midio la prueba, y sigue siendo cierto:
-//   1. girando el robot a mano a la DERECHA, el rumbo SUBE       (+20.6 gr)
-//   2. orbitar(sentidoA = true) gira hacia la DERECHA            (+38.2 gr)
-//   3. con la pelota a la DERECHA, Yp da NEGATIVO                (-14)
-//      -> para la camara, el angulo POSITIVO esta a la IZQUIERDA
-//
-// ⚠️ PERO LA REGLA QUE SE DEDUJO DE ESO ESTABA MAL, y se puso en true por eso.
-// Probado en cancha: orbitaba para el lado equivocado. Vuelve a false.
-//
-// EL ERROR DE RAZONAMIENTO, que conviene entender para no repetirlo: se asumio
-// que "orbitar hacia el arco" es girar hacia el lado donde esta el arco. Es AL
-// REVES. Para patear, el robot tiene que quedar con la PELOTA ENTRE EL Y EL
-// ARCO — o sea, del lado OPUESTO de la pelota respecto del arco. Si el arco
-// esta a la izquierda, el robot tiene que rodear la pelota hacia la DERECHA
-// para quedar detras de ella y empujarla hacia alla.
-//
-// ORBITAR PARA ALINEARSE ES IRSE AL LADO CONTRARIO AL ARCO, no hacia el arco.
-//
-// La medicion de los tres signos no tuvo la culpa: fue la composicion de esos
-// tres datos en una regla geometrica lo que estuvo mal.
-// SENTIDO_ORBITA_INVERTIDO: en el PANEL DE CONTROL (arriba).  corregido en cancha el 01/09
-// GIRO_RUMBO_INVERTIDO: en el PANEL DE CONTROL (arriba).  si al apuntar al cero se aleja, ponelo en true
-
-//  ---------------------------------------------------------------------
-//  D. LINEA BLANCA — escapar. PRIORIDAD ABSOLUTA
-//  ---------------------------------------------------------------------
-//  Si un sensor de linea pisa el blanco, se ANULA lo que sea que este
-//  haciendo el robot —incluida la patada— y se escapa. Salir de la cancha
-//  es lo peor que puede pasar: es lo unico que interrumpe a todo lo demas.
-//
-//  HACIA DONDE SE ESCAPA. Cada sensor vigila UN LADO del triangulo, y
-//  enfrente de cada sensor hay una rueda en el vertice opuesto:
-//
-//        sensor 1  -> se va hacia la rueda DI  (delantera izquierda, M1)
-//        sensor 2  -> se va hacia la rueda DD  (delantera derecha,   M2)
-//        sensor 3  -> se va hacia la rueda T   (trasera,             M3)
-//
-//  LA CUENTA SALE GRATIS, igual que la orbita. Para moverse en la direccion
-//  de una rueda, ESA rueda no tiene que girar (su empuje es perpendicular a
-//  ese movimiento) y las otras dos empujan iguales y al reves entre si:
-//
-//        sensor 1 -> IZQ apagada,  DER y TRA opuestas
-//        sensor 2 -> DER apagada,  IZQ y TRA opuestas
-//        sensor 3 -> TRA apagada,  IZQ y DER opuestas
-//
-//  No lo invente: es exactamente retroceder1/2/3 del campeon 2025
-//  (delantero.ino:164-178), que usaba PWM 100 durante 400 ms.
-//
-//  LAS ESQUINAS. Si saltan DOS sensores a la vez, las dos direcciones se
-//  SUMAN. Y como las tres direcciones suman cero, sensor1+sensor2 da
-//  exactamente lo contrario de sensor3: alejarse de la rueda T. Sale solo,
-//  sin medir ningun angulo.
-// LINEA_ACTIVA: en el PANEL DE CONTROL (arriba).
-
-//  LA AUTOPROTECCION DEL ARRANQUE — APAGADA el 2026-08-25 a pedido de Maximo.
-//
-//  QUE HACIA. Al arrancar leia los tres sensores y, si alguno ya pasaba su
-//  umbral, daba por malos los umbrales y DESACTIVABA el escape para toda la
-//  corrida. La idea era no salir corriendo sin motivo.
-//
-//  POR QUE SE APAGA. El 25/08 el escape andaba en la mesa pero NO en la
-//  cancha, con el robot arrancando desde cero apoyado en el verde. La
-//  sospecha es que el verde de la cancha lee por encima del umbral y la
-//  autoproteccion lo estaba anulando en cada arranque, en silencio: el aviso
-//  sale por serie, y en la cancha no hay cable que lo lea.
-//
-//  QUE ESPERAR AHORA. Si la sospecha es correcta, el escape va a funcionar.
-//  Si NO lo es y los umbrales estan realmente mal para la cancha, el robot va
-//  a INTENTAR ESCAPAR SIN PARAR, como si estuviera siempre sobre la linea.
-//  Las dos cosas son informacion: es la prueba que separa las dos causas.
-//
-//  El chequeo se sigue imprimiendo en el banner — lo unico que cambia es que
-//  ya no desactiva nada. Para volver atras: poner esto en true.
-// PROTECCION_ARRANQUE: en el PANEL DE CONTROL (arriba).
-const int  VEL_ESCAPE   = 100;              // el del campeon 2025   [SIN USO: cambiarla no hace nada]
-const unsigned long MS_ESCAPE_EXTRA = 400;  // sigue 400 ms DESPUES de dejar de verla   [SIN USO: cambiarla no hace nada]
-
-// Cuanto tiene que verse la linea SEGUIDA para que cuente. Ver el bloque
-// "FILTRO DE CONFIRMACION" en el loop. 5 ms a la velocidad del robot son
-// menos de 2 mm: no se pierde ninguna linea de verdad, y se descartan los
-// picos sueltos que disparaban escapes fantasma. [2026-09-08]
-// MS_LINEA_CONFIRMA vive ahora en el PANEL DE CONTROL, arriba de todo.
-// El por que y la historia quedaron aca, que es donde tienen sentido.
-
-//  COMPROMISO CON LA DIRECCION DE ESCAPE [2026-09-01, a pedido de Maximo]
-//
-//  EL PROBLEMA. mascaraLinea se reescribia en CADA vuelta del loop mientras
-//  algun sensor viera blanco. Asi que si durante el escape otro sensor pisaba
-//  la linea, la direccion se daba vuelta EN PLENO ESCAPE. El robot podia quedar
-//  rebotando entre dos direcciones sin despegarse nunca.
-//
-//  NO ES HIPOTETICO: el 25/08 se registro un escape que se quedo 24 SEGUNDOS
-//  dentro de !LINEA! sin poder salir (ver la bitacora de ese dia, seccion 2).
-//
-//  EL ARREGLO. Los primeros MS_ESCAPE_COMPROMISO ms la mascara queda CONGELADA
-//  con la que disparo el escape, y los demas sensores se ignoran. El robot se
-//  compromete con una direccion y le da tiempo a alejarse de verdad.
-//
-//  DESPUES de esa ventana la mascara vuelve a actualizarse, asi que las esquinas
-//  (dos sensores a la vez) siguen funcionando como antes si el robot realmente
-//  sigue sobre una linea.
-//
-//  Es el mismo patron que el sentido de la orbita: una decision que hay que
-//  tomar UNA VEZ, no replantear a cada instante.
-//
-//  SI SE SIGUE QUEDANDO PEGADO: subir de a 100. Si en cambio se pasa de largo
-//  y cruza la linea de enfrente, bajarlo.
-const unsigned long MS_ESCAPE_COMPROMISO = 400;   // [SIN USO: cambiarla no hace nada]
-
-// ESPERA FRENADA ANTES DE ESCAPAR — 2026-09-15, a pedido del equipo.
-//
-// Al detectar la linea con CUALQUIER sensor, el robot primero FRENA EN
-// SECO y se queda quieto este tiempo; recien despues retrocede hacia donde
-// corresponda segun que sensor vio blanco.
-//
-// Por que: hasta ahora el escape arrancaba mientras el robot todavia venia
-// con todo el envion de la patada, y la direccion de escape se decidia con
-// el robot en movimiento. Frenando primero, la mascara se lee con el robot
-// QUIETO ARRIBA DE LA LINEA, que es el momento en que los sensores estan
-// diciendo la verdad.
-//
-// Y es la unica forma de mirar lo que hace: a 400 ms de escape no se llega
-// a ver nada.
-const unsigned long MS_ESPERA_LINEA = 1000;   // [SIN USO: cambiarla no hace nada]
-
-// ===================== ESCAPE CIEGO (2026-09-15) =====================
-// Reportado por el equipo despues de probarlo en cancha:
-//
-//   "mientras esta pateando detecta el blanco y ya frena pasado, y cuando
-//    retrocede detecta con otro sensor y no vuelve a la cancha, y chau
-//    todo."
-//
-// Son dos problemas distintos y este bloque ataca el SEGUNDO:
-//
-//   1. FRENA PASADO. Viene con todo el envion de la patada y para cuando
-//      detecta ya cruzo. Eso es inercia, no software — se ataca bajando la
-//      velocidad de la patada o frenando antes, no desde aca.
-//
-//   2. SE CONFUNDE AL VOLVER. Retrocediendo, OTRO sensor pisa la linea,
-//      la mascara cambia, y el escape se da vuelta a mitad de camino. El
-//      robot queda pataleando en el borde en vez de volver a la cancha.
-//      Es el MISMO patron que ya nos mordio dos veces el 01/09: una
-//      decision que hay que tomar UNA VEZ y sostener, replanteada a cada
-//      instante.
-//
-// EL ARREGLO, como lo pidio el equipo: una vez que arranca el retroceso,
-// se sostiene MS_ESCAPE_CIEGO a VEL_ESCAPE_FUERTE IGNORANDO POR COMPLETO
-// los sensores de linea. Ni cambia de direccion, ni se reinicia, ni sale
-// antes. Ciego y comprometido.
-//
-// Durante el frenado previo SI se sigue leyendo: ahi el robot esta quieto
-// arriba de la linea y es cuando los sensores mas la verdad dicen. La
-// ceguera empieza recien cuando arranca a moverse.
-// 2026-09-15, segunda pasada: bajado de 1500 a 500 ms. Con 1500 el robot
-// "retrocedia mucho y muy rapido" y se iba medio campo para atras. La
-// potencia queda en 200: esa es la que lo despega de la linea. Si sigue
-// yendose lejos, bajar PRIMERO el tiempo otra vez y recien despues la
-// potencia — un escape flojo que no se despega es peor que uno largo.
-const unsigned long MS_ESCAPE_CIEGO = 200;     // 1500 -> 500 -> 200  [SIN USO: cambiarla no hace nada]
-// VEL_ESCAPE_FUERTE vive ahora en el PANEL DE CONTROL, arriba de todo.
-// El por que y la historia quedaron aca, que es donde tienen sentido.
-
-// ============ RETROCESO INMEDIATO (2026-09-15, prueba) ============
-// Sintoma reportado por el equipo:
-//
-//   "cuando patea hacia adelante y esta cerca del arco, se mete en el area
-//    chica, llega a detectar la linea blanca, pero se detiene y no llega a
-//    moverse hacia atras. Queda detenida dentro del area chica."
-//
-// LA CAUSA, y explica exactamente eso: la secuencia era FRENAR 1000 ms y
-// RECIEN DESPUES retroceder 200 ms. Al terminar el freno el robot esta
-// QUIETO, y arrancar desde quieto se come casi esos 200 ms nada mas que en
-// superar el piso de PWM (~70). O sea que casi no llegaba a moverse: se
-// veia como "frena y se queda ahi".
-//
-// LA PRUEBA QUE PIDIO EL EQUIPO: sacar el freno del medio.
-//   - apenas ve la linea, RETROCEDE YA, sin frenar primero
-//   - retrocede MS_RETROCESO_LINEA
-//   - durante ese retroceso NO se lee la linea
-//   - y sigue sin leerla hasta completar MS_CIEGO_LINEA desde el disparo,
-//     para darle tiempo a alejarse antes de poder volver a dispararse
-//
-// El respaldo de la version anterior (freno 1 s + retroceso 200 ms) esta
-// en respaldos/delantero-2026-09-15-freno1s-antes-de-retroceso300.ino
-// MS_RETROCESO_LINEA vive ahora en el PANEL DE CONTROL, arriba de todo.
-// El por que y la historia quedaron aca, que es donde tienen sentido.
-// MS_CIEGO_LINEA vive ahora en el PANEL DE CONTROL, arriba de todo.
-// El por que y la historia quedaron aca, que es donde tienen sentido.
-
 unsigned long t_disparoLinea = 0;   // cuando vio la linea por ultima vez
 
-//  GOLPE DE FRENO AL LLEGAR A LA LINEA VINIENDO DE LA PATADA
-//  [2026-08-18 gviollaz, revertido como dano colateral ese dia; restaurado el
-//   2026-08-25 a pedido de Maximo, que volvio a ver el sintoma en cancha]
-//
-//  LA REGLA, del reglamento nuevo: si el robot cruza la linea con MAS DE MEDIO
-//  CUERPO, es GOL EN CONTRA. Cancelar la patada no alcanza: hay que matar el
-//  envion.
-//
-//  QUE PASABA. La linea ya cancelaba la patada (tiene prioridad absoluta), pero
-//  enseguida escapaba a PWM 100 viniendo de VEL_PATADA = 240: le oponia menos
-//  de la mitad de lo que traia. Y parar() SUELTA las ruedas en vez de trabarlas
-//  (las patas de direccion en 0 = rueda libre), asi que no hay ningun freno
-//  activo en todo el firmware.
-//
-//  QUE HACE. Los primeros MS_FRENO ms del escape van a VEL_FRENO —lo mismo que
-//  traia, se le opone— y despues baja a VEL_ESCAPE. Es la misma forma que el
-//  impulso de la orbita, al reves: fuerte primero.
-//
-//  Frena EMPUJANDO AL REVES, no trabando: cuando el sensor de adelante ve la
-//  linea, la direccion de escape ya apunta hacia la rueda trasera, o sea para
-//  atras. Lo que faltaba era fuerza, no direccion.
-//
-//  SOLO SALIENDO DE PATEA_ADEL, que es el unico estado rapido (avanzar va a 55
-//  y la orbita a 48). Meterle 240 saliendo de un estado lento lo mandaria
-//  disparado contra la linea de enfrente.
-//
-//  [FALTA MEDIR] Cuanto se pasa de largo, en centimetros, con y sin freno.
-//  Marcar donde esta la linea, dejarlo patear hacia ella y medir cuanto la
-//  cruzo. Si se pasa 2 cm no valia la pena; si se pasa 15, es gol en contra.
-//  Sin ese numero no se sabe si 150 ms alcanzan.
-// ⚠ 2026-09-15: queda en 240 por decision del equipo (solo se bajo la
-// velocidad de la patada, nada mas). Tenerlo presente al mirar la prueba:
-// con la patada en 110 y el freno en 240, si el robot pisa el blanco EN
-// PLENA PATADA el golpe para atras es MAS FUERTE que el envion que traia,
-// asi que va a pegar un saltito de culata. Eso es esperable con estos
-// numeros, no es que el robot este haciendo cualquier cosa.
-// 🚫 SIN USO desde el 2026-09-15. Los reemplazo el freno ELECTRICO: ahora
-// al ver la linea el robot hace frenar() durante MS_ESPERA_LINEA y recien
-// despues retrocede. Este golpe frenaba MANEJANDO EN SENTIDO CONTRARIO a
-// VEL_FRENO, que podia pasarse de largo para atras; un freno electrico no
-// se pasa porque no empuja, solo traba.
-// Se dejan escritos por si hay que volver atras.
-const int VEL_FRENO = 240;                 // igual que la patada: lo que trajo, se le opone   [SIN USO: cambiarla no hace nada]
-const unsigned long MS_FRENO = 150;        // cuanto dura el golpe de freno   [SIN USO: cambiarla no hace nada]
-
-//  UMBRALES DEL 2025, luz del laboratorio del anio pasado. Ya nos paso con
-//  los umbrales de color: se re-miden con pruebas/grabar-linea/ antes
-//  de confiar. Mientras tanto hay una AUTOPROTECCION al arrancar: si un
-//  sensor ya lee "blanco" con el robot apoyado en el verde, el umbral esta
-//  mal y la funcion se desactiva sola en vez de escapar para siempre.
-//  ACTUALIZADO 2026-08-11 con la medicion en cancha de la mesa del ARQUERO
-//  (su bitacora 2026-08-11-sensores-de-linea-y-arquero-completo.md):
-//        verde  350 a 468     blanco  ~760     umbral = punto medio = 620
-//  Los 650/650/750 del 2025 quedaban demasiado altos: 750 esta pegado al
-//  blanco real (760), asi que el sensor 3 casi no disparaba nunca.
-//  [FALTA CONFIRMAR EN EL DELANTERO] — es otro robot; la autoproteccion del
-//  arranque avisa si estos numeros no sirven para esta placa.
-// ===================== MEDIDO 2026-08-25 (VIGENTE) =====================
-// Metodo: rotando cual sensor pisa el blanco (dos en negro, uno en blanco)
-// y al final los tres en verde. El negro de cada sensor es el PROMEDIO de
-// las dos fases en que le toco estar en negro, no una lectura suelta. Cada
-// fase son ~20 muestras capturadas con el robot quieto.
-//
-//     sensor    negro   verde   blanco   separacion verde->blanco
-//        1        96     319      765         446
-//        2        71     330      762         432
-//        3        95     452      765         313
-//
-// EL SENSOR 1 SE RECUPERO. El 18/08 tenia 3 puntos entre verde y blanco y
-// habia que anularlo con el 1024; hoy tiene 446 y es el que mejor separa.
-// Por eso vuelve a entrar en juego con un umbral real.
-//
-// ⚠️ LO QUE NO SE CONFIRMO, Y HAY QUE MIRAR. El negro y el blanco dieron
-// igual que el 18/08, pero el VERDE se movio muchisimo: de 762/588/638 a
-// 319/330/452. Y ojo con el razonamiento facil: que negro y blanco
-// coincidan NO prueba que el montaje este igual, porque los dos estan en
-// los extremos del rango (el blanco satura en 765 pase lo que pase, el
-// negro esta contra el piso). El verde es el unico que esta en el medio, y
-// por eso es el unico sensible a la ALTURA de los sensores.
-//
-// Quedaron dos explicaciones sin decidir:
-//   A) se levantaron los sensores (era el pendiente 3 del 18/08) -> estos
-//      numeros valen y S1 quedo arreglado;
-//   B) el verde de hoy no es el de la cancha. Estos 319-452 se parecen al
-//      verde de la mesa del ARQUERO (350-468), no al del delantero. Si es
-//      una muestra suelta, ESTOS UMBRALES NO VAN A TRANSFERIR A LA CANCHA.
-//
-// PARA CERRARLO, una sola prueba: encender el robot APOYADO EN EL VERDE DE
-// LA CANCHA y leer el banner. Si dice "escape ACTIVADO", los umbrales
-// sirven; si dice "YA LEE BLANCO ESTANDO EN EL VERDE", es el caso B y hay
-// que volver a medir sobre la cancha. Sobre la mesa SIEMPRE va a decir
-// desactivado, porque la cinta es blanca — eso no prueba nada.
-//
-// ---------------------------------------------------------------------
-// HISTORIA (no borrar: es lo que explica de donde salieron los numeros)
-//
-// 2026-08-18, medido en cancha con este robot:
-//     sensor 1: verde 762  blanco 765  -> separacion 3, NO DISTINGUIA
-//     sensor 2: verde 588  blanco 762  -> 174
-//     sensor 3: verde 638  blanco 764  -> 126
-//   El sensor 1 iba en 1024 (inalcanzable para el conversor, que llega a
-//   1023) para que nunca disparara y para que la comprobacion de arranque
-//   dejara de contarlo.
-//
-// Antes de eso los umbrales eran 620, que venian de la mesa del ARQUERO.
-// No servian aca: otro robot y otra altura de sensores. Es la razon por la
-// que ahora se mide siempre en el robot propio.
-// =======================================================================
-// ===================== MEDIDO EN LA CANCHA, 2026-08-25 (VIGENTE) ===========
-// Estos son los primeros umbrales medidos CON EL ROBOT EN LA CANCHA, a bateria
-// y con los motores andando. Todo lo anterior salio de materiales de la mesa.
-//
-// COMO SE MIDIO SIN CABLE. El cable USB no llega a la cancha, y el banner del
-// arranque se pierde porque el Teensy descarta lo que manda por USB si no hay
-// host escuchando. Se agrego instrumentacion que guarda las lecturas en RAM y
-// las reimprime cada 2 s; se prendio el robot en la cancha, se lo dejo andar, y
-// se lo trajo a la mesa SIN APAGAR LA BATERIA para engancharle el USB.
-//
-//     sensor   verde(cancha)   blanco   umbral   margen a cada lado
-//        1         625          789      707          82
-//        2         381          783      582         201
-//        3         740          850      795          55
-//
-// EL VERDE DE LA CANCHA ES MUCHO MAS REFLECTANTE QUE LA MUESTRA DE LA MESA:
-// 625/381/740 contra 319/330/452. Por eso los umbrales de la mesa (542/546/608)
-// no servian: los sensores 1 y 3 leian el VERDE DE LA CANCHA COMO BLANCO, la
-// autoproteccion los daba por rotos y anulaba el escape en cada arranque — en
-// silencio, porque el aviso salia por un cable que no estaba conectado. Ese fue
-// el bug que costo la tarde del 25/08.
-//
-// ⚠️ EL SENSOR 3 QUEDA JUSTO: 55 puntos de margen a cada lado, y el verde ya
-// vario mas que eso entre dos puntos distintos. Es el de ADELANTE, el que
-// importa cuando patea y se va de la cancha. Si dispara en falso o no dispara,
-// empezar por aca.
-//
-// ⚠️ EL BLANCO NO ESTA LIMPIO. Los maximos salen del acumulador min/max, que
-// sigue acumulando despues de volver a la mesa: durante la lectura se vio a S3
-// trepar de 814 a 850 estando ya en la mesa. O sea que parte de ese blanco
-// puede ser la cinta de la mesa y no la linea de la cancha. El VERDE si esta
-// limpio, porque sale de "arranque", que se congela al encenderse.
-// PARA CERRARLO: congelar el min/max a los ~90 s del arranque y repetir una
-// pasada por la cancha.
-//
-// ---------------------------------------------------------------------
-// HISTORIA (no borrar: explica de donde salio cada numero)
-//
-// 2026-08-25, medido en la MESA (cinta blanca y una muestra de verde):
-//     sensor 1: negro 96  verde 319  blanco 765  -> umbral 542
-//     sensor 2: negro 71  verde 330  blanco 762  -> umbral 546
-//     sensor 3: negro 95  verde 452  blanco 765  -> umbral 608
-//   Con estos el escape disparo bien EN LA MESA (dos veces, sensores 3 y 2) y
-//   nunca en la cancha. La diferencia era el verde.
-//
-// 2026-08-18, medido en cancha con este robot:
-//     sensor 1: verde 762  blanco 765  -> separacion 3, NO DISTINGUIA
-//     sensor 2: verde 588  blanco 762  -> 174
-//     sensor 3: verde 638  blanco 764  -> 126
-//   El sensor 1 iba en 1024 (inalcanzable para el conversor) para anularlo.
-//
-// Antes de eso los umbrales eran 620, que venian de la mesa del ARQUERO. No
-// servian aca: otro robot y otra altura de sensores.
-//
-// 2026-09-08, medido EN CANCHA con pruebas/grabar-linea/ (152 s de traza,
-// verde en 3 puntos + blanco por sensor). Los {707,582,795} tenian DOS
-// fallas, una en cada direccion:
-//
-//   sensor 2: el verde de cancha llegaba a 566 contra un umbral de 582.
-//             16 cuentas de margen, con un verde que se mueve 115 entre
-//             puntos. DISPARABA EN FALSO. Es el "falso blanco" reportado.
-//
-//   sensor 3: umbral 795, pero NINGUN sensor de este robot pasa de ~766.
-//             Medido cuatro veces, incluso con la linea blanca pegada
-//             abajo y 54.117 muestras. NUNCA PODIA DISPARAR: el sensor de
-//             adelante estuvo ciego desde el 25/08. Es el que tendria que
-//             frenar al robot cuando patea y se va de la cancha.
-//             Ese 795 salio de un blanco de 850 que era la cinta de la
-//             MESA, no la linea de la cancha — el acumulador min/max siguio
-//             corriendo despues de volver. La bitacora del 25/08 ya avisaba
-//             que ese blanco estaba sucio.
-//
-//     sensor 1: verde hasta 563  blanco 763  -> umbral 663 (margen 100)
-//     sensor 2: verde hasta 566  blanco 757  -> umbral 661 (margen  95)
-//     sensor 3: verde hasta 689  blanco 762  -> umbral 725 (margen  36)
-//
-// ⚠ El sensor 3 sigue flojo: 36 cuentas de margen contra un verde que se
-//   mueve 115. Ahora al menos PUEDE disparar, pero el arreglo de fondo es
-//   subirlo unos milimetros — al sensor 1 le paso lo mismo y paso de 3
-//   cuentas de separacion a 446 cuando lo levantaron.
-//
-//   🛑 NO HAGAN ESTO HOY. Lo de arriba es de la cancha VIEJA y quedo sin
-//   efecto el 2026-09-15: sobre la tela el sensor 3 tiene 547 cuentas de
-//   separacion, no 36. Subirlo ahora achicaria una separacion que esta
-//   comoda y nos obligaria a re-medir todo. Vale de nuevo SOLO si se
-//   vuelve a jugar en la superficie vieja. Ver el bloque de abajo.
-//
-// 2026-09-08, MAS TARDE. Con {663,661,725} el robot SEGUIA dando falsos
-// blancos, asi que se volvio a medir el verde en CINCO puntos de cancha
-// (pruebas/grabar-linea/, mesetas 3 a 7 de la traza):
-//
-//     sensor 1: verde 451..576   umbral 663 -> margen +87   no disparo nunca
-//     sensor 2: verde 449..577   umbral 661 -> margen +84   no disparo nunca
-//     sensor 3: verde 625..751   umbral 725 -> margen -26   DISPARO EN 2 DE 5
-//
-// O sea que el cambio arreglo los sensores 1 y 2, y TODOS los falsos
-// blancos que quedaban eran el sensor 3.
-//
-// 🔴 EL SENSOR 3 NO TIENE ARREGLO POR NUMERO:
-//     verde peor punto 751   blanco 762   ->  11 cuentas de separacion
-//     y el verde se mueve 126 cuentas entre puntos.
-//   No existe umbral que quepa ahi. Esta DEMASIADO CERCA DEL PISO: a esa
-//   distancia el verde le refleja casi como el blanco. Es identico a lo
-//   que le pasaba al sensor 1 el 18/08 (verde 762, blanco 765, 3 cuentas)
-//   y que se arreglo subiendolo unos milimetros.
-//
-//   Mientras no se lo suba, el 757 de abajo es un PARCHE: queda arriba
-//   del peor verde medido (751) y abajo del blanco (762). Corta los
-//   falsos blancos, pero le deja 6 cuentas de margen para cada lado, asi
-//   que puede fallar en cualquier punto de cancha que no hayamos pisado.
-//   NO es una calibracion: es una curita hasta subir el sensor.
-// 2026-09-15 — CANCHA NUEVA, y todo lo de arriba quedo historico.
-//
-// La cancha es de TELA y el verde es MUCHISIMO mas oscuro. Medido con
-// pruebas/grabar-linea/ (91 s, 12 mesetas, clasificadas por el programa):
-//
-//                       verde hasta   blanco desde   separacion
-//     sensor 1 izq          132            649          517
-//     sensor 2 DER           99            755          656
-//     sensor 3 adel.        140            687          547
-//
-// Para comparar: en la cancha vieja el sensor 3 tenia ONCE cuentas de
-// separacion (verde 751, blanco 762) y por eso NINGUN umbral servia. Acá
-// tiene 547. El problema del sensor 3 no se arreglo: se lo llevo la
-// cancha. Si algun dia se vuelve a jugar en la otra superficie, vuelve.
-//
-// 🔴 Con los umbrales viejos {663, 661, 757} el robot estaba CIEGO, y se
-//    puede probar con esta misma corrida:
-//      - sensor 3: la linea le dio 745 y 755 en dos mesetas distintas,
-//        las dos por DEBAJO de su umbral de 757. No la vio ninguna vez.
-//      - sensor 1: 663 le quedaba justo encima del blanco mas flojo
-//        (649), asi que la linea apenas pisada se le escapaba.
-//    O sea que el robot NO estaba escapando de mas: estaba escapando de
-//    MENOS, y de la linea de verdad.
-//
-// Los umbrales nuevos son el punto medio verde<->blanco, con el peor caso
-// de cada lado. Quedan ~260-330 cuentas de margen para cada lado, en los
-// tres. Nunca tuvimos tanto aire: veniamos peleando por 11 y por 16.
-//
-// ⚠ Estos numeros son de la TELA. No transfieren a la cancha vieja.
-// =======================================================================
-// UMBRAL_LINEA vive ahora en el PANEL DE CONTROL, arriba de todo.
-// El por que y la historia quedaron aca, que es donde tienen sentido.
-
-//  Pines: se autodetectan leyendo el pin 32, igual que zirconLib.cpp:52-60.
+// Version de placa: pin 32 en LOW = Mark1 (linea en A11/A13/A12).
 const int PIN_VERSION_PLACA = 32;
-
-//  ---------------------------------------------------------------------
-//  COMO PROBAR ESTO — de a una, en este orden
-//  ---------------------------------------------------------------------
-//  Se agregaron tres cosas juntas pero se encienden de a una. Si se prenden
-//  todas y el robot empeora, no se sabe cual fue.
-//
-//  PASO 1 — la patada por angulo (ya esta activa, no hay que tocar nada).
-//     Que mirar: el monitor imprime ahora "angPelota", "angArco" y
-//     "separacion", los tres en grados. Ponele el arco atras de la pelota a
-//     ojo y fijate si "separacion" baja de 15 justo cuando VOS dirias que
-//     estan alineados. Si patea siempre, bajar TOL_ANG_ALINEADO; si no patea
-//     nunca, subirlo. ANOTAR los grados a los que pateo.
-//
-//  PASO 2 — el camino corto de la orbita: poner ORBITA_CAMINO_CORTO = true.
-//     Que mirar: poner el arco claramente de UN lado y soltar el robot cerca
-//     de la pelota. Tiene que arrancar a orbitar HACIA el arco, no al reves.
-//     Si arranca para el lado contrario: SENTIDO_ORBITA_INVERTIDO = true.
-//     Ese es el unico ajuste; es un booleano, se prueba en dos intentos.
-//
-//  PASO 3 — el arco al encender: poner ELEGIR_ARCO_AL_ENCENDER = true.
-//     Que mirar: apoyar el robot mirando al arco AMARILLO y encenderlo. El
-//     monitor tiene que decir "ATACO EL ARCO AMARILLO". Repetir mirando al
-//     azul. Si se equivoca, mirar cuantas muestras vio de cada uno: si son
-//     pocas, el problema es la camara (umbrales), no esta logica.
-//
-//  PASO 4 — el giroscopo: poner USAR_GIROSCOPO = true.
-//     ⚠️ Lo primero NO es probar la patada al rumbo 0: es ver si el sensor
-//     contesta. El monitor dice "Giroscopo: OK" o "NO CONTESTA" al arrancar.
-//     Si contesta, girar el robot a mano y ver que "rumbo=" cambie y vuelva.
-//     Recien despues probar el plan B (dejarlo orbitar sin arco a la vista y
-//     ver si apunta al rumbo de arranque). Si gira para el lado contrario:
-//     GIRO_RUMBO_INVERTIDO = true.
-
-// ============================================
 
 int Xp = 0, Yp = 0;
 int Xam = 0, Yam = 0;              // arco AMARILLO (byte 202)
@@ -1388,21 +181,8 @@ unsigned long t_ultimoAviso    = 0;
 unsigned long t_cicloPulso     = 0;
 unsigned long t_entroEstado    = 0;
 
-// A QUE ARCO ATACAR, FIJADO AL CARGAR EL PROGRAMA [2026-09-21]
-//
-// EL PROBLEMA, visto en el primer partido: al arrancar, los robots del otro
-// equipo TAPAN el arco. En los 2 s de MS_MIRAR_ARCOS el robot no llega a
-// verlo y se queda con el de siempre (AZUL), haya que atacar ese o no.
-//
-// LA SOLUCION (el juez permite tener dos programas): el MISMO codigo se
-// compila DOS VECES, una por arco. platformio.ini tiene [env:azul] y
-// [env:amarillo], que definen ATACAR_AZUL o ATACAR_AMARILLO. Despues del
-// sorteo de lado se carga el que corresponde con CARGAR-ROBOT.bat.
-// Con el arco fijo el robot NO mira al encender: no depende de que el arco
-// este a la vista, y arranca 2 s antes.
-//
-// Sin ninguna de las dos (Arduino IDE, o pio run -e teensy41) queda como
-// estaba: elige mirando al encender, y si no ve ninguno se queda con AZUL.
+// ARCO FIJO: lo decide platformio.ini (env azul / amarillo, CARGAR-ROBOT.bat).
+// Sin ninguno de los dos (env teensy41) elige el arco mirando al prenderse.
 #if defined(ATACAR_AZUL) && defined(ATACAR_AMARILLO)
   #error "ATACAR_AZUL y ATACAR_AMARILLO a la vez: elegi uno solo"
 #endif
@@ -1417,68 +197,36 @@ unsigned long t_entroEstado    = 0;
   bool objetivoEsAmarillo = false;   // si al encender no ve ningun arco, ataca este
 #endif
 
-// --- giroscopo ---
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
 bool  hayGiroscopo = false;
 float rumboCero    = 0;    // hacia donde miraba al encenderse = hacia el arco rival
 float ultimoRumbo  = 0;
-// SALUD DEL GIROSCOPO — reescrito el 2026-09-01. Ver el bloque grande de
-// arrancarGiroscopo() para por que ya no se cuentan ceros.
 bool          giroCaido = false;      // lo dice el propio chip, no lo adivinamos
 float         rumboAlPatear = 0;      // rumbo al empezar la patada (heading-hold)
 
-// EL SENTIDO DE LA ORBITA SE DECIDE UNA SOLA VEZ, AL ENTRAR. [2026-09-01]
-//
-// EL BUG QUE ESTO ARREGLA. sentidoParaOrbitar() se llamaba DENTRO del loop, o
-// sea ~17.000 veces por segundo, y decide mirando el SIGNO del angulo al arco.
-// Mientras el robot orbita hacia el arco ese angulo se acerca a cero y lo
-// CRUZA: ahi el signo se da vuelta y el robot invierte el sentido. Enseguida
-// vuelve a cruzar y se invierte otra vez. Queda pataleando alrededor del cruce
-// por cero, arranca para un lado, se va para el otro, y nunca completa la
-// vuelta ni se alinea. Observado en cancha apenas se encendio
-// ORBITA_CAMINO_CORTO el 2026-09-01.
-//
-// "¿Para que lado doy la vuelta?" es una decision que se toma UNA VEZ, al
-// empezar la maniobra — no algo que se replantea a cada instante. Se congela
-// al entrar a ORBITANDO y no se toca hasta salir.
-//
-// Si el sentido elegido resulta el largo, MS_ORBITA_MAX (20 s) lo corta igual,
-// que es como venia funcionando antes.
 bool          sentidoOrbita = false;    // congelado al entrar a ORBITANDO
 bool sentidoParaOrbitar();              // prototipo: cambiarA() lo usa
 unsigned long t_chequeoGiro = 0;      // ultima vez que se le pregunto
-// MS_CHEQUEO_GIRO: en el PANEL DE CONTROL (arriba).  cada cuanto preguntarle
 
-// --- sensores de linea ---
 int  pinLinea[3]  = { A11, A13, A12 };   // Mark1; se corrige en setup()
 const char* versionPlaca = "?";
 bool lineaHabilitada = false;
 bool frenoFuerte = false;    // entramos al escape viniendo de la patada?
 
-// INSTRUMENTACION PARA MEDIR EN LA CANCHA SIN CABLE [2026-08-25].
-// El problema: el banner del arranque se PIERDE cuando no hay nadie escuchando
-// el USB — el Teensy descarta lo que manda si no hay host. Y en la cancha no
-// llega el cable. Asi que el robot se guarda los numeros y los sigue mostrando
-// en la telemetria de cada 2 s, para que se puedan leer DESPUES, enchufando el
-// USB en la mesa SIN APAGAR la bateria (si no se corta la energia, el programa
-// sigue corriendo y los numeros siguen ahi).
 int lineaArranque[3] = { -1, -1, -1 };          // lo que leyo al encenderse
 int lineaMin[3] = { 9999, 9999, 9999 };         // minimo visto en toda la corrida
 int lineaMax[3] = { -1, -1, -1 };               // maximo visto en toda la corrida
 int  mascaraLinea = 0;
 unsigned long t_ultimaLinea = 0;
-// Desde cuando ve blanco CADA sensor, por separado. Sirve para dos cosas:
-// filtrar picos sueltos, y sobre todo saber CUAL LA VIO PRIMERO, que es el
-// unico que decide la direccion del escape. 0 = ese sensor no la ve.
 unsigned long t_sensorDesde[3] = { 0, 0, 0 };
 
+// Los estados del robot.
 enum Estado { BUSCANDO, CENTRANDO, AVANZANDO, ORBITANDO,
               APUNTA_RUMBO0, PATEA_ADEL, PATEA_ATRAS, ESCAPA_LINEA,
               DESTRABANDO };
 Estado estado = BUSCANDO;
 Estado estadoAnterior = PATEA_ATRAS;
 
-// --- rampa del giro continuo de busqueda y reloj del destrabe [29/09] ---
 int  pwmGiroBusc = 0;              // PWM actual de la rampa del giro
 unsigned long t_rampaGiro    = 0;
 unsigned long t_frenoAlVer   = 0;  // 0 = no esta frenando el envion
@@ -1495,29 +243,11 @@ int  nDestrabes = 0;
 
 bool avisadoSinCamara = false;
 
-// --- medicion del enlace con la camara [2026-08-11] ---
-// Gustavo planteo que podiamos estar leyendo lento y quedandonos con datos
-// viejos. En vez de discutirlo, se mide. Se imprime cada 2 s:
-//   paq/s     paquetes de 9 bytes VALIDOS por segundo = cuadros de camara
-//   tirados/s bytes descartados buscando el 201. Si esto es alto, hay
-//             desincronizacion, que es justo el sintoma de buffer desbordado.
-//   loops/s   vueltas del loop(). Si son miles, no estamos leyendo lento.
 unsigned long nPaquetes = 0, nTirados = 0, nLoops = 0;
 unsigned long t_contadores = 0;
 
-// Si el rumbo objetivo de ESTA patada es confiable. Ver cambiarA(). [06/10]
 bool rumboPatadaValido = false;
 
-// --- CUANTO SE TORCIO EN CADA PATADA [2026-10-06] ---
-// Hasta hoy la patada se juzgaba A OJO ("esta un poco torcida"), y eso ya nos
-// costo tiempo con el destrabe. Ahora el robot se guarda el desvio de las
-// ultimas PATADAS_GUARDADAS patadas y lo repite en la telemetria de cada 2 s,
-// con el mismo truco que lineaMin/lineaMax: en la cancha no llega el cable, asi
-// que se patea, se trae el robot y se enchufa el USB SIN APAGAR LA BATERIA.
-//
-// COMO LEERLO. El signo dice PARA QUE LADO se torcio, y es lo que decide la
-// perilla: si todas las patadas se van para el MISMO lado, es sistematico y va
-// TRIM_PATADA; si se van para los dos, es el corrector y van KP/KD.
 #define PATADAS_GUARDADAS 5
 float desvioPatada[PATADAS_GUARDADAS];   // grados al terminar el golpe
 float picoPatada[PATADAS_GUARDADAS];     // lo peor durante el golpe
@@ -1525,40 +255,15 @@ bool  conLazoPatada[PATADAS_GUARDADAS];  // tuvo giroscopo y rumbo bueno?
 int   nPatadas    = 0;                   // cuantas pateo en toda la corrida
 float picoEnCurso = 0;                   // pico de la patada que esta en vuelo
 
-
-// ---------- motores ----------
-
-// SOLTAR los motores. NO es frenar: el robot sigue de largo por inercia.
+// ===== MOTORES =====
+// parar() SUELTA las ruedas (sigue de largo). frenar() las TRABA: las mismas
+// patas en 0 pero con el PWM a 255. Mismas patas, efecto opuesto.
 void parar() {
   analogWrite(IZQ_PWM, 0); digitalWrite(IZQ_INA, 0); digitalWrite(IZQ_INB, 0);
   analogWrite(DER_PWM, 0); digitalWrite(DER_INA, 0); digitalWrite(DER_INB, 0);
   analogWrite(TRA_PWM, 0); digitalWrite(TRA_INA, 0); digitalWrite(TRA_INB, 0);
 }
 
-// FRENO ELECTRICO — 2026-09-15, a pedido del equipo.
-//
-// Cortocircuita los bornes del motor: la corriente que el propio motor
-// genera al girar lo frena a el mismo. Es instantaneo y no hay nada que
-// calibrar. Una vez detenido no circula corriente, asi que se puede
-// sostener sin que se caliente nada.
-//
-// PORTADO DE LA MESA DEL ARQUERO, que lo tiene MEDIDO en el piso el
-// 2026-08-18 con pruebas/probar-freno (tres corridas de 1 segundo,
-// marcando donde quedaba cada una):
-//     dos patas ALTAS + PWM maximo   -> frena
-//     dos patas BAJAS + PWM maximo   -> frena   <-- esta es la que usamos
-//     soltar (parar())               -> quedaba MAS LEJOS
-// (arquero-teensy-zircon/funciona/seguir-y-despejar/:709-737)
-//
-// ⚠️ SE PARECE PELIGROSAMENTE A parar(): las patas de direccion quedan
-// igual, en 0. La UNICA diferencia es el PWM. Con PWM en 0 el driver apaga
-// la salida y la rueda queda suelta; con PWM en 255 queda cortocircuitada.
-// Mismo estado de las patas, efecto opuesto. No confundirlas al leer.
-//
-// 🚨 Y la leccion de metodo que trae el arquero: antes de esa medicion
-// hubo una prueba EN LA MESA que dijo que el freno no servia. Estaba mal —
-// el robot se movia menos de 3 cm y nunca agarraba velocidad. Un freno
-// solo se puede medir si hay inercia que frenar.
 void frenar() {
   digitalWrite(IZQ_INA, 0); digitalWrite(IZQ_INB, 0); analogWrite(IZQ_PWM, 255);
   digitalWrite(DER_INA, 0); digitalWrite(DER_INB, 0); analogWrite(DER_PWM, 255);
@@ -1573,19 +278,9 @@ void motoresRotando(bool sentidoA, int vel) {
   analogWrite(TRA_PWM, vel); digitalWrite(TRA_INA, a); digitalWrite(TRA_INB, b);
 }
 
-// Avanza tratando de NO torcerse, corrigiendo con el giroscopo contra el rumbo
-// que tenia al empezar. Ver el bloque "PATADA DERECHA" arriba.
-// Estado del termino derivativo. Se reinicia al entrar a PATEA_ADEL.
 float         errPatadaPrevio = 0;
 unsigned long t_derivPatada   = 0;
 float         derivPatada     = 0;
-
-// Cada cuanto se calcula la derivada. NO puede ser en cada vuelta del loop:
-// el loop corre a 17.300/s y el BNO055 actualiza su fusion a ~100/s, asi que
-// la mayoria de las vueltas leeria el MISMO numero repetido -> derivada cero,
-// y cuando el sensor por fin cambia, un salto enorme. En vez de corregir
-// suave, el robot pegaria tirones. 10 ms es el ritmo real del sensor.
-// MS_DERIVADA_PATADA: en el PANEL DE CONTROL (arriba).
 
 void reiniciarDerivadaPatada() {
   errPatadaPrevio = 0;
@@ -1593,19 +288,8 @@ void reiniciarDerivadaPatada() {
   derivPatada     = 0;
 }
 
-// Escribe las dos ruedas de adelante y TRABA LA TRASERA.
-//
-// 🔧 POR QUE TRABAR LA TRASERA (mejora 3 del 22/09). avanzar() la dejaba
-// SUELTA durante toda la patada, y suelta no se opone a nada: el robot
-// pivotea alrededor de ella sin resistencia.
-//
-// Y trabarla NO frena el avance, por como funciona una rueda omni: para ir
-// derecho hacia adelante, la trasera se mueve de costado sobre sus rodillos
-// libres, que el motor no toca. El motor solo interviene cuando la rueda
-// tiene que GIRAR — o sea cuando el robot rota. Trabarla resiste la
-// rotacion y deja pasar la traslacion.
-// (Si al probarlo el robot llega notablemente mas corto, la hipotesis
-//  estaba mal: los rodillos rozan mas de lo que pensabamos.)
+// La patada: empujan las dos de adelante y la TRASERA va trabada (resiste
+// que el robot gire, sin frenar el avance).
 void motoresPatada(int vi, int vd) {
   if (vi < 0) vi = 0;   if (vi > 255) vi = 255;
   if (vd < 0) vd = 0;   if (vd > 255) vd = 255;
@@ -1614,15 +298,12 @@ void motoresPatada(int vi, int vd) {
   digitalWrite(TRA_INA, 0); digitalWrite(TRA_INB, 0); analogWrite(TRA_PWM, 255);
 }
 
+// Golpe derecho: trim fijo + corrector PD del giroscopio, repartido entre las
+// dos ruedas (a una le suma y a la otra le resta).
 void avanzarDerecho(int vel, float rumboObjetivo) {
-  // ---- 1. COMPENSACION FIJA (feedforward) ----
-  // El desvio es SISTEMATICO y siempre del mismo lado (28,4 grados a la
-  // derecha, medido). Anularlo de entrada es mucho mas rapido que esperar a
-  // que el error aparezca para recien ahi reaccionar.
   int vi = vel - TRIM_PATADA;
   int vd = vel + TRIM_PATADA;
 
-  // ---- 4. PROPORCIONAL + DERIVATIVO ----
   float err = diferencia(rumboObjetivo, rumboActual());
   unsigned long ahora = millis();
   if (t_derivPatada == 0) {
@@ -1635,10 +316,6 @@ void avanzarDerecho(int vel, float rumboObjetivo) {
   }
   float mando = KP_PATADA * err + KD_PATADA * derivPatada;
 
-  // ---- 2. REPARTIR: acelerar una Y frenar la otra ----
-  // Antes solo restaba, porque a 240 sobre 255 no habia lugar para subir.
-  // A 215 sobran 40 puntos. Repartiendo, el PROMEDIO de las dos ruedas se
-  // mantiene en vel y la patada no pierde empuje.
   int mitad = (int)(fabs(mando) / 2.0);
   if (mitad > RESTA_MAX / 2) mitad = RESTA_MAX / 2;
   if (mando > 0) { vd -= mitad; vi += mitad; }
@@ -1653,9 +330,7 @@ void avanzar(int vel) {
   analogWrite(TRA_PWM, 0);   digitalWrite(TRA_INA, 0); digitalWrite(TRA_INB, 0);
 }
 
-// Con cuanta potencia avanzar segun lo lejos que este la pelota: rapido de
-// lejos, suave al llegar. Regla de tres entre XP_FRENAR y XP_ORBITA; fuera
-// de ese tramo devuelve los topes. Ver "AFLOJAR AL ACERCARSE A LA PELOTA".
+// Rapido de lejos y suave al llegar (entre XP_FRENAR y XP_ORBITA).
 int velAcercarse(int xp) {
   if (xp >= XP_FRENAR) return VEL_AVANCE;
   if (xp <= XP_ORBITA) return VEL_AVANCE_CERCA;
@@ -1669,12 +344,9 @@ void retroceder(int vel) {
   analogWrite(TRA_PWM, 0);   digitalWrite(TRA_INA, 0); digitalWrite(TRA_INB, 0);
 }
 
-// ORBITA: la maniobra del delantero 2025 (delantero.ino:613-617).
-// Adelante suave, trasera fuerte y al reves => arco amplio alrededor
-// de la pelota, en vez de girar sobre el propio eje.
-// velTrasera se pasa desde afuera porque los primeros MS_ORB_IMPULSO ms va el
-// golpe de arranque y despues la velocidad de crucero. Las de adelante van
-// SIEMPRE igual: su trabajo es quedarse plantadas, no empujar.
+// ORBITA: las dos de adelante DEBAJO del piso (no giran) y empuja la trasera.
+// Gira alrededor de un punto a R = 2*L adelante (L era 8,75 cm; sin medir
+// desde que se achico el robot). La fuerza cambia la velocidad, no el radio.
 void orbitar(bool sentidoA, int velTrasera) {
   int a = sentidoA ? 0 : 1;    // las dos de adelante
   int b = sentidoA ? 1 : 0;
@@ -1683,9 +355,8 @@ void orbitar(bool sentidoA, int velTrasera) {
   analogWrite(TRA_PWM, velTrasera);      digitalWrite(TRA_INA, b); digitalWrite(TRA_INB, a);
 }
 
-// ---------- linea blanca ----------
-
-// Devuelve una mascara: bit 0 = sensor 1, bit 1 = sensor 2, bit 2 = sensor 3.
+// ===== LINEA BLANCA =====
+// bit 0 = sensor 1 DERECHO, bit 1 = sensor 2 IZQUIERDO, bit 2 = sensor 3 DELANTERO.
 int leerLineas() {
   int m = 0;
   for (int i = 0; i < 3; i++) {
@@ -1697,34 +368,9 @@ int leerLineas() {
   return m;
 }
 
-// Escapa de la(s) linea(s) que se estan viendo. Suma las direcciones, asi
-// que las esquinas (dos sensores a la vez) salen solas.
-// QUE SENSOR ES CUAL — MEDIDO el 2026-09-15 con pruebas/identificar-sensores/
-// (un sensor por vez sobre el blanco, los otros dos en negro; salta uno
-//  solo, ~700 cuentas, los otros ni se mueven):
-//
-//     sensor 1  =  DERECHO     A11, pin 25
-//     sensor 2  =  IZQUIERDO   A13, pin 27
-//     sensor 3  =  DELANTERO   A12, pin 26
-//
-// Hasta ese dia habia TRES versiones dando vueltas — el dibujo del equipo,
-// la bitacora del 18/08 y los comentarios del codigo 2025 — y las tres
-// decian cosas distintas. Ninguna era la correcta. Ahora esta medido.
-//
-// ⚠ LA TABLA DE ABAJO ESTA BIEN Y NO HAY QUE TOCARLA. Los tres sensores
-// estan en un LADO del triangulo, entre dos ruedas, o sea ENFRENTADOS a la
-// tercera — y el escape apaga justo esa tercera, que es como se traslada
-// en diagonal un robot de tres ruedas omni:
-//
-//     sensor 3 (delantero)  esta entre izq y der     -> apaga TRASERA
-//     sensor 1 (derecho)    esta entre trasera y der -> apaga IZQUIERDA
-//     sensor 2 (izquierdo)  esta entre trasera e izq -> apaga DERECHA
-//
-// Los nombres IZQ/DER/TRA del comentario son de la RUEDA que se apaga, no
-// de donde esta el sensor. Leerlos como posicion del sensor fue el error
-// que tuvo el mapa mal escrito durante un mes.
+// Escapa para el lado contrario al sensor: apaga la rueda de enfrente y las
+// otras dos empujan al reves entre si. Sensor 3 (adelante) = derecho para atras.
 void escaparDeLinea(int m, int velocidad) {
-  //          IZQ(M1) DER(M2) TRA(M3)
   int v[3] = {   0,      0,      0   };
   if (m & 1) { v[1] -= 1; v[2] += 1; }   // hacia la DI  -> IZQ apagada
   if (m & 2) { v[0] += 1; v[2] -= 1; }   // hacia la DD  -> DER apagada
@@ -1734,15 +380,6 @@ void escaparDeLinea(int m, int velocidad) {
   for (int i = 0; i < 3; i++) if (abs(v[i]) > pico) pico = abs(v[i]);
 
   if (pico == 0) {
-    // Los tres sensores a la vez: las tres direcciones se cancelan y no hay
-    // para donde ir. Casi seguro son los umbrales mal puestos. Quedarse
-    // quieto es lo honesto: salir para un lado elegido al azar seria
-    // inventar.
-    //
-    // 2026-09-15: era parar(), que SUELTA las ruedas. Ahora es frenar(),
-    // que las traba. La diferencia importa desde que la cancha tiene
-    // rampitas en el borde: un robot quieto pero suelto sobre un plano
-    // inclinado se desliza solo, y esto salta justo cuando algo raro pasa.
     frenar();
     return;
   }
@@ -1763,28 +400,7 @@ void escaparDeLinea(int m, int velocidad) {
   digitalWrite(TRA_INB, pwm[2] < 0 ? 1 : 0);
 }
 
-// Gira a pulsos: empuja un rato y despues se queda quieto, para poder
-// mirar entre pulso y pulso.
-//
-// 2026-09-22 -> LA PAUSA AHORA FRENA DE VERDAD. Reportado por el equipo:
-// "mientras gira buscando la detecta y a veces se pasa, y la busca de
-// vuelta".
-//
-// LA CAUSA: la pausa hacia parar(), que pone las dos patas de direccion
-// en 0 — eso SUELTA las ruedas, no las frena. Durante los 380 ms de
-// "pausa" el robot seguia girando por inercia con las ruedas libres. O
-// sea que la pausa no detenia nada: solo dejaba de empujar. La camara
-// veia la pelota y el robot seguia de largo.
-//
-// Ahora la pausa usa frenar() (el freno electrico portado del arquero el
-// 15/09): cortocircuita los motores y el pulso termina donde tiene que
-// terminar. Arregla lo mismo al CENTRAR, que usa este mismo mecanismo.
-//
-// ⚠ EFECTO LATERAL A VIGILAR: la vuelta de busqueda va a tardar mas,
-// porque hasta hoy la inercia ayudaba a avanzar durante la pausa. Si
-// tarda mucho en encontrar la pelota, se compensa subiendo MS_PULSO_BUSC
-// (60) o bajando MS_ESPERA_BUSC (380). NO subiendo VEL_GIRO: mas
-// velocidad es mas inercia, que es justo lo que estamos sacando.
+// Gira a pulsos: empuja y despues FRENA, para que la camara mire quieta.
 void rotarPulsado(bool sentidoA, int vel, int msPulso, int msEspera) {
   unsigned long fase = millis() - t_cicloPulso;
   if (fase < (unsigned long)msPulso)                    motoresRotando(sentidoA, vel);
@@ -1792,11 +408,7 @@ void rotarPulsado(bool sentidoA, int vel, int msPulso, int msEspera) {
   else                                                  t_cicloPulso = millis();
 }
 
-
-// Giro CONTINUO con rampa para BUSCAR la pelota. A diferencia de
-// rotarPulsado(), no para nunca: sube el PWM de a RAMPA_GIRO_PASO hasta
-// VEL_GIRO_CONTINUO y se queda ahi. pwmGiroBusc vuelve a 0 cuando ve la
-// pelota, asi la proxima busqueda arranca suave otra vez.
+// Giro de busqueda continuo, con rampa para no patinar al arrancar.
 void girarContinuo(bool sentidoA) {
   if (millis() - t_rampaGiro >= RAMPA_GIRO_MS) {
     t_rampaGiro = millis();
@@ -1808,9 +420,9 @@ void girarContinuo(bool sentidoA) {
   motoresRotando(sentidoA, pwmGiroBusc);
 }
 
-
-// ---------- camara ----------
-
+// ===== CAMARA =====
+// Paquete de 9 bytes: 201,Xp,Yp+100, 202,Xam,Yam+100, 203,Xaz,Yaz+100 (cm).
+// X adelante, Y al costado (Y positivo = izquierda). 200 y +-100 = recortes.
 void leerCamara() {
   while (Serial1.available() >= 9) {
     int h1 = Serial1.read();
@@ -1832,7 +444,6 @@ void leerCamara() {
       t_ultimoPaquete = millis();
       nPaquetes++;
 
-      // 200 y +-100 son los TOPES de recorte de la camara: casi siempre manchas.
       if ((Xp > 0) && (Xp <= XP_MAX) && (abs(Yp) < 100)) {
         XpBueno = Xp; YpBueno = Yp;
         t_ultimaPelota = millis();
@@ -1849,25 +460,13 @@ void leerCamara() {
   }
 }
 
-
-// ---------- angulos ----------
-//
-// LA IDEA, del delantero campeon 2025 (delantero.ino:311-313): pasar de
-// "cuantos centimetros esta corrido" a "en que direccion esta". El angulo no
-// depende de la distancia, y por eso SI se pueden comparar la pelota (cerca)
-// con el arco (lejos).
-//
-//   atan2(Y, X) da el angulo del punto (X,Y) visto desde el robot.
-//   X = para adelante, Y = para el costado. Angulo 0 = justo adelante.
-
+// ===== ANGULOS =====
+// Se compara en grados y no en cm: un angulo no depende de la distancia.
 float anguloDe(int X, int Y) {
   if (X <= 0) return 0.0;                    // sin dato, no invento un angulo
   return atan2((float)Y, (float)X) * 180.0 / PI;
 }
 
-// Diferencia mas corta entre dos angulos, en (-180, 180]. Sin esto, ir de 350
-// a 10 grados se leeria como un giro de -340 en vez de +20.
-// Copiada del cuadrado-giroscopo del arquero, que ya la tiene andando.
 float diferencia(float objetivo, float actual) {
   float d = objetivo - actual;
   while (d > 180.0)   d -= 360.0;
@@ -1875,33 +474,20 @@ float diferencia(float objetivo, float actual) {
   return d;
 }
 
-// ---------- el arco al que le apuntamos ----------
-
 int   arcoX()       { return objetivoEsAmarillo ? XamBueno : XazBueno; }
 int   arcoY()       { return objetivoEsAmarillo ? YamBueno : YazBueno; }
 unsigned long arcoT() { return objetivoEsAmarillo ? t_ultimoAmarillo : t_ultimoAzul; }
-// El arco que NO atacamos, o sea el nuestro. [12/10]
 unsigned long arcoPropioT() { return objetivoEsAmarillo ? t_ultimoAzul : t_ultimoAmarillo; }
 const char* arcoNombre() { return objetivoEsAmarillo ? "AMARILLO" : "AZUL"; }
 
-
-// ---------- giroscopo ----------
-//
-// La deteccion de "sensor caido" es prestada del arquero, que la pago caro:
-// el 2026-07-28 su BNO055 empezo a devolver 0.000 exacto en los tres angulos
-// y el programa siguio girando con datos basura sin enterarse. Si el chip no
-// contesta, la libreria devuelve ceros — y un cero es una postura posible, asi
-// que con UNA lectura no se distingue. Por eso se cuentan varias seguidas.
-
+// ===== GIROSCOPIO =====
+// Cada MS_CHEQUEO_GIRO le pregunta al chip si la fusion sigue (SYS_STATUS 5).
+// OJO: bno.getSystemStatus() trae un delay(200) adentro (bitacora 13/10).
 float rumboActual() {
   sensors_event_t evento;
   bno.getEvent(&evento);
   ultimoRumbo = evento.orientation.x;        // 0..360
 
-  // Cada MS_CHEQUEO_GIRO se le PREGUNTA AL CHIP si su fusion sigue corriendo,
-  // en vez de deducirlo mirando si los angulos dan cero. Ver el bloque de
-  // arrancarGiroscopo(): en ESTE robot el rumbo de reposo cae justo en el
-  // borde 359.9/0.0, y el metodo viejo lo daba por muerto en pleno juego.
   if (millis() - t_chequeoGiro > MS_CHEQUEO_GIRO) {
     t_chequeoGiro = millis();
     uint8_t sys = 0, autotest = 0, err = 0;
@@ -1914,7 +500,6 @@ float rumboActual() {
 bool giroscopoSano() {
   return hayGiroscopo && !giroCaido;
 }
-
 
 const char* nombreEstado(Estado e) {
   switch (e) {
@@ -1931,43 +516,10 @@ const char* nombreEstado(Estado e) {
   return "?";
 }
 
-
-// ---------- arranque del giroscopo y eleccion del arco ----------
-
-// Enciende el BNO055. Devuelve false si no contesta o si contesta puros
-// ceros. NO se cuelga el programa si falla: se sigue sin giroscopo.
-// EL GIROSCOPO NUNCA ESTUVO ROTO. La verificacion estaba mal. [2026-09-01]
-//
-// QUE DECIA EL CODIGO VIEJO. Tomaba 20 lecturas y contaba cuantas traian algun
-// angulo distinto de cero; con menos de 10 buenas daba el sensor por muerto.
-// Sacaba SIEMPRE 9 de 20 y el robot jugaba sin giroscopo desde el 11/08.
-//
-// POR QUE ESTABA MAL. Un rumbo de 0.0 grados es una POSTURA VALIDA, no una
-// falla. Y este robot, apoyado como se lo apoya siempre, arranca justo en el
-// borde: midiendo con pruebas/giroscopo-crudo/ el rumbo en reposo oscila entre
-// 359.9 y 0.0. Cuando cae en 0.0 los tres angulos son cero (esta plano, asi que
-// cabeceo y alabeo tambien son 0) y la lectura se contaba como "sensor caido".
-// Oscilando entre esos dos valores, de 20 lecturas la mitad salen cero: DA 9.
-// Ese "siempre 9 de 20" que se anoto el 18/08 no era la fusion convergiendo —
-// era el rumbo bailando sobre el 0/360. Por eso al arquero le anda el MISMO
-// codigo: su rumbo de arranque no cae ahi.
-//
-// LO QUE SE MIDIO EL 2026-09-01 con pruebas/giroscopo-crudo/:
-//     chip en 0x28, CHIP_ID 0xA0, ACC 0xFB, MAG 0x32, GYR 0x0F  -> BNO055 real
-//     SYS_STATUS = 5 (fusion corriendo), SYS_ERR = 0
-//     giroscopo calibrado 3/3
-//     se giro el robot a mano y el rumbo siguio: RECORRIDO 97.8 grados
-// El sensor esta SANO. Y de paso quedo descartado setExtCrystalUse(true), que
-// era el sospechoso del 18/08: la fusion arranca igual con el cristal externo.
-//
-// COMO SE VERIFICA AHORA. Se le pregunta AL CHIP por su registro de estado del
-// sistema (0x39): 5 = algoritmo de fusion corriendo. Es un dato que el sensor da
-// sobre si mismo, sin ambiguedad, y no se puede confundir con una postura.
 bool arrancarGiroscopo() {
   if (!bno.begin(GIRO_SIN_BRUJULA ? OPERATION_MODE_IMUPLUS : OPERATION_MODE_NDOF)) return false;
   bno.setExtCrystalUse(true);
   delay(700);                      // AHORA despues: setExtCrystalUse reinicia la
-                                   // fusion, asi que esperar antes no servia
   uint8_t sys = 0, autotest = 0, err = 0;
   bno.getSystemStatus(&sys, &autotest, &err);
   if (sys != 5) {
@@ -1982,8 +534,6 @@ bool arrancarGiroscopo() {
   return true;
 }
 
-// Mira sin moverse y se queda con el arco MAS CENTRADO. El ritual es apoyar
-// el robot mirando al arco rival y recien ahi encenderlo.
 void elegirArcoMirando() {
   long   nAm = 0, nAz = 0;
   double sumAm = 0, sumAz = 0;
@@ -1992,10 +542,6 @@ void elegirArcoMirando() {
   Serial.print("Mirando "); Serial.print(MS_MIRAR_ARCOS / 1000);
   Serial.println(" s para ver a que arco apunto. NO LO MUEVAS.");
 
-  // Se cuenta UNA VEZ POR CUADRO DE CAMARA, no una vez por vuelta del loop.
-  // El loop corre a ~400.000 vueltas por segundo y la camara manda 46 cuadros:
-  // contar por vuelta daba millones de "muestras" con un solo vistazo fugaz, y
-  // MUESTRAS_MINIMAS_ARCO dejaba de filtrar nada. [medido 2026-08-11]
   unsigned long visto_am = 0, visto_az = 0;
   while (millis() - t0 < MS_MIRAR_ARCOS) {
     leerCamara();
@@ -2034,42 +580,15 @@ void elegirArcoMirando() {
   Serial.print("   *** ATACO EL ARCO "); Serial.print(arcoNombre()); Serial.println(" ***");
 }
 
-// ================= RAMPA DE ARRANQUE DE LA PATADA =================
-// 2026-09-08, a pedido del equipo: el robot PATINA al patear y se va
-// torcido.
-//
-// La idea es de la mesa del ARQUERO, que ya la tiene probada en cancha.
-// Su comentario describe exactamente este sintoma:
-//   "arrancando de golpe a potencia 200, las ruedas PATINAN. Y no patinan
-//    igual las dos — una agarra antes que la otra, y ese instante de
-//    diferencia tuerce al robot."
-//   (arquero-teensy-zircon/funciona/seguir-y-despejar/:711-719)
-//
-// Coincide con lo medido acá el 01/09: la patada torcia 10,1 grados, y la
-// causa anotada fue que avanzar() manda el mismo PWM a las dos ruedas de
-// adelante, pero el mismo PWM no es la misma velocidad.
-//
-// ⚠ SE PORTA LA LOGICA, NO LOS NUMEROS. El arquero sube 10 cada 10 ms:
-//   200 ms hasta el fondo. Acá la patada dura MS_PATADA = 420 ms y la
-//   pelota se va en los primeros ~200, asi que esa rampa se comeria media
-//   patada. Esta sube 15 cada 5 ms: llega a 215 en ~75 ms, o sea antes de
-//   que la pelota se despegue, pero sin el tiron de golpe.
-//   (Y ademas los dos robots estan cableados distinto: copiar numeros de
-//    la otra mesa ya fallo dos veces. Ver la bitacora del 18/08.)
-//
-// Bajar puede ser de golpe: pedir MENOS fuerza nunca hace patinar.
-// RAMPA_PATADA_PASO: en el PANEL DE CONTROL (arriba).
-// RAMPA_PATADA_MS: en el PANEL DE CONTROL (arriba).
-
 int           pwmRampaPatada = 0;
 unsigned long t_rampaPatada  = 0;
 
+// Rampa del golpe: sube de a escalones para que no patinen las ruedas.
 void reiniciarRampaPatada() {
   pwmRampaPatada = 0;
   t_rampaPatada  = millis();
 }
 
-// Devuelve la potencia que corresponde AHORA, subiendo de a escalones.
 int rampaPatada(int objetivo) {
   unsigned long ahora = millis();
   if (objetivo < pwmRampaPatada) {
@@ -2082,55 +601,27 @@ int rampaPatada(int objetivo) {
   return pwmRampaPatada;
 }
 
+// Cambia de estado. Se decide UNA sola vez al entrar: el rumbo de la patada
+// y el sentido de la orbita (decidirlo en cada vuelta lo hacia patalear).
 void cambiarA(Estado nuevo) {
-  // Al empezar a patear se guarda el rumbo actual: es contra ese que se
-  // corrige durante el golpe, para no torcerse. Ver "PATADA DERECHA".
-  // EL RUMBO OBJETIVO DE LA PATADA, y si se puede confiar en el.
-  //
-  // Antes esto era solo la primera linea: si el giroscopio no estaba sano en
-  // este instante, rumboAlPatear se quedaba con el valor de UNA PATADA
-  // ANTERIOR. Y si durante el golpe el giroscopio volvia, el corrector se
-  // ponia a enderezar el robot hacia el rumbo de una patada vieja — que puede
-  // estar a decenas de grados. El robot obedecia y se torcia muchisimo a
-  // proposito. Candidato a explicar la patada de -47,1 grados medida el 06/10,
-  // la unica de las 5 que no volvio nunca (pico = final = -47,1).
-  //
-  // Enderezar hacia un rumbo viejo nunca es correcto: si no hay rumbo bueno,
-  // esa patada va con compensacion fija y SIN lazo.
   if (nuevo == PATEA_ADEL) {
     rumboPatadaValido = giroscopoSano();
     if (rumboPatadaValido) rumboAlPatear = rumboActual();
     else Serial.println("!!! patada sin rumbo del giroscopo -> va con trim fijo, sin lazo");
   }
-  // Y la rampa arranca de cero, para que el golpe no sea un tiron.
   if (nuevo == PATEA_ADEL) { reiniciarRampaPatada(); reiniciarDerivadaPatada(); }
-  // El sentido de la orbita se congela ACA y no se vuelve a mirar. Ver el
-  // bloque "EL SENTIDO DE LA ORBITA SE DECIDE UNA SOLA VEZ".
   if (nuevo == ORBITANDO) { sentidoOrbita = sentidoParaOrbitar();
                             recentrandoOrbita = false; t_orbSinVerla = 0;
-                            // La cuenta de vueltas arranca de cero en cada orbita. [12/10]
                             giradoOrbita = 0; t_buscaRumbo0 = 0; t_muestraOrb = millis();
                             if (hayGiroscopo) rumboOrbPrevio = rumboActual(); }
-  // El rato que pasa escapando de la linea NO es "la veo y no me acerco", asi
-  // que el reloj del destrabe se para aca. Sin esto, con un sensor que lee
-  // blanco de mas el robot quemaba el cupo de destrabes escapando. [06/10]
   if (nuevo == ESCAPA_LINEA) t_sinAcercarse = 0;
   estado = nuevo;
   t_entroEstado = millis();
   t_cicloPulso  = millis();
 }
 
-
-// ESPERA FINAL DEL ARRANQUE [2026-09-21, a pedido del equipo: 3 s -> 2 s]
-// Es la cuenta regresiva de "Arranca en N segundos", DESPUES de elegir el
-// arco. Sirve para sacar la mano del robot antes de que salga andando. No
-// lee nada: ni camara, ni linea, ni giroscopo. Achicarla no cambia ninguna
-// medicion del arranque.
-// OJO: no es la unica espera. A bateria, sin cable, antes de esta se come
-// ~3 s esperando el USB (while !Serial), ~1 s el giroscopio y 2 s mirando
-// los arcos (MS_MIRAR_ARCOS). Esta es solo la ultima.
-// MS_ESPERA_ARRANQUE: en el PANEL DE CONTROL (arriba).  era 3000
-
+// ===== ARRANQUE =====
+// CARGAR-ROBOT.bat lee la linea 'ARCO:' del cartel: no cambiarla.
 void setup() {
   pinMode(IZQ_INA, OUTPUT); pinMode(IZQ_INB, OUTPUT); pinMode(IZQ_PWM, OUTPUT);
   pinMode(DER_INA, OUTPUT); pinMode(DER_INB, OUTPUT); pinMode(DER_PWM, OUTPUT);
@@ -2190,8 +681,6 @@ void setup() {
   Serial.print(" si pasa "); Serial.print(TOL_ANG_ORB_ENTRA, 0);
   Serial.print(" grados (vuelve a orbitar bajo "); Serial.print(TOL_ANG_ORB_SALE, 0);
   Serial.println(")");
-  // La patada en el banner [2026-09-21]: sin esta linea no habia forma de
-  // saber desde el monitor si estaba cargada la de juego o la de prueba.
   Serial.print("patada derecha: trim "); Serial.print(TRIM_PATADA);
   Serial.print("  KP "); Serial.print(KP_PATADA, 1);
   Serial.print("  KD "); Serial.print(KD_PATADA, 1);
@@ -2200,11 +689,6 @@ void setup() {
   Serial.println("telemetria repite las ultimas 5 para leerlas despues sin cable.");
   Serial.print("patada: "); Serial.print(VEL_PATADA);
   Serial.print(" x "); Serial.print(MS_PATADA); Serial.println(" ms");
-  // El arco va ARRIBA en el banner: CARGAR-ROBOT.bat lee esta linea para
-  // confirmar que se cargo el programa correcto. Las lineas de mas abajo a
-  // veces se pierden si nadie esta leyendo el USB al arrancar.
-  // Sin arco fijo NO se imprime un nombre: todavia no se eligio (eso pasa
-  // mas abajo, mirando), y decir AZUL aca confundiria. [revision 21/09]
   if (ARCO_FIJO) {
     Serial.print("ARCO: "); Serial.print(arcoNombre());
     Serial.println("  (fijo por programa)");
@@ -2213,7 +697,6 @@ void setup() {
   }
   Serial.println("==============================================");
 
-  // --- sensores de linea (D) ---
   pinMode(PIN_VERSION_PLACA, INPUT_PULLDOWN);
   delay(10);
   if (digitalRead(PIN_VERSION_PLACA) == LOW) {
@@ -2230,10 +713,6 @@ void setup() {
   Serial.println("   S1=DERECHO   S2=IZQUIERDO   S3=DELANTERO  (medido 15/09)");
 
   if (LINEA_ACTIVA) {
-    // AUTOPROTECCION: el robot se enciende apoyado en el verde, no sobre una
-    // linea. Si un sensor ya dice "blanco", el umbral esta mal para la luz de
-    // hoy — y con el umbral mal el robot escaparia para siempre. Mejor
-    // desactivar y avisar que salir corriendo sin motivo.
     for (int i = 0; i < 3; i++) lineaArranque[i] = analogRead(pinLinea[i]);
     Serial.print("Linea: sensores leen ");
     Serial.print(lineaArranque[0]); Serial.print(" / ");
@@ -2272,7 +751,6 @@ void setup() {
     Serial.println("Linea: apagada por configuracion.");
   }
 
-  // --- giroscopo (C) ---
   if (USAR_GIROSCOPO) {
     Serial.print("Giroscopo: ");
     hayGiroscopo = arrancarGiroscopo();
@@ -2289,7 +767,6 @@ void setup() {
     Serial.println("Giroscopo: apagado por configuracion.");
   }
 
-  // --- que arco atacar (B) ---
   if (ARCO_FIJO) {
     Serial.print("   *** ATACO EL ARCO "); Serial.print(arcoNombre());
     Serial.println(" *** (fijo por programa: no miro al encender)");
@@ -2310,13 +787,7 @@ void setup() {
   cambiarA(BUSCANDO);
 }
 
-
-// Para que lado orbitar. Prioridad:
-//   1. si VEO el arco, para el lado donde esta
-//   2. si no, y hay giroscopo, hacia el rumbo de arranque (el "cero")
-//   3. si no, el de siempre (ORBITA_INVERTIDA)
-// Los dos primeros dependen de una hipotesis de signo SIN VERIFICAR: se
-// corrigen con SENTIDO_ORBITA_INVERTIDO, que es un booleano, no una cuenta.
+// Para que lado orbitar: segun el arco si lo ve; si no, segun el rumbo cero.
 bool sentidoParaOrbitar() {
   bool porDefecto = !ORBITA_INVERTIDA;
   if (!ORBITA_CAMINO_CORTO) return porDefecto;
@@ -2334,48 +805,19 @@ bool sentidoParaOrbitar() {
   return haciaElPositivo;
 }
 
-
+// ===== LOOP =====
+// Orden: 1) camara  2) LINEA BLANCA, que manda sobre todo  3) el estado.
 void loop() {
 
   nLoops++;
   leerCamara();
 
-  // ---------- LA LINEA BLANCA MANDA SOBRE TODO ----------
-  // Va antes que cualquier otra cosa y anula el estado en curso, incluida la
-  // patada. Salir de la cancha es peor que perder una jugada.
-  //
-  // ...SALVO durante el escape ciego. Ahi los sensores se ignoran enteros:
-  // ni disparan, ni cambian la direccion, ni reinician nada. Ver el bloque
-  // "ESCAPE CIEGO". Sin esta excepcion, el propio retroceso se pisa la
-  // linea con otro sensor y el robot se queda pataleando en el borde.
-  // VENTANA CIEGA: desde que vio la linea, no se lee nada durante
-  // MS_CIEGO_LINEA. Eso cubre el retroceso entero y ademas le da tiempo a
-  // alejarse antes de poder volver a dispararse. Ver "RETROCESO INMEDIATO".
   bool lineaCiega = (t_disparoLinea != 0
                      && millis() - t_disparoLinea < MS_CIEGO_LINEA);
 
   if (lineaHabilitada && !lineaCiega) {
     int mCrudo = leerLineas();
 
-    // ---------- FILTRO DE CONFIRMACION ----------
-    // leerLineas() se llama ~17.300 veces por segundo, y hasta hoy UNA
-    // sola lectura por encima del umbral alcanzaba para disparar un
-    // escape de ~800 ms (400 de compromiso + 400 de MS_ESCAPE_EXTRA).
-    // O sea: una muestra espuria entre 17.300 y el robot se iba.
-    //
-    // Ahora la linea tiene que verse SEGUIDA durante MS_LINEA_CONFIRMA
-    // para que cuente. Para la linea de verdad no cambia nada: a la
-    // velocidad a la que anda el robot, en 5 ms se mueve menos de 2 mm.
-    // Para un pico aislado es imposible de sostener.
-    //
-    // Esto NO reemplaza a los umbrales: contra un verde que esta POR
-    // ENCIMA del umbral de forma sostenida, ningun filtro ayuda. Ataca
-    // los cruces transitorios, que es lo que quedo despues de subir el
-    // umbral del sensor 3 a 757. [2026-09-08]
-    // El filtro se lleva UN CRONOMETRO POR SENSOR, no uno solo para los
-    // tres. Hace falta para saber cual la vio PRIMERO — ver abajo — y de
-    // paso filtra mejor: con un cronometro unico, un sensor que parpadea
-    // le reiniciaba la cuenta al que la estaba viendo en serio.
     for (int i = 0; i < 3; i++) {
       if (mCrudo & (1 << i)) { if (t_sensorDesde[i] == 0) t_sensorDesde[i] = millis(); }
       else                     t_sensorDesde[i] = 0;
@@ -2389,21 +831,7 @@ void loop() {
     if (m != 0) {
       t_ultimaLinea = millis();
 
-      // ---------- EL PRIMERO QUE LA VIO ----------
-      // 2026-09-15, a pedido del equipo. La direccion de escape sale de UN
-      // SOLO sensor: el que vio la linea PRIMERO. No de la suma de los que
-      // la esten viendo.
-      //
-      // Antes se escapaba con la mascara completa, sumando direcciones
-      // ("las esquinas salen solas"). El problema que reporto el equipo:
-      // al llegar en diagonal, un segundo sensor pisa la linea un instante
-      // despues y la direccion resultante se corre — el robot termina
-      // saliendo para cualquier lado en vez de por donde entro.
-      //
-      // El primero es el que dice por donde se estaba yendo de la cancha, y
-      // volver por ahi es volver por donde vino. Los cronometros por sensor
-      // de arriba son los que permiten saberlo: gana el que lleva mas
-      // tiempo viendo blanco.
+      // La direccion del escape la decide el sensor que vio la linea PRIMERO.
       int primero = -1;
       for (int i = 0; i < 3; i++) {
         if (!(m & (1 << i))) continue;
@@ -2412,7 +840,6 @@ void loop() {
       mascaraLinea = (1 << primero);
 
       if (estado != ESCAPA_LINEA) {
-        // Si veniamos pateando, el envion es mucho mas grande: primero freno.
         frenoFuerte = (estado == PATEA_ADEL);
         Serial.print("!!! LINEA BLANCA: la vio PRIMERO el sensor ");
         Serial.print(primero + 1);
@@ -2442,14 +869,8 @@ void loop() {
   bool veoArcoPropio = (millis() - arcoPropioT()) < MS_GRACIA;
   unsigned long enEstado = millis() - t_entroEstado;
 
-  // Los angulos, que es con lo que se decide la patada. Ver el bloque
-  // "A. ALINEACION POR ANGULO" arriba: comparar centimetros medidos a
-  // distancias distintas es lo que hacia que pateara desviado.
   float angPelota = anguloDe(XpBueno, YpBueno);
   float angArco   = anguloDe(arcoX(), arcoY());
-  // Tolerancia adaptativa: si el arco esta lejos, cada condicion usa su
-  // propia tolerancia de lejos (la de la pelota se afloja mas que la del arco).
-  // Ver el bloque "TOLERANCIA ADAPTATIVA POR DISTANCIA AL ARCO" arriba.
   bool  arcoLejos   = (TOLERANCIA_ADAPTATIVA
                        && arcoX() >= ARCO_LEJOS_MIN && arcoX() <= ARCO_LEJOS_MAX);
   float tolPelota   = arcoLejos ? TOL_ANG_LEJOS_PELOTA : TOL_ANG_PELOTA;
@@ -2458,26 +879,8 @@ void loop() {
   bool  pelotaAdelante = (fabs(angPelota) <= tolPelota);
   bool  arcoAlineado   = (fabs(diferencia(angArco, angPelota)) <= tolAlineado);
 
-  // ---------- ESCAPA_LINEA: lo primero, no lo interrumpe nadie ----------
+  // ---- ESCAPA_LINEA: retrocede YA y no mira la linea hasta MS_CIEGO_LINEA ----
   if (estado == ESCAPA_LINEA) {
-    // PRIMERO FRENAR Y ESPERAR, recien despues retroceder. Ver el bloque
-    // "ESPERA FRENADA ANTES DE ESCAPAR".
-    //
-    // El freno es ELECTRICO (frenar(), no parar()): trabar las ruedas, no
-    // soltarlas. Sobre una cancha con rampitas en el borde, un robot con
-    // las ruedas sueltas se desliza solo.
-    //
-    // Esta espera reemplaza al viejo golpe de VEL_FRENO x MS_FRENO, que
-    // frenaba manejando en sentido contrario — lo que podia pasarse de
-    // largo para atras. Un freno electrico no se pasa: no empuja.
-    // RETROCESO INMEDIATO: sin frenar primero. El robot viene en
-    // movimiento, asi que arrancar el retroceso YA aprovecha que las
-    // ruedas estan girando — el piso de PWM rodando es ~40, contra ~70
-    // desde quieto. Frenar antes tiraba esa ventaja a la basura.
-    //
-    // La direccion la puso el sensor que la vio PRIMERO y esta congelada.
-    // Para el sensor 3 (delantero) escaparDeLinea() sale derecho para
-    // atras, que es el caso del area chica.
     if (enEstado < MS_RETROCESO_LINEA) {
       escaparDeLinea(mascaraLinea, VEL_ESCAPE_FUERTE);
     } else {
@@ -2488,25 +891,13 @@ void loop() {
     }
   }
 
-  // ---------- la patada no se interrumpe (salvo por la linea) ----------
+  // ---- PATEA_ADEL: el golpe (solo lo corta la linea) ----
   else if (estado == PATEA_ADEL) {
-    // La rampa sube la potencia de a escalones para que las ruedas no
-    // patinen al arrancar. Ver "RAMPA DE ARRANQUE DE LA PATADA".
-    // El heading-hold corrige SOBRE el valor rampeado, asi que sigue
-    // enderezando desde el primer milisegundo del golpe.
     int vel = rampaPatada(VEL_PATADA);
-    // Con giroscopo sano se patea DERECHO; si no, como hasta ahora.
-    // Sin giroscopo no hay lazo, pero la COMPENSACION FIJA no lo necesita:
-    // es un numero, no una realimentacion. Se aplica igual.
-    // El lazo necesita DOS cosas: giroscopo sano AHORA y un rumbo objetivo en
-    // el que se pueda confiar. Si falta cualquiera, compensacion fija sola.
     bool conLazo = (giroscopoSano() && rumboPatadaValido);
     if (conLazo) avanzarDerecho(vel, rumboAlPatear);
     else         motoresPatada(vel - TRIM_PATADA, vel + TRIM_PATADA);
 
-    // MEDIR la patada: el desvio contra el rumbo con el que arranco el golpe.
-    // Se guarda el PICO (lo peor que paso en el medio) y, al terminar, el
-    // desvio final. Sin rumbo confiable no hay con que comparar: queda en 0.
     float errP = conLazo ? diferencia(rumboAlPatear, rumboActual()) : 0.0;
     if (fabs(errP) > fabs(picoEnCurso)) picoEnCurso = errP;
 
@@ -2524,18 +915,19 @@ void loop() {
       cambiarA(PATEA_ATRAS);
     }
   }
+
+  // ---- PATEA_ATRAS: marcha atras, sin freno en el medio ----
   else if (estado == PATEA_ATRAS) {
     retroceder(VEL_RETROCESO);
     if (enEstado >= (unsigned long)MS_RETROCESO) cambiarA(BUSCANDO);
   }
 
-  // ---------- ORBITANDO ----------
+  // ---- ORBITANDO ----
   else if (estado == ORBITANDO) {
 
     if (laVeo) t_orbSinVerla = 0;
 
-    // CUANTO LLEVA GIRADO ALREDEDOR DE LA PELOTA [12/10]. Se lee cada 20 ms y
-    // no en cada vuelta del loop, porque cada lectura es una consulta I2C.
+    // Cuenta cuanto giro alrededor de la pelota (para el plan del rumbo cero).
     if (RUMBO0_ORBITANDO && PATEAR_AL_RUMBO0 && giroscopoSano()
         && millis() - t_muestraOrb >= 20) {
       t_muestraOrb = millis();
@@ -2549,8 +941,6 @@ void loop() {
       }
     }
 
-    // DIAGNOSTICO [06/10]: una linea por segundo, para saber si la pierde por
-    // ANGULO, por DISTANCIA o solo por un parpadeo de la camara.
     static unsigned long t_diagOrb = 0;
     if (millis() - t_diagOrb > 1000) {
       t_diagOrb = millis();
@@ -2568,6 +958,7 @@ void loop() {
       else         { Serial.println("no lo veo"); }
     }
 
+    // Si deja de verla: frena y la espera MS_AGUANTE_ORBITA sin salir de la orbita.
     if (!laVeo) {                                   // no la ve AHORA
       if (t_orbSinVerla == 0) t_orbSinVerla = millis();
       if (millis() - t_orbSinVerla > MS_AGUANTE_ORBITA) {
@@ -2591,9 +982,6 @@ void loop() {
       Serial.println(")  -> PATADA");
       cambiarA(PATEA_ADEL);
     }
-    // Ya dio las vueltas (o se le acabo el tiempo) y quedo mirando al rumbo
-    // cero con la pelota adelante: patea. rumboOrbPrevio es la lectura de
-    // hace menos de 20 ms; no hace falta otra consulta. [12/10]
     else if (t_buscaRumbo0 != 0 && giroscopoSano()
              && fabs(angPelota) <= TOL_ANG_LEJOS_PELOTA
              && fabs(diferencia(rumboCero, rumboOrbPrevio)) <= TOL_RUMBO
@@ -2612,12 +1000,8 @@ void loop() {
       Serial.print("... orbite "); Serial.print(MS_ORBITA_MAX / 1000);
       Serial.print(" s y no encontre el arco "); Serial.println(arcoNombre());
 
-      // C1: en vez de rendirse, apuntar al rumbo con el que se encendio —
-      // que es hacia donde estaba el arco rival cuando lo apoyaron.
       if (PATEAR_AL_RUMBO0 && giroscopoSano()) {
         if (RUMBO0_ORBITANDO) {
-          // No cambia de estado: sigue orbitando, y la rama de arriba patea
-          // apenas queda mirando al cero con la pelota adelante.
           t_buscaRumbo0 = millis();
           Serial.println("    -> sigo orbitando y pateo al quedar mirando al rumbo cero");
         } else {
@@ -2630,13 +1014,6 @@ void loop() {
       }
     }
     else {
-      // Los primeros MS_ORB_IMPULSO ms de CADA entrada a ORBITANDO van con el
-      // golpe de arranque; despues baja a la velocidad de crucero y sigue por
-      // inercia. enEstado se reinicia solo en cambiarA(), asi que el golpe se
-      // da una vez por orbita y no se repite.
-      // BANDA DE ANGULO: si la pelota se corrio de adelante, primero la
-      // recentra y recien despues sigue empujando la orbita. Ver el bloque
-      // "NO PERDER LA PELOTA ORBITANDO" arriba.
       float desvOrb = fabs(angPelota);
       if (recentrandoOrbita) { if (desvOrb < TOL_ANG_ORB_SALE)  recentrandoOrbita = false; }
       else                   { if (desvOrb > TOL_ANG_ORB_ENTRA) recentrandoOrbita = true;  }
@@ -2652,10 +1029,7 @@ void loop() {
     }
   }
 
-  // ---------- APUNTA_RUMBO0 (plan B del giroscopo) ----------
-  // Gira sobre el eje hasta mirar al rumbo con el que se encendio, y ahi
-  // patea. Es peor que patear al arco de verdad, pero es MUCHO mejor que
-  // rendirse: la pelota igual va para el lado correcto de la cancha.
+  // ---- APUNTA_RUMBO0: gira en el lugar hasta el cero (si RUMBO0_ORBITANDO = false) ----
   else if (estado == APUNTA_RUMBO0) {
 
     if (!laVeo) {
@@ -2678,8 +1052,6 @@ void loop() {
         cambiarA(BUSCANDO);
       }
       else {
-        // Mismo truco de pulsos que CENTRANDO: girar despacio sin bajar del
-        // piso de arranque. El signo es una HIPOTESIS -> GIRO_RUMBO_INVERTIDO.
         bool haciaUnLado = (err > 0);
         if (GIRO_RUMBO_INVERTIDO) haciaUnLado = !haciaUnLado;
         rotarPulsado(haciaUnLado, VEL_CENT, MS_PULSO_CENT, MS_ESPERA_CENT);
@@ -2687,28 +1059,12 @@ void loop() {
     }
   }
 
-  // ---------- el resto ----------
   else {
     if (laVeo) t_perdidaDesde = 0;   // la ve: se cancela el cronometro de perdida
     if (!laVeo) {
       if (estado != BUSCANDO) cambiarA(BUSCANDO);
-      // La perdio... PERO SOLO SI HACE RATO. Un parpadeo corto no borra el
-      // reloj: con MS_GRACIA en 300 ms, girando a pulsos la pierde de vista a
-      // cada rato, y borrando el reloj en cada parpadeo no llegaba nunca a
-      // MS_LIMITE_CENTRAR. Recien a los MS_PERDIDA_REAL se da por perdida.
       if (t_perdidaDesde == 0) t_perdidaDesde = millis();
       if (millis() - t_perdidaDesde > MS_PERDIDA_REAL) {
-      // La perdio de verdad: los relojes y el cupo vuelven a cero. El destrabe es para
-      // "la veo y no me acerco", no para "la perdi": si no, el tiempo de
-      // volver a buscarla contaria como tiempo sin acercarse y el destrabe
-      // saltaria por el motivo equivocado (eso pasaba antes del 29/09).
-      //
-      // Y EL CUPO TAMBIEN SE REPONE ACA [2026-10-06]. Antes nDestrabes volvia
-      // a cero SOLO al llegar a la pelota, asi que si el robot destrababa 5
-      // veces sin llegar nunca, no destrababa mas en todo el partido — justo
-      // el caso en que mas se necesita. El comentario del panel decia "por
-      // cada ida a buscar" y el codigo no hacia eso. Lo reporto el equipo:
-      // "el avance de 1 segundo no lo esta haciendo".
         t_sinAcercarse = 0;
         nDestrabes     = 0;
       }
@@ -2716,10 +1072,6 @@ void loop() {
       if (BUSCA_CONTINUO) girarContinuo(!GIRO_INVERTIDO);
       else                rotarPulsado(!GIRO_INVERTIDO, VEL_GIRO, MS_PULSO_BUSC, MS_ESPERA_BUSC);
     }
-    // Acaba de verla viniendo de girar continuo: primero le saca el envion.
-    // NO es un delay(): son vueltas de loop() frenando, asi que la linea
-    // blanca se sigue mirando. Si se bloqueara, el robot podria cruzar la
-    // linea sin verla y salirse de la cancha.
     else if (estado == BUSCANDO && BUSCA_CONTINUO
              && (t_frenoAlVer == 0 || millis() - t_frenoAlVer < MS_FRENO_AL_VER)) {
       if (t_frenoAlVer == 0) {
@@ -2739,15 +1091,9 @@ void loop() {
       pwmGiroBusc    = 0;
       cambiarA(ORBITANDO);
     }
-    // DESTRABANDO: avanza a lo bruto un rato para mirarla desde mas cerca.
-    // Es un ESTADO y no una espera bloqueante, justamente para no dejar de
-    // mirar la linea blanca durante ese segundo.
     else if (estado == DESTRABANDO) {
       if (millis() - t_entroEstado >= MS_AVANCE_DESTRABE) {
         t_sinAcercarse = 0;        // el reloj se recarga con la nueva distancia
-        // BUSCA DE VUELTA, que es lo que pidio el equipo: "se frena, avanza un
-        // poco, y busca de vuelta". Antes volvia a CENTRANDO y se quedaba
-        // peleando con la misma pelota desde la misma mala posicion. [06/10]
         pwmGiroBusc = 0;           // el giro de busqueda arranca suave
         cambiarA(BUSCANDO);
       } else {
@@ -2755,17 +1101,15 @@ void loop() {
       }
     }
     else {
-      // EL RELOJ DEL DESTRABE mide TIEMPO VIENDOLA SIN ACERCARSE. Vuelve a
-      // cero solo si recorta MEJORA_DESTRABE cm de verdad. Ver el bloque
-      // "DESTRABE" del panel de control para por que no mide otra cosa.
+
+      // DESTRABE: el reloj mide 'la veo y no me acerco'. MAX_DESTRABES no es un
+      // tope: gastados, espera otro MS_LIMITE_CENTRAR y vuelve a empezar.
       if (t_sinAcercarse == 0) { t_sinAcercarse = millis(); mejorXp = XpBueno; }
       if (XpBueno < mejorXp - MEJORA_DESTRABE) {
         mejorXp        = XpBueno;
         t_sinAcercarse = millis();     // progresa: se le da mas tiempo
       }
 
-      // DIAGNOSTICO [06/10]: una linea por segundo con todo lo que decide el
-      // destrabe, para no tener que adivinar por que salta o no salta.
       static unsigned long t_diagDestrabe = 0;
       if (millis() - t_diagDestrabe > 1000) {
         t_diagDestrabe = millis();
@@ -2778,11 +1122,6 @@ void loop() {
         Serial.print("  ");                Serial.println(nombreEstado(estado));
       }
 
-      // CUPO AGOTADO Y SIGUE TRABADO: suelta esta pelota y vuelve a buscar.
-      // Sin esto el robot se quedaba en CENTRANDO PARA SIEMPRE, viendola y sin
-      // hacer nada. Medido en vivo el 06/10 con el diagnostico de abajo:
-      //     [destrabe] Xp=131 mejor=119 reloj=7064/3000 ms  cupo=5/5  CENTRANDO
-      // El reloj pasado de largo y el cupo en 5 de 5: estado muerto.
       if (nDestrabes >= MAX_DESTRABES
           && millis() - t_sinAcercarse > MS_LIMITE_CENTRAR) {
         Serial.println("... gaste los destrabes y no me acerco -> suelto esta pelota y busco de nuevo");
@@ -2801,8 +1140,6 @@ void loop() {
         cambiarA(DESTRABANDO);
       }
       else {
-        // EL CENTRADO MIDE EN GRADOS, con histeresis. Ver TOL_ANG_ENTRA en el
-        // panel: en centimetros crudos la ventana se volvia inservible de lejos.
         float desvio = fabs(angPelota);
         if (estado == CENTRANDO) {
           if (desvio < TOL_ANG_SALE) cambiarA(AVANZANDO);
@@ -2816,15 +1153,13 @@ void loop() {
           if (GIRO_INVERTIDO) haciaUnLado = !haciaUnLado;
           rotarPulsado(haciaUnLado, VEL_CENT, MS_PULSO_CENT, MS_ESPERA_CENT);
         } else {
-          // Afloja de a poco al acercarse, para no llegar con envion y
-          // desacomodar la pelota. Ver "AFLOJAR AL ACERCARSE A LA PELOTA".
           avanzar(velAcercarse(XpBueno));
         }
       }
     }
   }
 
-  // ---------- avisos ----------
+  // ---- AVISOS POR EL MONITOR (no cambian lo que hace el robot) ----
   if (estado != estadoAnterior) {
     estadoAnterior = estado;
     Serial.print(">>> "); Serial.print(nombreEstado(estado));
@@ -2843,6 +1178,7 @@ void loop() {
   }
   if (!sinDatos) avisadoSinCamara = false;
 
+  // Telemetria cada 2 s: se lee despues, enchufando el USB SIN apagar la bateria.
   if (millis() - t_ultimoAviso > 2000) {
     t_ultimoAviso = millis();
     Serial.print("   ["); Serial.print(nombreEstado(estado));
@@ -2856,19 +1192,6 @@ void loop() {
     Serial.print("  arcoX="); if (veoArco) Serial.print(arcoX()); else Serial.print("--");
     Serial.print("  tol="); Serial.print(tolPelota, 0);
     if (arcoLejos) Serial.print("(lejos)");
-    // 2026-09-15: antes esto imprimia ultimoRumbo, que es una CACHE.
-    // ultimoRumbo solo se escribe adentro de rumboActual(), y rumboActual()
-    // no se llama en todos los estados — en BUSCANDO no se llama nunca. O
-    // sea que la telemetria mostraba el valor congelado del arranque y no
-    // servia para saber si el giroscopo seguia vivo. Ahora lee de verdad.
-    //
-    // Y se llama SIEMPRE que haya giroscopo, no solo si esta sano, porque
-    // giroCaido se actualiza unicamente adentro de rumboActual(): si se
-    // caia una vez, nada volvia a preguntarle al chip y quedaba dado por
-    // muerto para siempre aunque se recuperara. Llamandolo aca, el chequeo
-    // sigue corriendo cada 2 s pase lo que pase.
-    //
-    // Cuesta una lectura I2C cada 2 segundos. No se nota.
     if (hayGiroscopo) {
       float r = rumboActual();
       Serial.print("  rumbo=");
@@ -2877,8 +1200,6 @@ void loop() {
     }
     Serial.println();
 
-    // La linea que permite medir en cancha sin cable. Se lee DESPUES, enchufando
-    // el USB sin cortar la bateria.
     Serial.print("        linea: ");
     Serial.print(lineaHabilitada ? "ON " : "OFF");
     Serial.print("  arranque ");
@@ -2900,7 +1221,6 @@ void loop() {
       Serial.print(" bytes tirados/s   loop: "); Serial.print(nLoops * 1000UL / dt);
       Serial.println(" /s");
     }
-    // Las patadas medidas, para leerlas DESPUES enchufando sin apagar la bateria.
     if (nPatadas > 0) {
       Serial.print("        patadas: "); Serial.print(nPatadas);
       Serial.print("   desvio (grados, ultimas primero):");

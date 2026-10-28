@@ -38,6 +38,7 @@ pregunta concreta.
 | Prueba | Responde / hace | cable |
 |---|---|---|
 | [`tabla-camara/`](tabla-camara/) | ⭐ ¿Cuántos cm es un `Xp`? Cierra lo de `XP_ORBITA` | sí |
+| ⭐ [`tablero/`](tablero/) | **Ventana con botones**: pelota y arcos vistos desde arriba, sensores, giroscopio, y los movimientos con nota, gráfico y `Copiar al panel`. `../TABLERO.bat` (o `../TABLERO-DEMO.bat` sin robot). 27/10 | sí |
 | [`patada-derecha/`](patada-derecha/) | ⭐ La patada **completa** (golpe + retroceso), medida y con gráfico. `p` patea; los números se cambian con teclas. Se abre con [`../PROBAR-PATADA.bat`](../PROBAR-PATADA.bat). Reescrita el 13/10 (150×500, copia del principal de ese día) | sí |
 | [`identificar-robot/`](identificar-robot/) | ¿Este robot es el arquero o el delantero? | sí |
 

@@ -7,8 +7,9 @@
    Para dejar prolijos los movimientos del arquero sin tener que cambiar
    el programa de partido y volver a cargarlo en cada prueba.
 
-   El robot hace UN movimiento (de costado, el despeje, el retroceso, o
-   seguir la pelota) con el MISMO codigo del programa de partido. Mientras
+   El robot hace UN movimiento (de costado, el despeje, el retroceso,
+   seguir la pelota, o el despeje en diagonal con la pelota) con el MISMO
+   codigo del programa de partido. Mientras
    se mueve, el giroscopio anota hacia donde mira. Al terminar dice:
 
         - cuanto se torcio como maximo, y cuando
@@ -55,7 +56,7 @@
    ---------------------------------------------------------------------
    TECLAS
    ---------------------------------------------------------------------
-        1 .. 8     los movimientos (la lista sale con ?)
+        1 .. 9     los movimientos (la lista sale con ?)
         0 / espacio / cualquier tecla mientras se mueve:   PARAR
                    (Enter NO lo para. Ctrl+C cierra la consola y antes lo para.)
         n / b      elegir el numero siguiente / anterior
@@ -78,6 +79,10 @@
    - El rumbo que sostiene es el que tenia el robot AL APRETAR LA TECLA, no
      el de cuando se armo. Asi se mide solo el movimiento.
    - De costado (1..5) va a fuerza FIJA, no proporcional a la pelota.
+   - El despeje en diagonal (9) arranca con el robot QUIETO esperando la
+     pelota: prueba solo el caso "la pelota le llega al arquero parado".
+     En el partido tambien puede salir mientras sigue la pelota (ahi no usa
+     la velocidad de la pelota).
    - Siguiendo la pelota (8) NO DESPEJA aunque la tenga encima, y si pisa
      el lateral FRENA y termina la prueba, en vez de volver al medio.
 
@@ -91,7 +96,7 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BNO055.h>
 
-const char* VERSION = "AJUSTAR-MOVIMIENTOS 2026-10-20";
+const char* VERSION = "AJUSTAR-MOVIMIENTOS 2026-10-27";
 
 // ⚠️ NO MOVER. PlatformIO escribe sus declaraciones automaticas antes de la
 // primera funcion que encuentra. Con la tabla de numeros larga de abajo se
@@ -199,6 +204,23 @@ int rampaEnRetroceso = 0;
 // MS_PAUSA_MEDIO, como el partido hasta el 13/10.
 int frenarAntesDeVolver, msEsperaAntesDeVolver;
 
+// Despeje en diagonal (movimiento 9) — COPIA del partido (seccion 4b del
+// PANEL DE CONTROL), version 0.1027.
+const int   DEF_PREDECIR_EN_DIAGONAL  = 1;      // predecirEnDiagonal = true
+const float DEF_MAX_ANGULO_DIAGONAL   = 30.0;
+const float DEF_RENDIMIENTO_COSTADO   = 0.80;
+const float DEF_UMBRAL_CM             = 30.0;   // umbralCm
+const float DEF_UMBRAL_DESVIO         = 7.0;    // umbralDesvio
+const unsigned long MS_QUIETO_PARA_PREDECIR = 400;
+const float PWM_POR_CM_S              = 2.0;
+const int   PRESUPUESTO_RUEDA         = 210;
+const int   PWM_MIN_AVANCE_DESPEJE    = 140;
+const unsigned long MS_MAX_ADELANTE   = 800;
+const int   COSTADO_MINIMO_UTIL       = 20;
+const int   VECES_PARA_CREERLE        = 3;
+int   predecirEnDiagonal;
+float maxAnguloDiagonal, rendimientoCostado, umbralCm, umbralDesvio;
+
 
 // =====================================================================
 // CRITERIOS DE LA NOTA
@@ -286,9 +308,19 @@ Ajuste ajustes[] = {
     "bool frenarAntesDeVolver = ",          0, "despeje: 1 = al terminar la ida FRENA y espera; 0 = suelta los motores 150 ms" },
   { "msEsperaVolver",   'i', &msEsperaAntesDeVolver, 25, 0, 800, DEF_MS_ESPERA_ANTES_DE_VOLVER,
     "const unsigned long MS_ESPERA_ANTES_DE_VOLVER = ", 0, "despeje: cuanto se queda frenado antes de volver, en ms" },
+  { "predecirEnDiag",   'b', &predecirEnDiagonal, 1, 0,  1,   DEF_PREDECIR_EN_DIAGONAL,
+    "bool predecirEnDiagonal = ",           0, "diagonal: 1 = apunta adonde VA a estar la pelota (solo con el robot quieto); 0 = adonde esta" },
+  { "maxAnguloDiag",    'f', &maxAnguloDiagonal, 5, 10,  45,  DEF_MAX_ANGULO_DIAGONAL,
+    "const float MAX_ANGULO_DIAGONAL = ",   1, "diagonal: si tiene que salir mas abierto que esto (grados), NO SALE" },
+  { "rendimientoCost",  'f', &rendimientoCostado, 0.05, 0.4, 1.2, DEF_RENDIMIENTO_COSTADO,
+    "float rendimientoCostado = ",          2, "diagonal: va AL REVES, mas chico = MAS costado. Si no llega de costado: BAJAR. Si se pasa: SUBIR" },
+  { "umbralCm",         'f', &umbralCm,         1,    20,  45,  DEF_UMBRAL_CM,
+    "float umbralCm = ",                    1, "diagonal: sale con la pelota a esta distancia o menos (cm). Atado a msAdelante" },
+  { "umbralDesvio",     'f', &umbralDesvio,     1,    3,   15,  DEF_UMBRAL_DESVIO,
+    "float umbralDesvio = ",                1, "diagonal: ...y a esto o menos al costado (cm)" },
 };
 const int N_AJUSTES = sizeof(ajustes) / sizeof(ajustes[0]);
-const int MAX_AJUSTES = 24;          // lugar en la EEPROM
+const int MAX_AJUSTES = 32;          // lugar en la EEPROM (era 24; 27/10: + la diagonal)
 int elegido = 0;
 
 float valorDe(int i) {
@@ -329,14 +361,14 @@ void avisarSiNoSonLosDelPartido() {
 //
 //      0  ..  255   medir-ancho / medir-ancho-sin-giro
 //    256  ..  767   derecho-y-vuelta
-//   1024  .. 1535   ajustar-movimientos (este)
+//   1024  .. 2047   ajustar-movimientos (este; era 1024..1535 hasta el 27/10)
 //    resto          libre
 //
 // Si agregan otro programa que guarde algo, anotenlo aca Y en los otros dos.
-const int DIR_VALORES = 1024;
-const int DIR_INFORME = 1024 + 128;
-const uint32_t MAGIA_VALORES = 0x414A5633;   // "AJV3" (20/10: + freno antes de volver)
-const uint32_t MAGIA_INFORME = 0x414A4933;   // "AJI3"
+const int DIR_VALORES = 1024;          // 4 + 32 x 4 = 132 bytes
+const int DIR_INFORME = 1024 + 256;    // el informe, hasta ~1700
+const uint32_t MAGIA_VALORES = 0x414A5634;   // "AJV4" (27/10: + la diagonal)
+const uint32_t MAGIA_INFORME = 0x414A4934;   // "AJI4"
 
 struct Guardado {
   uint32_t magia;
@@ -511,8 +543,12 @@ bool pisaElLateral(int lado) {
 }
 const int LECTURAS_PARA_CREER_LATERAL = 3;
 
+// Cuando se movio de costado por ultima vez (la usa la diagonal).
+unsigned long t_ultimoCostado = 0;
+
 // s > 0 = a la DERECHA, s < 0 = a la izquierda.
 void moverDeCostado(int s) {
+  if (s != 0) t_ultimoCostado = millis();
   if (lateralInvertido) s = -s;
 
   int fuerza = rampa(abs(s));
@@ -537,6 +573,27 @@ void atrasControlado(int potencia) {
   aplicar(-p + c, +p + c, 0 + c);
 }
 
+// La ida y la vuelta del despeje en diagonal. Con lateral = 0 son iguales
+// a adelanteControlado / atrasControlado.
+void avanzarPersiguiendo(int potencia, int lateral) {
+  if (lateralInvertido) lateral = -lateral;
+  int p  = rampa(potencia);
+  int c  = correccionDeRumbo();
+  if (potencia > 0) lateral = (lateral * p) / potencia;   // el costado sube con la rampa (27/10)
+  int fr = (lateral * LADO_FRENTE)  / 100;
+  int tr = (lateral * ladoTrasera) / 100;
+  aplicar(+p + fr + c, -p + fr + c, -tr + c);
+}
+
+void atrasEnDiagonal(int potencia, int lateral) {
+  if (lateralInvertido) lateral = -lateral;
+  int p  = rampa(potencia);
+  int c  = correccionDeRumbo();
+  int fr = (lateral * LADO_FRENTE)  / 100;
+  int tr = (lateral * ladoTrasera) / 100;
+  aplicar(-p + fr + c, +p + fr + c, -tr + c);
+}
+
 
 // =====================================================================
 // CAMARA — COPIA DE leerCamara() DEL PARTIDO (sin lo del despeje)
@@ -550,6 +607,7 @@ float velocidadLateral = 0;      // cm/s, + = a la derecha
 float desvioAnterior = 0;
 unsigned long t_desvioAnterior = 0;
 bool  hayDesvioAnterior = false;
+int   vecesSeguidas = 0;         // cuadros seguidos con la pelota en rango de despeje
 
 void leerCamara() {
   while (Serial1.available()) {
@@ -568,6 +626,16 @@ void leerCamara() {
       t_ultimoPaquete = millis();
 
       float dLat = (camaraYInvertida ? -(float)Yp : (float)Yp) / CAMARA_POR_CM;
+
+      // Para la diagonal (9): la misma cuenta del partido para salir a
+      // despejar. Con msAnticipacion = 0 se mira donde la pelota esta.
+      float dCm = Xp / CAMARA_POR_CM;
+      if (Xp > 0 && dCm <= umbralCm && fabs(dLat) <= umbralDesvio) {
+        if (vecesSeguidas < VECES_PARA_CREERLE) vecesSeguidas++;
+      } else {
+        vecesSeguidas = 0;
+      }
+
       if (Xp > 0) {
         unsigned long t = millis();
         if (hayDesvioAnterior) {
@@ -603,6 +671,49 @@ float desvioPredicho() {
   return desvioPelota() + v * (msAnticipacionSeguir / 1000.0);
 }
 
+// ---- LA CUENTA DE LA DIAGONAL — COPIA de calcularDiagonal() del partido ----
+// Lo unico distinto: anota que vio y que decidio, para el informe.
+float diagDistancia = 0, diagDesvio = 0, diagVelocidad = 0, diagAngulo = 0;
+bool  diagUsoVelocidad = false;
+uint8_t diagPorQueNo = 0;        // 0 sale, 1 el avance no alcanza, 2 muy abierto
+
+bool calcularDiagonal(int &avance, int &lateral, unsigned long &msIda) {
+  avance  = potenciaDespeje;
+  lateral = 0;
+  msIda   = msAdelante;
+  diagPorQueNo = 0;
+  if (!enderezarActivado || rumboBase < 0 || !giroscopoRespondiendo) return true;   // sin giroscopio, derecho
+
+  float d = Xp / CAMARA_POR_CM;
+  if (d < 1.0) d = 1.0;
+  float y  = desvioPelota();
+  float vy = velocidadLateral;
+  if (fabs(vy) < PISO_VELOCIDAD) vy = 0;
+  if (!predecirEnDiagonal || millis() - t_ultimoCostado < MS_QUIETO_PARA_PREDECIR) vy = 0;
+  diagDistancia = d; diagDesvio = y; diagVelocidad = velocidadLateral; diagUsoVelocidad = (vy != 0);
+
+  float k = y / d;
+  float m = vy * PWM_POR_CM_S;
+
+  float r = rendimientoCostado;
+  float denom = 1.0 + 0.5 * fabs(k) / r;
+  float techo = (PRESUPUESTO_RUEDA - 0.5 * fabs(m) / r) / denom;
+  if (techo < avance) avance = (int)techo;
+  if (avance < PWM_MIN_AVANCE_DESPEJE) { diagPorQueNo = 1; return false; }
+
+  float costado = (k * avance + m) / r;
+  float tangenteSalida = fabs(costado * r / avance);
+  diagAngulo = atan(costado * r / avance) * 180.0 / PI;
+  if (tangenteSalida > tan(maxAnguloDiagonal * PI / 180.0)) { diagPorQueNo = 2; return false; }
+
+  if (fabs(costado) < COSTADO_MINIMO_UTIL) costado = 0;
+  lateral = (int)costado;
+
+  msIda = (unsigned long)((float)msAdelante * potenciaDespeje / avance);
+  if (msIda > MS_MAX_ADELANTE) msIda = MS_MAX_ADELANTE;
+  return true;
+}
+
 
 // =====================================================================
 // LOS MOVIMIENTOS DE LA PRUEBA
@@ -617,20 +728,28 @@ float desvioPredicho() {
 //   6  DESPEJE: adelante msAdelante, pausa, atras hasta la linea
 //   7  RETROCESO: atras hasta la linea, como al arrancar el partido
 //   8  SEGUIR LA PELOTA durante msSeguir, como SIGUIENDO del partido
+//   9  DESPEJE EN DIAGONAL: espera QUIETO hasta msSeguir a que le pongan la
+//      pelota en rango (umbralCm y umbralDesvio, 3 cuadros), calcula la
+//      diagonal como el partido y despeja: ida en diagonal, pausa, vuelta
+//      por la misma diagonal hasta la linea
 //
 // Los de costado frenan solos si pisan el lateral (la misma regla del
 // partido). Todos terminan frenando y quedandose quietos medio segundo,
 // para medir como quedo despues de la inercia.
 
-const int N_MOVIMIENTOS = 8;
+const int N_MOVIMIENTOS = 9;
 const char* NOMBRES[] = { "",
   "costado IZQUIERDA lento", "costado DERECHA lento",
   "costado IZQUIERDA rapido", "costado DERECHA rapido",
   "ida y vuelta rapido", "DESPEJE", "RETROCESO hasta la linea",
-  "SEGUIR LA PELOTA" };
+  "SEGUIR LA PELOTA", "DESPEJE EN DIAGONAL (con la pelota)" };
 
 enum Paso { NADA, CUENTA, COSTADO, COSTADO_VUELTA, IDA, PAUSA, ATRAS,
-            SEGUIR, FRENO, ASENTAR };
+            SEGUIR, ESPERA_PELOTA, FRENO, ASENTAR };
+
+// La ida y la vuelta del despeje: derecho (6) o en diagonal (9).
+int idaPotencia = 0, idaLateral = 0, vueltaLateral = 0;
+unsigned long idaMs = 0;
 Paso paso = NADA;
 unsigned long t_paso = 0, t_inicio = 0;
 int movimiento = 0;
@@ -688,6 +807,13 @@ struct Informe {
   int16_t  velMediaDecimas; // |velocidad de la pelota| promedio, cm/s x10
   int16_t  traza[MAX_TRAZA];// decimas de grado, una cada msTraza
   float    usados[MAX_AJUSTES]; // los numeros CON LOS QUE se corrio
+  // Despeje en diagonal (9)
+  uint8_t  diagPorQueNo;    // 0 salio, 1 el avance no alcanzaba, 2 muy abierto, 3 no aparecio la pelota
+  uint8_t  diagUsoVel;      // 1 = uso la velocidad de la pelota
+  int16_t  diagDistDecimas, diagDesvioDecimas, diagVelDecimas, diagAnguloDecimas;
+  int16_t  diagAvance, diagLateral, diagVuelta;
+  uint16_t diagMsIda;
+  uint16_t msFinIda;        // despeje (6 y 9): cuando termino la ida
 };
 Informe inf;
 bool hayInforme = false;
@@ -851,13 +977,13 @@ void imprimirSugerencia() {
         Serial.println("  La correccion esta AL TOPE mucho rato y no alcanza:");
         Serial.print  ("  -> subir maxCorreccion de a 10 (ahora "); Serial.print(maxCorreccion); Serial.println(")");
         Serial.println("     o ir mas despacio");
-      } else if (inf.movimiento == 6 && inf.msInicioAtras > 0
+      } else if ((inf.movimiento == 6 || inf.movimiento == 9) && inf.msInicioAtras > 0
                  && inf.msDelMax >= inf.msInicioAtras && inf.msDelMax < inf.msInicioAtras + 300) {
         Serial.println("  La peor torcida fue al ARRANCAR EL RETROCESO (el tiron de ir para");
         Serial.println("  adelante a ir para atras de golpe):");
         Serial.println("  -> probar rampaEnRetroceso = 1 y comparar");
-      } else if (inf.movimiento == 6 && inf.msInicioAtras > 0 && inf.msDelMax < inf.msInicioAtras
-                 && inf.msDelMax >= (uint16_t)msAdelante) {
+      } else if ((inf.movimiento == 6 || inf.movimiento == 9) && inf.msInicioAtras > 0
+                 && inf.msDelMax < inf.msInicioAtras && inf.msDelMax >= inf.msFinIda) {
         Serial.println("  Se torcio en la PAUSA, al terminar la ida. Ahi la correccion no actua:");
         Serial.println("  no es kpRumbo.");
         if (frenarAntesDeVolver) {
@@ -885,6 +1011,12 @@ void imprimirSugerencia() {
     Serial.println("  solo. Corran el MISMO movimiento para el otro lado: si la correccion");
     Serial.println("  promedio cambia de signo, es la mezcla (probar ladoTrasera 2 mas o 2");
     Serial.println("  menos); si tiene el mismo signo, es un motor que tira mas (kiRumbo).");
+  }
+  if (inf.movimiento == 9 && inf.nota != 5) {
+    Serial.println("  DIAGONAL: la nota dice si fue DERECHO (mirando al frente). Si le pego a la");
+    Serial.println("  pelota, lo dicen ustedes. Si NO LLEGO de costado: BAJAR rendimientoCost de");
+    Serial.print  ("  a 0.05 (ahora "); Serial.print(rendimientoCostado, 2);
+    Serial.println("). Si se PASO de costado: subirlo. (Va al reves: mas chico = mas costado.)");
   }
   if (vaYViene()) {
     Serial.println("  SIGUIENDO: VA Y VIENE con la pelota casi quieta. De a uno:");
@@ -922,8 +1054,42 @@ void imprimirTraza() {
   }
 }
 
+// Lo que vio y decidio el despeje en diagonal.
+void imprimirDiagonal() {
+  Serial.print("la pelota            a "); Serial.print(inf.diagDistDecimas / 10.0, 1);
+  Serial.print(" cm, "); imprimirDecimas(inf.diagDesvioDecimas); Serial.print(" cm al costado (+ = derecha), ");
+  Serial.print("moviendose a "); imprimirDecimas(inf.diagVelDecimas); Serial.println(" cm/s");
+  Serial.print("prediccion           ");
+  Serial.println(inf.diagUsoVel ? "SI: apunto adonde iba a estar la pelota"
+                                : "no: apunto adonde estaba (pelota quieta, robot recien movido, o predecirEnDiag = 0)");
+  Serial.print("angulo de salida     "); imprimirDecimas(inf.diagAnguloDecimas); Serial.println(" grados (+ = a la derecha)");
+  if (inf.diagPorQueNo == 0) {
+    Serial.print("ruedas               avance "); Serial.print(inf.diagAvance);
+    Serial.print(", costado "); Serial.print(inf.diagLateral);
+    Serial.print(" (vuelta: "); Serial.print(inf.diagVuelta);
+    Serial.print("), ida de "); Serial.print(inf.diagMsIda); Serial.println(" ms");
+  }
+}
+
 void imprimirInforme() {
   if (!hayInforme) { Serial.println("todavia no hay ningun informe"); return; }
+  // Despeje en diagonal que NO salio: no hubo movimiento que medir.
+  if (inf.movimiento == 9 && inf.diagPorQueNo != 0) {
+    Serial.println();
+    Serial.println("=============== INFORME: 9 DESPEJE EN DIAGONAL ===============");
+    if (inf.diagPorQueNo == 3) {
+      Serial.println("NO SALIO: la pelota no estuvo en rango (umbralCm y umbralDesvio) en todo");
+      Serial.println("el tiempo de espera. Pongan la pelota mas cerca y de frente.");
+      return;
+    }
+    Serial.print("NO SALIO: ");
+    Serial.println(inf.diagPorQueNo == 1
+      ? "para que entrara el costado, el avance quedaba debajo de 140 (no llegaba)"
+      : "tenia que salir mas abierto que maxAnguloDiag");
+    imprimirDiagonal();
+    Serial.println("Es lo mismo que haria en el partido: no sale y sigue acomodandose.");
+    return;
+  }
   Serial.println();
   Serial.print("=============== INFORME: ");
   Serial.print(inf.movimiento); Serial.print(" "); Serial.print(NOMBRES[inf.movimiento]);
@@ -942,6 +1108,7 @@ void imprimirInforme() {
     Serial.print("correccion promedio  "); Serial.print(inf.corrPromedio);
     Serial.print("   (al tope el "); Serial.print((100UL * inf.alTope) / inf.muestras); Serial.println(" % del tiempo)");
   }
+  if (inf.movimiento == 9) imprimirDiagonal();
   if (inf.movimiento == 8 && inf.muestrasSeguir > 0) {
     Serial.print("vio la pelota        "); Serial.print((100UL * inf.conPelota) / inf.muestrasSeguir); Serial.println(" % del tiempo");
     Serial.print("quieto enfrente      "); Serial.print((100UL * inf.enZonaMuerta) / inf.muestrasSeguir); Serial.println(" % del tiempo (zona muerta)");
@@ -1046,7 +1213,8 @@ void imprimirParaCopiar() {
   Serial.println();
   Serial.println("=============== PARA COPIAR AL PROGRAMA DE PARTIDO ===============");
   Serial.println("Archivo: funciona/seguir-y-despejar/seguir-y-despejar.ino");
-  Serial.println("Buscar cada nombre (Ctrl+F) y cambiar SOLO el numero:");
+  Serial.println("Estan todos en el PANEL DE CONTROL, arriba de todo. Buscar cada nombre");
+  Serial.println("(Ctrl+F) y cambiar SOLO el numero:");
   Serial.println();
   int cambiados = 0;
   for (int i = 0; i < N_AJUSTES; i++) {
@@ -1102,6 +1270,7 @@ void imprimirAyuda() {
   for (int m = 1; m <= N_MOVIMIENTOS; m++) {
     Serial.print("  "); Serial.print(m); Serial.print("  "); Serial.print(NOMBRES[m]);
     if (m == 8) { Serial.print(" ("); Serial.print(msSeguir / 1000); Serial.print(" s, muevan la pelota; NO despeja)"); }
+    if (m == 9) { Serial.print(" (espera quieto hasta "); Serial.print(msSeguir / 1000); Serial.print(" s a que la pongan a "); Serial.print(umbralCm, 0); Serial.print(" cm o menos)"); }
     Serial.println();
   }
   Serial.println("  0 o espacio: PARAR. Mientras se mueve, cualquier tecla (menos Enter) lo para.");
@@ -1114,7 +1283,7 @@ void imprimirAyuda() {
   else if (rumboActual() < 0) Serial.println("esta, pero NO DA DATOS (bateria prendida?)");
   else Serial.println("bien");
   Serial.print  ("Camara: ");
-  Serial.println((millis() - t_ultimoPaquete < 500 && t_ultimoPaquete > 0) ? "manda datos" : "NO MANDA DATOS (solo hace falta para el 8)");
+  Serial.println((millis() - t_ultimoPaquete < 500 && t_ultimoPaquete > 0) ? "manda datos" : "NO MANDA DATOS (solo hace falta para el 8 y el 9)");
   Serial.println();
   imprimirElegido();
 }
@@ -1131,6 +1300,10 @@ void empezarMovimiento(int m) {
   }
   if (!hayGiroscopo || rumboActual() < 0) {
     Serial.println("NO ARRANCO: el giroscopio no da datos. Bateria prendida? Cable?");
+    return;
+  }
+  if (m == 9 && (t_ultimoPaquete == 0 || millis() - t_ultimoPaquete >= 500)) {
+    Serial.println("NO ARRANCO: la camara no manda datos (bateria prendida? cable de la camara?)");
     return;
   }
   // De costado y siguiendo: si arranca SOBRE una linea, no puede ver el
@@ -1170,12 +1343,53 @@ void arrancarDeVerdad(unsigned long ahora) {
     case 3: ladoCostado = -1; velCostado = pwmMaxLateral; paso = COSTADO; break;
     case 4: ladoCostado = +1; velCostado = pwmMaxLateral; paso = COSTADO; break;
     case 5: ladoCostado = -1; velCostado = pwmMaxLateral; paso = COSTADO_VUELTA; break;
-    case 6: paso = IDA; break;
+    case 6:
+      idaPotencia = potenciaDespeje; idaLateral = 0; idaMs = msAdelante; vueltaLateral = 0;
+      paso = IDA; break;
     case 7: paso = ATRAS; break;
     case 8:
       ibaDerecha = true; seMovia = false; estabaSinPelota = true;
       enMovimiento = false;          // se prende cuando de verdad se mueve
       paso = SEGUIR; break;
+    case 9:
+      vecesSeguidas = 0;             // que junte cuadros desde cero
+      enMovimiento = false;
+      paso = ESPERA_PELOTA; break;
+  }
+}
+
+// Movimiento 9: quieto esperando la pelota en rango. Cuando aparece, la
+// misma cuenta del partido; si sale, ida en diagonal (paso IDA).
+void pasoEsperaPelota(unsigned long ahora) {
+  parar();
+  digitalWrite(LED, ((ahora / 250) % 2) ? HIGH : LOW);
+  if (vecesSeguidas >= VECES_PARA_CREERLE && veLaPelota()) {
+    int av, lat;
+    unsigned long ms;
+    bool sale = calcularDiagonal(av, lat, ms);
+    empezarMedicion();             // lo que se mide empieza con el despeje
+    inf.diagPorQueNo      = sale ? 0 : diagPorQueNo;
+    inf.diagUsoVel        = diagUsoVelocidad ? 1 : 0;
+    inf.diagDistDecimas   = (int16_t)lround(diagDistancia * 10);
+    inf.diagDesvioDecimas = (int16_t)lround(diagDesvio * 10);
+    inf.diagVelDecimas    = (int16_t)lround(diagVelocidad * 10);
+    inf.diagAnguloDecimas = (int16_t)lround(diagAngulo * 10);
+    if (!sale) { terminarMedicion(ahora, 0); return; }
+    idaPotencia = av; idaLateral = lat; idaMs = ms;
+    vueltaLateral = -(lat * potenciaRetroceso) / av;     // igual que el partido
+    inf.diagAvance = av; inf.diagLateral = lat; inf.diagVuelta = vueltaLateral;
+    inf.diagMsIda = (uint16_t)ms;
+    reiniciarRampaMovimiento();    // como intentarDespejar() del partido
+    reiniciarCorreccion();
+    enMovimiento = true;
+    t_paso = ahora;
+    paso = IDA;
+    return;
+  }
+  if (ahora - t_paso >= (unsigned long)msSeguir) {
+    empezarMedicion();
+    inf.diagPorQueNo = 3;
+    terminarMedicion(ahora, 0);
   }
 }
 
@@ -1192,7 +1406,7 @@ void pararYa(unsigned long ahora) {
   delay(20);                                   // que llegue el resto de lo tecleado
   while (Serial.available()) Serial.read();    // y tirarlo: no es un pedido nuevo
   if (paso == NADA) return;
-  if (paso == CUENTA) {
+  if (paso == CUENTA || paso == ESPERA_PELOTA) {
     paso = NADA;
     Serial.println("cancelado");
     return;
@@ -1334,7 +1548,7 @@ void setup() {
   Serial1.begin(BAUDIOS);       // la camara
   delay(300);
   Serial.println();
-  Serial.print("=== "); Serial.print(VERSION); Serial.println(" — el robot SE MUEVE solo al apretar 1..8 ===");
+  Serial.print("=== "); Serial.print(VERSION); Serial.println(" — el robot SE MUEVE solo al apretar 1..9 ===");
 
   leerValores();
   Informe guardado;
@@ -1378,7 +1592,8 @@ void loop() {
 
   // Tope duro: nada dura mas que esto.
   unsigned long tope = (movimiento == 8) ? (unsigned long)msSeguir + 2000 : MS_TOPE_TOTAL;
-  if (paso != NADA && paso != CUENTA && ahora - t_inicio >= tope) {
+  // (esperando la pelota tiene su propio tope: msSeguir)
+  if (paso != NADA && paso != CUENTA && paso != ESPERA_PELOTA && ahora - t_inicio >= tope) {
     terminarMedicion(ahora, 4);
     Serial.println("(se corto por el tope de tiempo)");
     return;
@@ -1425,9 +1640,11 @@ void loop() {
 
     case IDA:
       digitalWrite(LED, HIGH);
-      adelanteControlado(potenciaDespeje);
+      // Derecho (6): avance sin costado = adelanteControlado. Diagonal (9): con costado.
+      avanzarPersiguiendo(idaPotencia, idaLateral);
       anotar(ahora);
-      if (ahora - t_paso >= (unsigned long)msAdelante) {
+      if (ahora - t_paso >= idaMs) {
+        inf.msFinIda = (uint16_t)(ahora - t_inicio);
         if (frenarAntesDeVolver) frenar(); else parar();
         enMovimiento = false;          // en la pausa no se corrige: no cuenta
         paso = PAUSA; t_paso = ahora;
@@ -1452,7 +1669,9 @@ void loop() {
 
     case ATRAS: {
       digitalWrite(LED, HIGH);
-      atrasControlado(potenciaRetroceso);
+      // La vuelta por la misma diagonal (9); derecha en el 6 y el 7.
+      if (movimiento == 9) atrasEnDiagonal(potenciaRetroceso, vueltaLateral);
+      else                 atrasControlado(potenciaRetroceso);
       anotar(ahora);
       if (algunoDeAtrasVeBlanco()) {
         inf.termino = 2;
@@ -1471,6 +1690,10 @@ void loop() {
       }
       break;
     }
+
+    case ESPERA_PELOTA:
+      pasoEsperaPelota(ahora);
+      break;
 
     case SEGUIR:
       pasoSeguir(ahora);

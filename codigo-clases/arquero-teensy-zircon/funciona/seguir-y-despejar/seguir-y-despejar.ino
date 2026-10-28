@@ -1,15 +1,297 @@
 /* =====================================================================
    ARQUERO — sigue la pelota de costado y la despeja
    =====================================================================
-             V E R S I O N   0 . 1 0 2 0   -   E N   P R U E B A
+            V E R S I O N   0 . 1 0 2 7 d   -   E N   P R U E B A
    =====================================================================
    IITA Salta — taller de los martes — Roboliga 2026
-   Ultimo cambio: 2026-10-20
+   Ultimo cambio: 2026-10-27 (el panel de control, el despeje en diagonal y
+   dos arreglos de la revision de la diagonal)
    (Es la ESTABLE 0.1013, la copia congelada de
-   `respaldos/estable1013conlimiteslaterales/`, con UNA diferencia: el freno
-   antes de volver del despeje. La prediccion volvio a quedar APAGADA, como
-   en la estable. La ESTABLE anterior, la 0.0929, sigue en
-   `respaldos/estable-0.0929/`.)
+   `respaldos/estable1013conlimiteslaterales/`, con DOS diferencias: el freno
+   antes de volver del despeje (20/10) y el despeje en DIAGONAL (27/10). La
+   prediccion del seguimiento sigue APAGADA, como en la estable. La ESTABLE
+   anterior, la 0.0929, sigue en `respaldos/estable-0.0929/`.)
+
+   🎛️ TODO LO QUE SE AJUSTA ESTA JUSTO ABAJO, en el PANEL DE CONTROL.
+   La historia de cada cambio sigue despues del panel.
+   ===================================================================== */
+
+// =====================================================================
+//                       🎛️  PANEL DE CONTROL
+// =====================================================================
+//   TODO lo que se ajusta del arquero esta aca, junto. Para cambiar algo:
+//   cambiar SOLO el numero, cargar con CARGAR-PARTIDO.bat (en esta misma
+//   carpeta) y anotar en la bitacora de cuanto a cuanto y QUE SE VIO.
+//
+//   ANTES DE CARGAR: bateria APAGADA, o el robot en el piso. Apenas termina
+//   la carga el robot ARRANCA SOLO. La ventana del cargador tiene que
+//   mostrar '=== ARQUERO  version ...': si no, no quedo cargado.
+//   PARA JUGAR: desenchufar el USB, apoyarlo QUIETO mirando la cancha,
+//   prender la bateria y sacar la mano. A los 2 s guarda hacia donde mira.
+//
+//   UNIDADES
+//     ms   = milisegundos (1000 ms = 1 segundo)
+//     cm   = centimetros REALES (la camara ya viene traducida)
+//     fuerza (PWM) = 0 nada, 255 a fondo. Desde QUIETO una rueda necesita
+//            ~70 para arrancar; YA RODANDO alcanza ~40 (medido antes de
+//            mover los motores)
+//     true / false = prendido / apagado
+//     decimales con PUNTO: 4.5, no 4,5 (con coma NO compila)
+//     los que dicen int son enteros: 47.5 ahi no va
+//
+//   REGLAS
+//     1. UN CAMBIO POR VEZ. Si se tocan tres y empeora, no se sabe cual fue.
+//     2. Lo marcado [MEDIDO] salio de una prueba: se vuelve a medir, no se tantea.
+//     3. Antes de cambiar un numero, buscar su nombre mas abajo (Ctrl+F): ahi
+//        esta la historia de por que vale lo que vale.
+//     4. Muchos se prueban sin tocar este archivo con pruebas/ajustar-movimientos
+//        (AJUSTAR.bat): las teclas cambian los numeros y la v dice que copiar aca.
+//        OJO: AJUSTAR.bat REEMPLAZA al programa de partido en el robot. Al
+//        terminar: cerrar la consola (Ctrl+C) y CARGAR-PARTIDO.bat, o el robot
+//        NO juega. Y la herramienta tiene su PROPIA copia de los numeros (sus
+//        DEF_): lo que se cambie aca, cambiarlo alla tambien.
+// =====================================================================
+
+// ---------- 1. INTERRUPTORES: que cosas estan prendidas (true = si, false = no) ----------
+bool volverAlMedioEnElLateral                    = true;  // siguiendo la pelota, al pisar el lateral vuelve al medio (13/10). false = sin limite: se puede ir contra el muro. NECESITA GIROSCOPIO
+bool patrullarSinPelota                          = true;  // sin ver la pelota y quieto un rato, sale a patrullar (que el juez vea que esta vivo). NECESITA GIROSCOPIO
+bool patrullaPorElLateral                        = true;  // la patrulla va al lateral y vuelve al medio. false = plan B: solo retrocede a la linea y avanza el poquito
+bool avanzarAlUbicarse                           = true;  // al encontrar la linea del area, avanza ~10 cm para no quedar encima del blanco
+bool irAlMedioSiNoHayLinea                       = true;  // si al arrancar no encuentra la linea del area, hace la rutina de ir al medio. NECESITA GIROSCOPIO
+bool frenarAntesDeVolver                         = true;  // despeje: al terminar la ida FRENA y espera (20/10). false = suelta los motores 150 ms, como antes
+bool empujonFinal                                = true;  // despues de volver del despeje, avanza el poquito (~10 cm)
+bool predecirTrayectoria                         = false; // seguir adonde VA a estar la pelota. APAGADA el 20/10: con la pelota quieta lo hacia ir y venir
+bool enderezarActivado                           = true;  // usar el giroscopio para ir derecho y enderezarse. false = como si no hubiera giroscopio: TAMPOCO hay limite lateral, ni patrulla, ni ir al medio, ni diagonal, aunque digan true. Lo mismo si el LED tiembla rapido (giroscopio muerto)
+bool perseguirEnElDespeje                        = false; // en la ida del despeje, corregir hacia la pelota. Nunca se probo
+bool despejeEnDiagonal                           = true;  // despejar en DIAGONAL, mirando siempre al frente (ver seccion 4b). PRENDIDO el 27/10, SIN PROBAR en cancha. Necesita giroscopio: sin el, sale derecho solo. false = sale derecho, como hasta el 20/10
+bool predecirEnDiagonal                          = true;  // en la diagonal, apuntar adonde VA a estar la pelota (solo si el robot estaba quieto). false = apunta adonde esta
+
+// ---------- 2. LO QUE SE MIDE EN CADA CANCHA (no se tantea: se mide) ----------
+// En una cancha nueva: 1ro umbralBlanco, 2do MS_MEDIO_AL_MEDIO. Las pruebas estan
+// en pruebas/<nombre>/ con las instrucciones arriba de su .ino.
+// 🚨 TIENEN COPIA ESCRITA A MANO en las pruebas, y alla se cambian a mano:
+//    umbralBlanco: en ajustar-movimientos y monitor-robot, y como UMBRAL_BLANCO en
+//       ir-al-medio, medir-ancho y medir-ancho-sin-giro. Cambiarlo ALLA ANTES de
+//       medir MS_MEDIO_AL_MEDIO, o medir-ancho mide mal.
+//    CAMARA_POR_CM: en ajustar-movimientos, monitor-robot y ver-prediccion.
+//    MS_MEDIO_AL_MEDIO y MS_MEDIO_FONDO_POR_TIEMPO: en ir-al-medio, como
+//       MS_AL_MEDIO y MS_FONDO_POR_TIEMPO.
+int umbralBlanco                                 = 425;   // [MEDIDO 15/09] desde que lectura un sensor de linea dice blanco. En cada cancha: medirlo con calibrar-linea y copiarlo TAMBIEN en las pruebas (ver arriba)
+const float CAMARA_POR_CM                        = 2.87;  // [MEDIDO 25/08] unidades de camara por cm real, pelota enfrente. Es de la CAMARA, no de la cancha: se mide de nuevo solo si se movio la camara (tabla-camara). Cambiarlo cambia TODOS los cm
+const unsigned long MS_MEDIO_AL_MEDIO            = 2228;  // [MEDIDO 06/10, antes de mover los motores] del lateral izquierdo al medio a velocidad 100 (medir-ancho). Lo usan ir al medio, la patrulla y el limite lateral. Vale con los numeros de mezcla, rampa y rumbo de hoy: si se tocan, medirlo de nuevo
+const unsigned long MS_MEDIO_FONDO_POR_TIEMPO    = 2000;  // [a ojo, no medido] ir al medio: cuanto retrocede buscando el fondo antes de darlo por encontrado (la rampita no lo deja pisar la linea)
+
+// ---------- 3. SEGUIR LA PELOTA DE COSTADO ----------
+// Se prueban con pruebas/ajustar-movimientos (movimientos 1 a 5 y 8).
+float kpLateral                                  = 11.5;  // fuerza por cada cm que la pelota esta al costado
+int pwmMinLateral                                = 45;    // lo minimo que empuja. Si se queda zumbando sin moverse: subir de a 5
+int pwmMaxLateral                                = 150;   // lo maximo que empuja = la velocidad de costado. Si se pasa de largo y va y viene alrededor de la pelota: bajar a 135 o 125. Mas de 150 nunca se probo (a 160 choco la madera)
+const float ZONA_MUERTA_PELOTA                   = 1.4;   // cm al costado que deja pasar sin moverse. Si tiembla de a poquito con la pelota quieta enfrente: subir
+float msAnticipacionSeguir                       = 500;   // solo con predecirTrayectoria = true: cuanto adelanta la prediccion (ms)
+const int LADO_FRENTE                            = 50;    // de costado, fuerza de las dos ruedas de adelante (%)
+const int LADO_TRASERA                           = 89;    // de costado, fuerza de la rueda de atras (%). Si de costado gira solo: probar 2 mas o 2 menos con ajustar-movimientos. Cambia MS_MEDIO_AL_MEDIO
+
+// ---------- 4. EL DESPEJE ----------
+// Se prueba con pruebas/ajustar-movimientos (movimiento 6). OJO: potenciaDespeje, msAdelante y
+// RAMPA_MOV_PASO cambian CUANTO SALE: medirlo con regla. Tiene que pasar los cm de umbralCm.
+float umbralCm                                   = 30.0;  // sale a despejar con la pelota a esta distancia o menos (cm). ATADO a msAdelante: la ida tiene que llegar MAS LEJOS que esto. Si se sube, subir msAdelante
+float umbralDesvio                               = 20.0;  // ...y a esto o menos al costado (cm). 27/10: de 7 a 20 PARA PROBAR la diagonal (pedido del equipo). El tope de 30 grados igual la frena: a 30 cm sale hasta ~17 cm, a 20 cm hasta ~11. OJO: saliendo derecho (sin giroscopio o sin diagonal) mas de 7 no la alcanza: volver a 7
+const int VECES_PARA_CREERLE                     = 3;     // ...vista asi en esta cantidad de cuadros seguidos de la camara
+int potenciaDespeje                              = 200;   // fuerza de la ida
+int msAdelante                                   = 383;   // cuanto dura la ida (ms). [CUENTA, SIN PROBAR] para X cm: ms = (X + 3.3) x 10, a potencia 200 (04/08, antes de la rampa y del freno: puede salir menos). Si no toca la pelota: subir y medir con regla
+const unsigned long MS_ESPERA_ANTES_DE_VOLVER    = 400;   // con frenarAntesDeVolver: cuanto se queda frenado antes de volver (ms). 400 lo eligio el equipo el 20/10
+const unsigned long MS_PAUSA_MEDIO               = 150;   // con frenarAntesDeVolver = false: cuanto queda suelto antes de volver (ms)
+int potenciaRetroceso                            = 110;   // fuerza de la vuelta hasta la linea (tambien al arrancar el partido)
+const unsigned long MS_MAX_RETROCESO             = 1200;  // si no ve la linea, deja de retroceder a los (ms). Para que no se vaya de la cancha. Tambien decide al ARRANCAR si hace la rutina de ir al medio
+unsigned long msFreno                            = 200;   // cuanto sostiene el freno electrico cada vez que frena (ms)
+int potenciaEmpujon                              = 100;   // fuerza del empujoncito final. ATADA a msEmpujonFinal (los 10 cm son a 100)
+int msEmpujonFinal                               = 320;   // cuanto dura el empujoncito (ms). [CUENTA de lo MEDIDO el 18/08: 400 ms = 13 cm a potencia 100] 320 = ~10 cm
+const unsigned long MS_ENFRIAMIENTO              = 1500;  // despues de un despeje se queda QUIETO esto (ms): no sigue la pelota ni despeja. Mas = mas tiempo parado
+
+// ---------- 4b. EL DESPEJE EN DIAGONAL (con despejeEnDiagonal = true) ----------
+// Sale en diagonal hacia la pelota, mirando siempre al frente (el giroscopio no dirige: impide que gire).
+// Cada rueda = avance + costado + correccion de rumbo. El costado sale de donde esta la pelota (regla de
+// tres) y, si el robot estaba quieto, de cuanto se mueve. Vuelve por la misma diagonal. Si la cuenta dice
+// que no llega, o que tendria que salir muy abierto, NO SALE y sigue acomodandose.
+// Se prueba con pruebas/ajustar-movimientos (movimiento 9).
+float rendimientoCostado                         = 0.80;  // [DE FE, nunca medido] cuanto rinde el costado contra el avance. OJO, va AL REVES: mas chico = MAS costado. Si no llega de costado (la pelota le queda mas afuera): BAJAR de a 0.05. Si se pasa de costado: SUBIR
+const float MAX_ANGULO_DIAGONAL                  = 30.0;  // grados: si para encontrarse con la pelota tiene que salir mas abierto que esto, NO SALE (27/10, a ojo)
+const unsigned long MS_QUIETO_PARA_PREDECIR      = 400;   // la velocidad de la pelota se usa solo si no se movio de costado en estos ms (con el robot moviendose, la camara se confunde)
+const float PWM_POR_CM_S                         = 2.0;   // fuerza de costado por cada cm/s que se mueve la pelota (medido con regla)
+const float PISO_VELOCIDAD                       = 4.0;   // velocidad de la pelota: debajo de esto (cm/s) es ruido de la camara y se toma como quieta
+const float SUAVIZADO_VELOCIDAD                  = 0.3;   // velocidad de la pelota: cuanto pesa la lectura nueva (0 a 1)
+const int PRESUPUESTO_RUEDA                      = 210;   // lo maximo por rueda sin contar la correccion. Es 255 - 45 escrito a mano: no se recalcula solo
+const int PWM_MIN_AVANCE_DESPEJE                 = 140;   // si para que entre el costado el avance queda debajo de esto, NO SALE
+const unsigned long MS_MAX_ADELANTE              = 800;   // tope duro de la ida en diagonal (ms)
+const int COSTADO_MINIMO_UTIL                    = 20;    // menos costado que esto y sale derecho
+
+// ---------- 4c. MIRAR ANTES DE SALIR (idea del equipo, 27/10) ----------
+// Con la pelota a distanciaParaMirar o menos, el robot FRENA y se queda QUIETO mirandola. Quieto, la camara
+// no se confunde con el movimiento del robot: mide la velocidad REAL de la pelota. Recien cuando la pelota
+// esta a umbralCm o menos, sale en diagonal hacia donde VA a estar. Si no llega a umbralCm, vuelve a seguirla.
+bool medirAntesDeDespejar                        = true;  // false = como antes: sale apenas la ve a umbralCm
+float distanciaParaMirar                         = 40.0;  // cm: aca empieza a mirar. 0.1027c: 45 (esperaba de mas). Mas = ve venir pelotas mas rapidas, pero frena mas seguido y la camara ve peor de lejos
+const unsigned long MS_ASENTAR_MIRADA            = 60;    // primero frena esto (ms) SIN medir: el robot todavia se esta frenando. 0.1027c: 100
+const unsigned long MS_MIRAR                     = 120;   // y despues mide quieto esto (ms) como minimo, y 3 cuadros como minimo. 0.1027c: 200
+const unsigned long MS_MAX_MIRANDO               = 500;   // tope de la mirada. Si la pelota NO VIENE (o no llega a umbralCm antes de esto), vuelve a seguirla enseguida. 0.1027c: 700, y esperaba siempre
+const unsigned long MS_DESCANSO_MIRADA           = 500;   // despues de eso, no vuelve a frenarse a mirar hasta que pase esto (salvo que la pelota ya este a umbralCm)
+
+// ---------- 5. IR DERECHO: la correccion de rumbo con el giroscopio ----------
+// Se ajustan con pruebas/ajustar-movimientos (AJUSTAR.bat): las teclas los cambian sin cargar. Lo que ande, se copia aca.
+const float KP_RUMBO                             = 5.0;   // cuanto corrige por cada grado torcido. Si zigzaguea: bajar de a 0.5. Si se le escapa: subir de a 0.5
+const float KI_RUMBO                             = 1.5;   // corrige la torcida que queda fija para un lado
+const float LIMITE_INTEGRAL                      = 30.0;  // tope de lo que acumula KI_RUMBO
+const int MAX_CORRECCION_RUMBO                   = 100;   // tope de la correccion, en fuerza
+const float ZONA_MUERTA_RUMBO                    = 1.0;   // grados que deja pasar sin corregir
+const int RAMPA_MOV_PASO                         = 10;    // arranque suave de TODOS los movimientos: sube esto de fuerza... (menos = mas suave, pero cambia las distancias por tiempo: msAdelante, MS_MEDIO_AL_MEDIO)
+const unsigned long RAMPA_MOV_MS                 = 10;    // ...cada esta cantidad de ms
+
+// ---------- 6. ENDEREZARSE ----------
+const float TOLERANCIA_ACOMODO                   = 3.0;   // grados: mas derecho que esto ya esta enderezado
+const float KP_ACOMODO                           = 1.5;   // fuerza de giro por cada grado torcido. Hoy casi no hace nada: los topes de abajo (75 y 85) deciden
+const int PWM_MIN_ACOMODO                        = 75;    // fuerza minima de giro. NO bajar de ~70: parado no arranca (01/09)
+const int PWM_MAX_ACOMODO                        = 85;    // fuerza maxima de giro (con 110 oscilaba)
+const unsigned long MS_ASENTAR_ACOMODO           = 300;   // quieto esto (ms) antes de volver a medir, para que pase la inercia
+const unsigned long MS_TIMEOUT_ACOMODO           = 3000;  // si no se endereza en esto (ms), corta el intento
+const int MAX_REINTENTOS_ACOMODO                 = 3;     // cuantas veces mas lo intenta
+const int RAMPA_PASO                             = 3;     // el giro arranca suave: sube esto de fuerza...
+const unsigned long RAMPA_MS                     = 15;    // ...cada esta cantidad de ms
+const float TOLERANCIA_ESPERA                    = 8.0;   // esperando la pelota: mas torcido que esto (grados) y se endereza solo. Siempre BASTANTE mas grande que TOLERANCIA_ACOMODO: si quedan cerca, se la pasa enderezandose
+const unsigned long MS_CHEQUEO_ESPERA            = 300;   // esperando: cada cuanto mira si esta torcido (ms)
+const unsigned long MS_DESCANSO_ENDEREZAR        = 6000;  // esperando: tiempo minimo entre dos enderezados (ms)
+
+// ---------- 7. PATRULLA, IR AL MEDIO Y LIMITE LATERAL ----------
+// Los de 'ir al medio' son COPIA de pruebas/ir-al-medio, donde se llaman SIN "MEDIO_" (MS_ALEJARSE,
+// MS_ADELANTE, MS_TOPE_LATERAL, MS_QUIETO, VEL_COSTADO_BUSCAR, VEL_COSTADO_MEDIR, VEL_ATRAS, LADO):
+// si se cambia uno aca, cambiarlo alla tambien.
+const unsigned long MS_QUIETO_PARA_PATRULLAR     = 10000; // patrulla si lleva esto quieto (ms)... (15000 -> 10000 el 13/10). Menos = el juez lo ve vivo, pero el arco queda solo mas seguido
+const unsigned long MS_SIN_PELOTA_PARA_PATRULLAR = 3000;  // ...y esto seguido sin ver la pelota (ms)
+const int CUADROS_PARA_CORTAR_PATRULLA           = 5;     // patrullando, si ve la pelota esta cantidad de cuadros seguidos, la corta y la sigue
+const int PWM_CUENTA_COMO_MOVERSE                = 60;    // fuerza desde la que cuenta como 'se movio' para el reloj de la patrulla
+const int LECTURAS_PARA_CREER_LATERAL            = 3;     // limite lateral: vueltas seguidas viendo el lateral para creerle
+const int VEL_MEDIO_BUSCAR                       = 110;   // ir al medio: velocidad de costado buscando una linea
+const int VEL_MEDIO_MEDIR                        = 100;   // ir al medio: velocidad del tramo por tiempo. ATADA a MS_MEDIO_AL_MEDIO (medido a 100)
+const int VEL_MEDIO_RECTO                        = 110;   // ir al medio: velocidad para atras y adelante. Atada a MS_MEDIO_ADELANTE
+const int LADO_MEDIO                             = -1;    // ir al medio: -1 = busca el lateral IZQUIERDO
+const unsigned long MS_MEDIO_ALEJARSE            = 400;   // ir al medio: cuanto se despega del lateral (ms)
+const unsigned long MS_MEDIO_ADELANTE            = 943;   // ir al medio: cuanto avanza para salir del area (ms, ~50 cm a 110)
+const unsigned long MS_MEDIO_TOPE_LATERAL        = 6000;  // ir al medio: si no ve el lateral en esto (ms), lo da por encontrado
+const unsigned long MS_MEDIO_QUIETO              = 300;   // ir al medio: quieto entre paso y paso (ms)
+
+// ---------- 8. ARRANQUE Y GIROSCOPIO ----------
+const unsigned long MS_AVISO_ARMADO              = 2000;  // al prenderlo, cuenta esto (ms) antes de moverse: para sacar la mano
+const int INTENTOS_GIRO                          = 1;     // al prenderlo, cuantas veces pregunta por el giroscopio (29/09: 1; antes 10)
+const unsigned long MS_ESPERA_DATOS_GIRO         = 5000;  // al prenderlo, cuanto espera a que el giroscopio de un dato (ms)
+const unsigned long MS_ESPERA_EXTRA_GIRO         = 2000;  // antes de armarse, cuanto mas espera al giroscopio si no da rumbo (ms)
+const unsigned long MS_PARPADEO_AVISO            = 50;    // parpadeo del LED cuando no hay giroscopio (ms prendido y ms apagado)
+
+// ---------- 9. PARA QUE LADO: tocar SOLO si el robot hace lo contrario ----------
+bool lateralInvertido                            = false; // [MEDIDO 11/08] se prueba SIN pelota: ajustar-movimientos, movimiento 2 (costado DERECHA). Si va a la IZQUIERDA, cambiar esto
+bool camaraYInvertida                            = true;  // [MEDIDO 11/08] cambiar SOLO si el movimiento 2 de ajustar-movimientos va bien a la derecha y aun asi, siguiendo la pelota, se aleja de ella
+
+// ---------- 10. AVANZADO: casi nunca se tocan ----------
+float kpPersecucion                              = 6.0;   // perseguirEnElDespeje (apagado): fuerza de costado por cada cm de desvio
+const int PWM_MAX_PERSECUCION                    = 60;    // perseguirEnElDespeje (apagado): tope de esa fuerza
+float msAnticipacion                             = 0;     // prediccion para DECIDIR el despeje (ms). Solo con predecirTrayectoria = true. En 0 no cambia nada
+const int RESERVA_RUMBO                          = 45;    // ⚠️ no se usa en ningun lado: cambiarlo no hace nada (el que manda es PRESUPUESTO_RUEDA)
+
+// =====================================================================
+//                       fin del panel de control
+// =====================================================================
+
+/* =====================================================================
+   HISTORIA: lo que cambio en cada clase (lo mas nuevo arriba)
+   =====================================================================
+
+   ---------------------------------------------------------------------
+   📋 CAMBIO DEL 2026-10-27 (5): MIRAR MAS CORTO (0.1027d)
+   ---------------------------------------------------------------------
+   Probaron la c: "el robot espera mucho para poder despejar y despeja
+   muchas menos pelotas que antes". Tres causas, tres arreglos:
+     - miraba minimo 300 ms (100 frenando + 200 midiendo): ahora 180
+       (60 + 120, y 3 cuadros como minimo);
+     - si la pelota no llegaba a umbralCm, esperaba SIEMPRE hasta 700 ms:
+       ahora espera solo si la pelota VIENE y va a llegar antes de 500 ms;
+       si no, vuelve a seguirla enseguida;
+     - si el robot YA estaba quieto y la pelota ya esta a umbralCm, no se
+       frena a mirar: sale ya, como la b (quieto, la velocidad ya es buena).
+   Y empieza a mirar a 40 cm (era 45).
+
+   ---------------------------------------------------------------------
+   📋 CAMBIO DEL 2026-10-27 (4): MIRAR ANTES DE SALIR (0.1027c)
+   ---------------------------------------------------------------------
+   Probaron la 0.1027b: sale un poco mas en diagonal, pero a las pelotas
+   rapidas no llega (sale, pero apunta adonde la pelota ESTABA). Idea del
+   equipo: que con la pelota en rango el robot se quede quieto 100-300 ms y
+   ahi calcule la trayectoria real (quieto, la camara no se confunde).
+
+   Como quedo (seccion 4c del panel):
+     - a distanciaParaMirar (45 cm) FRENA (100 ms) y MIRA quieto (200 ms
+       minimo), trazando la recta de la pelota con todos los cuadros;
+     - sale recien con la pelota a umbralCm (30), con la velocidad medida
+       de costado Y de acercamiento (si se viene encima, se encuentran antes);
+     - si en 700 ms no llego a umbralCm, vuelve a seguirla, y por 500 ms no
+       se vuelve a frenar a mirar (salvo que ya este a umbralCm);
+     - por el cable (MIRAR.bat) dice que vio y si salio o por que no.
+
+        medirAntesDeDespejar   true -> false   (para volver: sale como la b)
+
+   ---------------------------------------------------------------------
+   📋 CAMBIO DEL 2026-10-27 (3): ARREGLOS DE LA REVISION (0.1027b)
+   ---------------------------------------------------------------------
+   Una revision del codigo de la diagonal (solo leyendo, sin robot) encontro
+   dos cosas que no hacian lo que se habia dicho:
+     - SIN GIROSCOPIO salia en diagonal igual, y sin rumbo sale girando.
+       Ahora sale derecho, como el limite lateral, la patrulla e ir al medio.
+     - En la ida el costado entraba entero y el avance subia con la rampa:
+       salia ~1,3 veces mas abierto que lo calculado. Ahora el costado sube
+       con la rampa (avanzarPersiguiendo).
+   Y un texto al reves: rendimientoCostado se DIVIDE, asi que bajarlo da
+   MAS costado. El panel decia lo contrario.
+
+   Con giroscopio y la pelota centrada no cambia nada: sale derecho igual.
+
+   Y PARA PROBAR, a pedido del equipo (vieron que la diagonal no pasaba de
+   ~10 grados): umbralDesvio 7 -> 20 cm. El tope de 30 grados sigue.
+
+   ---------------------------------------------------------------------
+   📋 CAMBIO DEL 2026-10-27 (2): EL DESPEJE EN DIAGONAL, PRENDIDO
+   ---------------------------------------------------------------------
+   Idea del equipo: como la prediccion no anduvo en el seguimiento, usarla
+   solo para despejar. Eligieron la diagonal mirando siempre al frente (y no
+   girar y despejar derecho), con el giroscopio sosteniendo el frente.
+
+   La diagonal estaba escrita desde el 08/09 (tambien pedido del equipo) y
+   apagada desde el 15/09 porque no habia giroscopio. Se prendio con dos
+   cambios en calcularDiagonal():
+     - la velocidad de la pelota se usa SOLO si el robot no se movio de
+       costado en los ultimos MS_QUIETO_PARA_PREDECIR (la camara va arriba
+       del robot y confunde su movimiento con el de la pelota);
+     - si tiene que salir mas abierto que MAX_ANGULO_DIAGONAL, no sale.
+
+        despejeEnDiagonal    true   ->   false   (para volver: sale derecho)
+        predecirEnDiagonal   true   ->   false   (apunta adonde esta la pelota)
+
+   ⚠️ SIN PROBAR EN CANCHA. rendimientoCostado (0,80) es "de fe": es lo
+   primero que hay que ajustar. Se prueba con ajustar-movimientos (9).
+
+   ---------------------------------------------------------------------
+   📋 CAMBIO DEL 2026-10-27: EL PANEL DE CONTROL
+   ---------------------------------------------------------------------
+   Pedido del profe (13/10) y del equipo: todo lo que se ajusta, junto
+   arriba, para encontrarlo rapido y sin internet. Se MOVIERON 86
+   declaraciones al PANEL DE CONTROL, sin cambiar ningun valor: un script
+   las copio tal cual y comparo las 166 declaraciones del archivo, antes y
+   despues. Donde estaba cada una quedo una nota "en el PANEL DE CONTROL
+   (arriba)" y, alrededor, su historia de siempre.
+
+   El panel solo no cambia nada de lo que hace el robot: compilado con el
+   mismo cartel, mide exactamente igual que la 0.1020. Lo que si cambia es
+   el despeje en diagonal, que se prendio el mismo dia (ver arriba).
+
+   INTENTOS_GIRO estaba adentro de setup(); ahora esta en el panel.
+   msAdelanteChico y VEL_ROBOT_CM_S no se usan en ningun lado: quedaron
+   donde estaban, con un aviso, y no van al panel.
 
    ---------------------------------------------------------------------
    📋 CAMBIO DEL 2026-10-20 (2): LA PREDICCION SE APAGA DE NUEVO
@@ -337,12 +619,12 @@ const unsigned long BAUDIOS = 19200;
 //
 // Lateral: se mando una prueba corta de costado y el robot fue efectivamente
 // a la derecha. Queda como esta.
-bool lateralInvertido = false;
+// lateralInvertido: en el PANEL DE CONTROL (arriba).
 //
 // Camara: con la pelota puesta a la DERECHA del robot, la camara mandaba
 // Yp = -24. O sea que el negativo es la derecha, al reves de lo que
 // suponia el codigo. Por eso va invertido.
-bool camaraYInvertida = true;
+// camaraYInvertida: en el PANEL DE CONTROL (arriba).
 
 
 // ---- 🎯 LA CAMARA NO HABLA EN CENTIMETROS: HAY QUE TRADUCIRLA ----
@@ -374,15 +656,15 @@ bool camaraYInvertida = true;
 // 🚨 DE ACA EN ADELANTE, TODO EL PROGRAMA HABLA EN CENTIMETROS REALES.
 // Lo unico en unidades de camara son Xp e Yp, que son lo que llega crudo
 // por el cable.
-const float CAMARA_POR_CM = 2.87;    // unidades de camara por cm real
+// CAMARA_POR_CM: en el PANEL DE CONTROL (arriba).  unidades de camara por cm real
 
 // ---- seguimiento lateral ----
 // La proporcion 50/50/89 entre las ruedas sale de la geometria del robot;
 // es la que usa el codigo 2025 en ai/adproporcional. Lo que cambia es la
 // FUERZA con que se aplica, que aca es proporcional a lo desviada que esta
 // la pelota en vez de ser un numero fijo.
-const int LADO_FRENTE  = 50;     // las dos de adelante
-const int LADO_TRASERA = 89;     // la de atras
+// LADO_FRENTE: en el PANEL DE CONTROL (arriba).  las dos de adelante
+// LADO_TRASERA: en el PANEL DE CONTROL (arriba).  la de atras
 
 // 🚨 kpLateral SUBIO DE 4.0 A 11.5 EL 2026-08-25, Y NO ES UN AJUSTE.
 // Es la misma fuerza de antes, escrita en la unidad nueva. Antes el desvio
@@ -394,7 +676,7 @@ const int LADO_TRASERA = 89;     // la de atras
 //
 // Si algun dia alguien "corrige" esto de vuelta a 4, el robot va a seguir la
 // pelota casi tres veces mas flojo y va a parecer que se rompio.
-float kpLateral   = 11.5;        // PWM por cm REAL de desvio de la pelota
+// kpLateral: en el PANEL DE CONTROL (arriba).  PWM por cm REAL de desvio de la pelota
 // 🎯 2026-10-06: 60 -> 45, buscando que el robot no salte con la pelota quieta.
 //
 // ⚠️ ACLARACION: este numero NUNCA SE CAMBIO HOY, venia en 60 de antes. Si
@@ -418,7 +700,7 @@ float kpLateral   = 11.5;        // PWM por cm REAL de desvio de la pelota
 // pero de costado la rueda mas cargada recibe 89% del valor, asi que 45 le
 // da 40 a la trasera: justo el piso de RODADURA. Moviendose alcanza; desde
 // parado puede no arrancar.
-int   pwmMinLateral = 45;
+// pwmMinLateral: en el PANEL DE CONTROL (arriba).
 
 // 🎯 2026-10-06: 120 -> 150, a pedido del equipo.
 //
@@ -446,13 +728,13 @@ int   pwmMinLateral = 45;
 // al desvio cero el robot se pasa de largo. Si empieza a oscilar de lado a
 // lado alrededor de la pelota en vez de quedarse, bajarlo (135, 125). La zona
 // muerta de 1,4 cm ayuda, pero no tapa un envion grande.
-int   pwmMaxLateral = 150;
+// pwmMaxLateral: en el PANEL DE CONTROL (arriba).
 // 4.0 de camara / 2,87 = 1,4 cm reales. Mismo comportamiento que antes.
-const float ZONA_MUERTA_PELOTA = 1.4;   // cm REALES: no perseguir migajas
+// ZONA_MUERTA_PELOTA: en el PANEL DE CONTROL (arriba).  cm REALES: no perseguir migajas
 
 // ---- despeje ----
-int potenciaDespeje   = 200;
-int potenciaRetroceso = 110;
+// potenciaDespeje: en el PANEL DE CONTROL (arriba).
+// potenciaRetroceso: en el PANEL DE CONTROL (arriba).
 // La ida tiene que ALCANZAR a la pelota: si el robot dispara a 48 cm y solo
 // avanza 30, frena 18 cm antes y no la toca nunca. Por eso este numero sube
 // junto con umbralCm.
@@ -484,8 +766,8 @@ int potenciaRetroceso = 110;
 // ⚠️ SIN PROBAR EN CANCHA. El 15/09, con 0 cm de sobra (30 y 30), no llegaba
 // a tocar la pelota. Si con 5 pasa lo mismo, subir este numero.
 //        35 cm  ->  (35 + 3,3) x 10 = 383 ms
-int msAdelante        = 383;     // ~35 cm (era 533, ~50)
-int msAdelanteChico   = 133;     // 10 cm
+// msAdelante: en el PANEL DE CONTROL (arriba).  ~35 cm (era 533, ~50)
+int msAdelanteChico   = 133;     // 10 cm   // ⚠️ no se usa en ningun lado: cambiarlo no hace nada
 // 🚨 2026-09-15 — CANCHA NUEVA, UMBRAL NUEVO. Era 620.
 //
 // La cancha cambio: mas chica, el verde MUCHO mas oscuro, las lineas
@@ -505,7 +787,7 @@ int msAdelanteChico   = 133;     // 10 cm
 // diagonal, asi que nunca cruza perfectamente centrado: el umbral tiene
 // que aguantar una lectura mediocre. Con 620, una pasada floja no
 // disparaba y el robot se pasaba de largo.
-int umbralBlanco      = 425;     // medido en cancha el 2026-09-15
+// umbralBlanco: en el PANEL DE CONTROL (arriba).  medido en cancha el 2026-09-15
 // Historia de este numero, en UNIDADES DE CAMARA mientras no sabiamos que
 // no eran centimetros:  30 -> 20 -> 48 (2026-08-11).
 //
@@ -522,7 +804,7 @@ int umbralBlanco      = 425;     // medido en cancha el 2026-09-15
 // nueva, que es mas chica, salir a buscarla a 30 cm era salir demasiado.
 // 2026-09-21: 20 -> 30 cm a pedido del equipo, junto con la ida (+10 cm).
 // 2026-10-13: la ida bajo a ~35. Dispara a 30, la ida son ~35: se cumple.
-float umbralCm        = 30.0;    // cm REALES: despeja si esta a esto o menos
+// umbralCm: en el PANEL DE CONTROL (arriba).  cm REALES: despeja si esta a esto o menos
 
 // Cuan de frente tiene que estar la pelota para disparar. 15 de camara /
 // 2,87 = 5,2 cm reales: es lo mismo que venia haciendo.
@@ -542,7 +824,7 @@ float umbralCm        = 30.0;    // cm REALES: despeja si esta a esto o menos
 // 7,0 ensancha el pasillo de ~10 a ~14 cm (unos +-13 grados desde 30 cm).
 // Se puede ensanchar sin miedo PORQUE si la cuenta dice que no llega, el
 // robot NO SALE. Sin esa proteccion, subir esto seria peligroso.
-float umbralDesvio    = 7.0;     // cm REALES de desvio tolerado
+// umbralDesvio: en el PANEL DE CONTROL (arriba).  cm REALES de desvio tolerado
 
 
 // ---- 🎯 PERSEGUIR LA PELOTA DURANTE EL DESPEJE (2026-09-08) ----
@@ -575,12 +857,12 @@ float umbralDesvio    = 7.0;     // cm REALES de desvio tolerado
 // prediccion (la "opcion A") por separado, para no mezclar dos cosas
 // nuevas en la misma corrida y no saber cual hizo que.
 // Se prende cambiando este false por true.
-bool perseguirEnElDespeje = false;
+// perseguirEnElDespeje: en el PANEL DE CONTROL (arriba).
 
 // PWM de costado por cada cm REAL que la pelota esta desviada.
 // 6.0 -> con la pelota 5 cm al costado empuja 30; con 10 cm, 60 (el tope).
 // ⚠️ PUESTO A OJO, primera version. Se ajusta mirando al robot.
-float kpPersecucion = 6.0;
+// kpPersecucion: en el PANEL DE CONTROL (arriba).
 
 // Tope del empujon lateral. No es solo por prolijidad:
 //
@@ -592,9 +874,9 @@ float kpPersecucion = 6.0;
 // Si en cancha se lo ve flojo o raro justo cuando persigue fuerte, el
 // primer sospechoso es ese: la salida es BAJAR potenciaDespeje para
 // dejarle lugar al volantazo.
-const int PWM_MAX_PERSECUCION = 60;
+// PWM_MAX_PERSECUCION: en el PANEL DE CONTROL (arriba).
 
-const unsigned long MS_PAUSA_MEDIO   = 150;
+// MS_PAUSA_MEDIO: en el PANEL DE CONTROL (arriba).
 
 // 2026-10-20, pedido del equipo, mirando el despeje: al llegar al tope de
 // la ida el robot "hace como una inclinacion y recien vuelve al piso".
@@ -614,24 +896,24 @@ const unsigned long MS_PAUSA_MEDIO   = 150;
 // (movimiento 6) y con 400 "funciona decentemente mejor". Cuesta 0,25 s mas
 // de despeje que antes (400 contra los 150 de la pausa vieja). No quedaron
 // anotados los grados de cada corrida.
-bool frenarAntesDeVolver = true;
-const unsigned long MS_ESPERA_ANTES_DE_VOLVER = 400;
-const unsigned long MS_MAX_RETROCESO = 1200;
+// frenarAntesDeVolver: en el PANEL DE CONTROL (arriba).
+// MS_ESPERA_ANTES_DE_VOLVER: en el PANEL DE CONTROL (arriba).
+// MS_MAX_RETROCESO: en el PANEL DE CONTROL (arriba).
 
 // Cuanto se sostiene el freno electrico. Despues se sueltan los motores:
 // mantenerlos cortocircuitados sin necesidad solo calienta el driver.
-unsigned long msFreno = 200;
+// msFreno: en el PANEL DE CONTROL (arriba).
 
 
 // El empujoncito de 10 cm al final, para que el robot termine donde arranco
 // y no pegado a la linea. Se saco un rato el 2026-08-18 mientras se probaba
 // el freno, y se volvio a poner el mismo dia una vez que el freno funciono.
-bool empujonFinal = true;
+// empujonFinal: en el PANEL DE CONTROL (arriba).
 
 // Va DESPACIO, no a la potencia del despeje: son 10 cm y el robot ya esta
 // bien parado sobre la linea. Yendo rapido patina y arruina justo lo que
 // acaba de lograr.
-int potenciaEmpujon = 100;
+// potenciaEmpujon: en el PANEL DE CONTROL (arriba).
 
 // MEDIDO con regla el 2026-08-18, a potencia 100 y con rampa:
 //     400 ms  ->  13 cm      (dos corridas)
@@ -645,18 +927,18 @@ int potenciaEmpujon = 100;
 // mecanico de arranque (~33 ms, medido el 04/08):
 //     velocidad = 13 cm / (400 - 50 - 33) ms = 0.041 cm/ms
 //     para 10 cm  ->  10/0.041 + 50 + 33  =  ~320 ms
-int msEmpujonFinal = 320;
-const unsigned long MS_ENFRIAMIENTO  = 1500;
+// msEmpujonFinal: en el PANEL DE CONTROL (arriba).
+// MS_ENFRIAMIENTO: en el PANEL DE CONTROL (arriba).
 // 2026-09-21: bajado de 10 s a 2 s a pedido del equipo. Con 2 s toda la
 // cuenta queda en parpadeo rapido (el lento era para los primeros 7 s).
-const unsigned long MS_AVISO_ARMADO  = 2000;
-const int VECES_PARA_CREERLE = 3;
+// MS_AVISO_ARMADO: en el PANEL DE CONTROL (arriba).
+// VECES_PARA_CREERLE: en el PANEL DE CONTROL (arriba).
 
 
 // ---- giroscopio: mantenerlo derecho ----
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
 bool hayGiroscopo = false;
-bool enderezarActivado = true;
+// enderezarActivado: en el PANEL DE CONTROL (arriba).
 
 // ---- AVISO DE "ESTOY SIN GIROSCOPIO" ----
 //
@@ -671,7 +953,7 @@ bool enderezarActivado = true;
 // pin libre (el 9 o el 10 estan sin usar) y cambiar PIN_AVISO aca abajo.
 // El codigo ya esta preparado: es cambiar este numero y nada mas.
 #define PIN_AVISO 13
-const unsigned long MS_PARPADEO_AVISO = 50;   // 50 encendido + 50 apagado
+// MS_PARPADEO_AVISO: en el PANEL DE CONTROL (arriba).  50 encendido + 50 apagado
 
 // Se actualiza adentro de rumboActual(), asi el aviso refleja el estado de
 // verdad sin agregar lecturas extra al bus I2C.
@@ -696,8 +978,8 @@ unsigned long t_chequeoGiro = 0;
 // habia que buscar otra cosa.
 //
 // Ahora se espera a que el sensor DE UN DATO, no a que salude.
-const unsigned long MS_ESPERA_DATOS_GIRO  = 5000;   // en setup()
-const unsigned long MS_ESPERA_EXTRA_GIRO  = 2000;   // antes de armarse (era 15 s, bajado el 2026-09-21)
+// MS_ESPERA_DATOS_GIRO: en el PANEL DE CONTROL (arriba).  en setup()
+// MS_ESPERA_EXTRA_GIRO: en el PANEL DE CONTROL (arriba).  antes de armarse (era 15 s, bajado el 2026-09-21)
 
 float rumboBase = -1;            // el rumbo que hay que sostener siempre
 
@@ -705,18 +987,18 @@ float rumboBase = -1;            // el rumbo que hay que sostener siempre
 // vienen de lo medido el 2026-08-04 en las rectas del cuadrado: con solo
 // proporcional quedaba un error fijo de 7 grados; con el termino acumulado
 // bajo a menos de 2.
-const float KP_RUMBO = 5.0;
-const float KI_RUMBO = 1.5;
-const float LIMITE_INTEGRAL = 30.0;
+// KP_RUMBO: en el PANEL DE CONTROL (arriba).
+// KI_RUMBO: en el PANEL DE CONTROL (arriba).
+// LIMITE_INTEGRAL: en el PANEL DE CONTROL (arriba).
 // 2026-09-01: subido de 70 a 100. Con 70, durante el despeje (potencia 200)
 // la correccion era demasiado floja para evitar que el robot se torciera.
-const int   MAX_CORRECCION_RUMBO = 100;
-const float ZONA_MUERTA_RUMBO = 1.0;
+// MAX_CORRECCION_RUMBO: en el PANEL DE CONTROL (arriba).
+// ZONA_MUERTA_RUMBO: en el PANEL DE CONTROL (arriba).
 float integralRumbo = 0;
 unsigned long t_ultimoControl = 0;
 
 // Enderezado al terminar el despeje
-const float TOLERANCIA_ACOMODO = 3.0;
+// TOLERANCIA_ACOMODO: en el PANEL DE CONTROL (arriba).
 // 🚨 2026-09-01 — EL ENDEREZADO NO TENIA FUERZA PARA GIRAR EL ROBOT.
 //
 // En cancha el robot termino 80 grados torcido y no se enderezaba nunca.
@@ -735,7 +1017,7 @@ const float TOLERANCIA_ACOMODO = 3.0;
 //
 // Los dos suben por encima del piso de arranque. Mejor pasarse un poco y
 // que el reintento lo acomode, que no moverse nunca.
-const float KP_ACOMODO = 1.5;
+// KP_ACOMODO: en el PANEL DE CONTROL (arriba).
 // 2026-09-01, segunda pasada: con MAX=110 el robot SI giraba, pero giraba
 // DEMASIADO RAPIDO y se pasaba: oscilaba varias veces antes de quedarse
 // quieto, y a veces terminaba mal acomodado. A pedido del equipo el techo
@@ -744,11 +1026,11 @@ const float KP_ACOMODO = 1.5;
 // ⚠️ EL MINIMO NO SE PUEDE BAJAR. No es una perilla de ajuste fino: es lo
 // que hace que el robot se mueva ALGO. Debajo de ~70 las ruedas zumban y
 // no giran, que era exactamente el bug de antes.
-const int   PWM_MIN_ACOMODO = 75;    // era 35: debajo del piso de arranque
-const int   PWM_MAX_ACOMODO = 85;    // era 60, despues 110
-const unsigned long MS_ASENTAR_ACOMODO = 300;
-const unsigned long MS_TIMEOUT_ACOMODO = 3000;
-const int MAX_REINTENTOS_ACOMODO = 3;
+// PWM_MIN_ACOMODO: en el PANEL DE CONTROL (arriba).  era 35: debajo del piso de arranque
+// PWM_MAX_ACOMODO: en el PANEL DE CONTROL (arriba).  era 60, despues 110
+// MS_ASENTAR_ACOMODO: en el PANEL DE CONTROL (arriba).
+// MS_TIMEOUT_ACOMODO: en el PANEL DE CONTROL (arriba).
+// MAX_REINTENTOS_ACOMODO: en el PANEL DE CONTROL (arriba).
 
 // ---- 🎯 ENDEREZARSE TAMBIEN CUANDO NO VE LA PELOTA (2026-09-15) ----
 //
@@ -774,17 +1056,17 @@ const int MAX_REINTENTOS_ACOMODO = 3;
 // menos de 3 grados (TOLERANCIA_ACOMODO), pero no vuelve a arrancar hasta
 // pasarse de 8. Si los dos fueran iguales, el robot estaria todo el dia
 // corrigiendo de a un grado, temblando en el arco.
-const float TOLERANCIA_ESPERA = 8.0;          // grados para decidir enderezarse
-const unsigned long MS_CHEQUEO_ESPERA = 300;  // no preguntarle al sensor a cada rato
+// TOLERANCIA_ESPERA: en el PANEL DE CONTROL (arriba).  grados para decidir enderezarse
+// MS_CHEQUEO_ESPERA: en el PANEL DE CONTROL (arriba).  no preguntarle al sensor a cada rato
 unsigned long t_chequeoEspera = 0;
 // Descanso obligatorio entre intentos de enderezarse esperando. Mientras
 // descansa, el robot vuelve a mirar la pelota. Sin esto puede quedarse
 // reintentando una maniobra que no converge y no atajar nunca.
-const unsigned long MS_DESCANSO_ENDEREZAR = 6000;
+// MS_DESCANSO_ENDEREZAR: en el PANEL DE CONTROL (arriba).
 unsigned long t_ultimoIntentoEnderezar = 0;
 bool enderezandoEnEspera = false;
-const int RAMPA_PASO = 3;
-const unsigned long RAMPA_MS = 15;
+// RAMPA_PASO: en el PANEL DE CONTROL (arriba).
+// RAMPA_MS: en el PANEL DE CONTROL (arriba).
 int pwmAcomodoAplicado = 0;
 unsigned long t_rampa = 0;
 int reintentosAcomodo = 0;
@@ -812,8 +1094,8 @@ bool  ubicandose      = false;
 //      lineas del costado y del fondo para saber donde esta parado.
 //
 // Cada una tiene su interruptor: se pueden probar y apagar por separado.
-bool avanzarAlUbicarse     = true;
-bool irAlMedioSiNoHayLinea = true;
+// avanzarAlUbicarse: en el PANEL DE CONTROL (arriba).
+// irAlMedioSiNoHayLinea: en el PANEL DE CONTROL (arriba).
 
 // Como termino la ubicacion: si hay linea debajo, el robot sabe donde esta.
 bool encontroLaLinea = false;
@@ -848,24 +1130,24 @@ bool empujonDeArranque = false;
 //
 // ⚠️ COSTO: cada patrulla son unos 8 s, y 5 de esos el arco queda
 // descubierto. Si el juez aguanta mas de 10 s quieto, conviene subirlo.
-bool patrullarSinPelota = true;
-const unsigned long MS_QUIETO_PARA_PATRULLAR = 10000;   // era 15000, bajado el 2026-10-13
-const int CUADROS_PARA_CORTAR_PATRULLA = 5;     // ~0,2 s viendo la pelota
+// patrullarSinPelota: en el PANEL DE CONTROL (arriba).
+// MS_QUIETO_PARA_PATRULLAR: en el PANEL DE CONTROL (arriba).  era 15000, bajado el 2026-10-13
+// CUADROS_PARA_CORTAR_PATRULLA: en el PANEL DE CONTROL (arriba).  ~0,2 s viendo la pelota
 
 // Ademas de los 10 s sin moverse, tiene que llevar este rato SEGUIDO sin ver
 // la pelota. Sin esto, si el arquero estuvo 10 s quieto MIRANDO una pelota
 // trabada enfrente y un rival se la tapa un instante, salia al lateral en el
 // acto, justo cuando le llevan la pelota.
-const unsigned long MS_SIN_PELOTA_PARA_PATRULLAR = 3000;
+// MS_SIN_PELOTA_PARA_PATRULLAR: en el PANEL DE CONTROL (arriba).
 
 // Con menos que esto en las tres ruedas, el robot no se mueve a la vista.
-const int PWM_CUENTA_COMO_MOVERSE = 60;
+// PWM_CUENTA_COMO_MOVERSE: en el PANEL DE CONTROL (arriba).
 
 // PLAN B, por si la patrulla por el lateral hace algo raro en la cancha: con
 // esto en false la "patrulla" es solo retroceder hasta la linea del area,
 // enderezarse y avanzar el poquito. Dura ~1,3 s y NO descubre el arco; lo
 // que se pierde es que no vuelve a centrarlo de costado.
-bool patrullaPorElLateral = true;
+// patrullaPorElLateral: en el PANEL DE CONTROL (arriba).
 
 unsigned long t_ultimoMovimiento = 0;   // lo actualiza aplicar()
 unsigned long t_soltoLinea = 0;         // para el paso de despegarse
@@ -883,16 +1165,16 @@ int  cuadrosConPelota = 0;              // cuadros seguidos con pelota a la vist
 // terminan al VER una linea pueden ir a cualquier velocidad, pero el que
 // termina por TIEMPO tiene que ir a la velocidad con la que se midio ese
 // tiempo. Los 2228 ms son a velocidad 100.
-const int VEL_MEDIO_BUSCAR = 110;     // de costado, hasta ver una linea
-const int VEL_MEDIO_MEDIR  = 100;     // 🚨 atada a MS_MEDIO_AL_MEDIO
-const int VEL_MEDIO_RECTO  = 110;     // atras y adelante. Atada a MS_MEDIO_ADELANTE
-const int LADO_MEDIO = -1;            // -1 = va a buscar el lateral IZQUIERDO
+// VEL_MEDIO_BUSCAR: en el PANEL DE CONTROL (arriba).  de costado, hasta ver una linea
+// VEL_MEDIO_MEDIR: en el PANEL DE CONTROL (arriba).  🚨 atada a MS_MEDIO_AL_MEDIO
+// VEL_MEDIO_RECTO: en el PANEL DE CONTROL (arriba).  atras y adelante. Atada a MS_MEDIO_ADELANTE
+// LADO_MEDIO: en el PANEL DE CONTROL (arriba).  -1 = va a buscar el lateral IZQUIERDO
 
-const unsigned long MS_MEDIO_ALEJARSE = 400;    // despegarse del lateral
-const unsigned long MS_MEDIO_ADELANTE = 943;    // ~50 cm a 110 (regla de tres)
-const unsigned long MS_MEDIO_AL_MEDIO = 2228;   // del lateral izquierdo al medio
-const unsigned long MS_MEDIO_TOPE_LATERAL = 6000;
-const unsigned long MS_MEDIO_QUIETO = 300;      // quieto entre paso y paso
+// MS_MEDIO_ALEJARSE: en el PANEL DE CONTROL (arriba).  despegarse del lateral
+// MS_MEDIO_ADELANTE: en el PANEL DE CONTROL (arriba).  ~50 cm a 110 (regla de tres)
+// MS_MEDIO_AL_MEDIO: en el PANEL DE CONTROL (arriba).  del lateral izquierdo al medio
+// MS_MEDIO_TOPE_LATERAL: en el PANEL DE CONTROL (arriba).
+// MS_MEDIO_QUIETO: en el PANEL DE CONTROL (arriba).  quieto entre paso y paso
 
 // 2026-10-12, dato del equipo: EL FONDO SE MIDE POR TIEMPO.
 //
@@ -912,7 +1194,7 @@ const unsigned long MS_MEDIO_QUIETO = 300;      // quieto entre paso y paso
 // A 110 el robot hace 1 cm cada 18 a 24 ms: 2000 ms son entre 80 y 110 cm.
 // Como medirlo: cronometrar cuanto tarda en tocar la rampa desde el lugar
 // mas lejano en el que se lo vaya a apoyar, y sumarle medio segundo.
-const unsigned long MS_MEDIO_FONDO_POR_TIEMPO = 2000;
+// MS_MEDIO_FONDO_POR_TIEMPO: en el PANEL DE CONTROL (arriba).
 
 
 // ---- LIMITE LATERAL: al pisar el lateral, volver al medio ----
@@ -950,8 +1232,8 @@ const unsigned long MS_MEDIO_FONDO_POR_TIEMPO = 2000;
 //
 // SIN GIROSCOPIO NO HAY LIMITE: de costado y sin rumbo gira solo, asi que
 // no puede volver por tiempo. Es lo mismo que pasa con la patrulla.
-bool volverAlMedioEnElLateral = true;       // false -> sin limite, como antes
-const int LECTURAS_PARA_CREER_LATERAL = 3;  // vueltas seguidas viendolo
+// volverAlMedioEnElLateral: en el PANEL DE CONTROL (arriba).  false -> sin limite, como antes
+// LECTURAS_PARA_CREER_LATERAL: en el PANEL DE CONTROL (arriba).  vueltas seguidas viendolo
 int lecturasDeLateral = 0;
 int ladoDelLateral = 0;                     // -1 = piso el izquierdo, +1 = el derecho
 
@@ -964,7 +1246,7 @@ enum Fase { APAGADO, ARMANDOSE, ESPERANDO, SIGUIENDO,
             MEDIO_PAUSA, MEDIO_AL_LATERAL, MEDIO_ALEJARSE, MEDIO_AL_FONDO,
             MEDIO_ADELANTE, MEDIO_AL_LATERAL_2, MEDIO_AL_MEDIO,
             MEDIO_AL_AREA, MEDIO_DESPEGARSE,
-            LATERAL_AL_MEDIO };
+            LATERAL_AL_MEDIO, MIRANDO };
 Fase fase = APAGADO;
 unsigned long t_fase = 0;
 
@@ -1039,10 +1321,44 @@ unsigned long t_ultimoPaquete = 0;
 // lado. Es la hipotesis del 12/10 confirmada: la camara va arriba del robot,
 // el robot se mueve, la pelota parece moverse, y la prediccion lo manda mas
 // lejos.
-bool  predecirTrayectoria = false;
+// predecirTrayectoria: en el PANEL DE CONTROL (arriba).
 float velocidadLateral    = 0;      // cm reales por segundo, + = a la derecha
 float velocidadAcercamiento = 0;    // cm/s, + = se viene encima del robot
-const float SUAVIZADO_VELOCIDAD = 0.3;
+// SUAVIZADO_VELOCIDAD: en el PANEL DE CONTROL (arriba).
+
+// ---- 👀 MIRAR ANTES DE SALIR (2026-10-27, idea del equipo) ----
+// Con el robot QUIETO, todo lo que se mueve en la imagen es la pelota. Se
+// juntan los cuadros de la mirada y se traza la RECTA que mejor pasa por
+// ellos (cuadrados minimos): la pendiente es la velocidad. Con 5 cuadros es
+// mucho menos ruidosa que restar dos lecturas seguidas, y no arrastra nada
+// de antes de frenar (el promedio de velocidadLateral si).
+int   nMirada = 0;
+float sT = 0, sY = 0, sD = 0, sTT = 0, sTY = 0, sTD = 0;
+float vyMirada = 0;                 // cm/s, + = la pelota va a la derecha
+float vaMirada = 0;                 // cm/s, + = se viene encima
+bool  hayMirada = false;            // true = calcularDiagonal usa la velocidad de la mirada
+unsigned long t_finMirada = 0;      // cuando termino la ultima mirada sin salir
+int   motivoNoSale = 0;             // 1 el avance no alcanza, 2 muy abierto
+
+void empezarMirada() {
+  nMirada = 0; sT = sY = sD = sTT = sTY = sTD = 0;
+  hayMirada = false;
+}
+
+void agregarMuestraMirada(unsigned long t, float y, float d) {
+  float s = (t - t_fase) / 1000.0;
+  nMirada++; sT += s; sY += y; sD += d; sTT += s * s; sTY += s * y; sTD += s * d;
+}
+
+// Pendientes de las dos rectas. Devuelve false si no hay datos para creerle.
+bool calcularMirada() {
+  if (nMirada < 3) return false;
+  float den = nMirada * sTT - sT * sT;
+  if (den < 1e-6) return false;
+  vyMirada =  (nMirada * sTY - sT * sY) / den;
+  vaMirada = -(nMirada * sTD - sT * sD) / den;   // la distancia BAJA al acercarse
+  return true;
+}
 
 
 // ---- 🎯 DESPEJE EN DIAGONAL (2026-09-08) ----
@@ -1091,20 +1407,24 @@ const float SUAVIZADO_VELOCIDAD = 0.3;
 //
 // ⚠️ APENAS EL GIROSCOPIO VUELVA, PRENDER ESTO (poner true).
 // La diagonal esta escrita, compilada y sin probar.
-bool despejeEnDiagonal = false;
+//
+// 2026-10-27: PRENDIDA, a pedido del equipo, con dos cuidados nuevos (ver
+// calcularDiagonal): la velocidad de la pelota solo con el robot quieto, y
+// un tope de angulo. Sigue sin probar en cancha.
+// despejeEnDiagonal: en el PANEL DE CONTROL (arriba).
 
 // MEDIDO el 2026-08-04 con regla: a potencia 200 el robot hace 1 cm cada
 // 10 ms. O sea 100 cm por segundo.
-const float VEL_ROBOT_CM_S = 100.0;
+const float VEL_ROBOT_CM_S = 100.0;   // ⚠️ no se usa en ningun lado: cambiarlo no hace nada
 
 // 200 de PWM dan 100 cm/s. O sea 2 de PWM por cada cm/s.
 // NO es un ajuste: es la medicion del 04/08 escrita en otra unidad.
-const float PWM_POR_CM_S = 2.0;
+// PWM_POR_CM_S: en el PANEL DE CONTROL (arriba).
 
 // Debajo de esta velocidad se considera que la pelota esta QUIETA y no se
 // arma diagonal por velocidad. El ruido medido con la pelota parada llega
 // a 3,6 cm/s, asi que 4 esta apenas arriba.
-const float PISO_VELOCIDAD = 4.0;
+// PISO_VELOCIDAD: en el PANEL DE CONTROL (arriba).
 
 // ⚠️ EL UNICO NUMERO DE FE QUE QUEDA.
 // Con el MISMO PWM, ¿el robot se corre de costado tan rapido como avanza?
@@ -1112,28 +1432,31 @@ const float PISO_VELOCIDAD = 4.0;
 // De costado, con la proporcion 50/50/89, parte del empuje de cada rueda
 // se va para donde no sirve. De la geometria sale ~0,80 (o sea, el 80%).
 // Esperar que la cancha pida bajarlo a 0,60-0,70.
+// ⚠️ VA AL REVES de lo que parece: el costado se DIVIDE por este numero.
+// Bajarlo = pedir MAS costado. Si no llega de costado: bajar. Si se pasa:
+// subir. (Hasta la revision del 27/10 el panel lo decia al reves.)
 //
 // Lo bueno de que sea UN SOLO multiplicador: tambien tapa el otro agujero
 // conocido (que al eje Y de la camara se le aplica el mismo factor 2,87
 // que al X sin haberlo medido). Si ese estuviera errado, los dos terminos
 // de la cuenta se escalan igual, y esta misma perilla los corrige a los
 // dos. Una perilla, dos agujeros — aunque nunca sepamos cual era.
-float rendimientoCostado = 0.80;
+// rendimientoCostado: en el PANEL DE CONTROL (arriba).
 
 // 🚨 EL REPARTO DEL MOTOR. Una rueda no pasa de 255. La mas cargada
 // recibe el avance ENTERO mas la MITAD del costado. Se le reservan 45
 // para el giroscopio (con KP_RUMBO = 5,0 eso son 9 grados de error
 // corregibles sin recortar nada), y quedan 210 para el movimiento.
-const int RESERVA_RUMBO      = 45;
-const int PRESUPUESTO_RUEDA  = 210;   // 255 - RESERVA_RUMBO
+// RESERVA_RUMBO: en el PANEL DE CONTROL (arriba).
+// PRESUPUESTO_RUEDA: en el PANEL DE CONTROL (arriba).  255 - RESERVA_RUMBO
 
 // Debajo de este avance ya no es un despeje: es un paseo.
-const int PWM_MIN_AVANCE_DESPEJE = 140;
-const unsigned long MS_MAX_ADELANTE = 800;   // tope duro de la ida
+// PWM_MIN_AVANCE_DESPEJE: en el PANEL DE CONTROL (arriba).
+// MS_MAX_ADELANTE: en el PANEL DE CONTROL (arriba).  tope duro de la ida
 
 // Debajo de este costado el rozamiento se lo come: no vale la pena pagar
 // avance por una diagonal que no se va a cumplir. Sale derecho.
-const int COSTADO_MINIMO_UTIL = 20;
+// COSTADO_MINIMO_UTIL: en el PANEL DE CONTROL (arriba).
 
 // Lo que se decidio para ESTE despeje. Se guarda para poder volver por la
 // MISMA diagonal, que es lo que pidio el equipo: si sali torcido para
@@ -1160,7 +1483,7 @@ unsigned long msIdaDespeje = 533;
 // cuenta de abajo) basta con cambiar este numero:
 //      ~115 ms  -> los 3 cuadros seguidos que exige antes de creerle
 //      ~135 ms  -> arrancar los motores y que la rampa suba
-float msAnticipacion = 0;
+// msAnticipacion: en el PANEL DE CONTROL (arriba).
 
 // 🎯 2026-10-06 — SEGUIR Y DISPARAR NO QUIEREN EL MISMO ADELANTO.
 //
@@ -1193,7 +1516,7 @@ float msAnticipacion = 0;
 //    pasa de largo y la pelota le entra por detras  ->  bajarlo (400, 350)
 //    sigue corriendo atras de la pelota             ->  subirlo (600, 700)
 // Y ojo: esto NO toca la decision del despeje, que sigue con los 250.
-float msAnticipacionSeguir = 500;
+// msAnticipacionSeguir: en el PANEL DE CONTROL (arriba).
 
 // Para la cuenta de la velocidad hay que acordarse de la lectura anterior.
 float desvioAnterior = 0;
@@ -1288,8 +1611,8 @@ void aplicar(int v1, int v2, int v3) {
 //
 // Subiendo la potencia de a poco (200 ms hasta el fondo) las ruedas
 // alcanzan a agarrar. Llega a la misma velocidad, sin el tiron.
-const int RAMPA_MOV_PASO = 10;
-const unsigned long RAMPA_MOV_MS = 10;
+// RAMPA_MOV_PASO: en el PANEL DE CONTROL (arriba).
+// RAMPA_MOV_MS: en el PANEL DE CONTROL (arriba).
 int potenciaRampa = 0;
 unsigned long t_rampaMov = 0;
 
@@ -1396,7 +1719,12 @@ bool pisaElLateral(int lado) {
 //
 // La fuerza pasa por la rampa; la correccion de rumbo NO. La correccion
 // tiene que actuar enseguida, y ademas es chica: no hace patinar nada.
+// Cuando se movio de costado por ultima vez: la usa el despeje en diagonal
+// para no confundir el movimiento del robot con el de la pelota.
+unsigned long t_ultimoCostado = 0;
+
 void moverDeCostado(int s) {
+  if (s != 0) t_ultimoCostado = millis();
   if (lateralInvertido) s = -s;
 
   int fuerza = rampa(abs(s));
@@ -1439,13 +1767,18 @@ void adelanteControlado(int potencia) {
 // `lateral` positivo = correrse a la DERECHA del robot, igual criterio que
 // moverDeCostado().
 //
-// El costado NO pasa por la rampa, por el mismo motivo que la correccion
-// de rumbo: tiene que actuar en el acto, y es chico al lado del avance.
+// 2026-10-27 (revision): EL COSTADO SUBE CON LA RAMPA, JUNTO CON EL AVANCE.
+// Antes el costado entraba entero desde el milisegundo 0 y el avance tardaba
+// ~180 ms en subir: los primeros ~70 ms iba casi puro de costado, y la
+// diagonal salia ~1,3 veces mas abierta que la calculada. Escalandolo con la
+// rampa, la direccion es la calculada desde el arranque. La correccion de
+// rumbo (c) sigue sin rampa: tiene que actuar en el acto.
 void avanzarPersiguiendo(int potencia, int lateral) {
   if (lateralInvertido) lateral = -lateral;
 
   int p  = rampa(potencia);
   int c  = correccionDeRumbo();
+  if (potencia > 0) lateral = (lateral * p) / potencia;
   int fr = (lateral * LADO_FRENTE)  / 100;
   int tr = (lateral * LADO_TRASERA) / 100;
 
@@ -1515,6 +1848,10 @@ void leerCamara() {
         distanciaAnterior = dCm;
         t_desvioAnterior  = t;
         hayDesvioAnterior = true;
+
+        // MIRANDO: cuadro tomado con el robot ya quieto -> a la recta.
+        if (fase == MIRANDO && t - t_fase >= MS_ASENTAR_MIRADA)
+          agregarMuestraMirada(t, dLat, dCm);
       } else {
         // Sin pelota a la vista, la velocidad vieja no vale nada: cuando
         // reaparezca puede estar en cualquier lado.
@@ -1529,7 +1866,10 @@ void leerCamara() {
                          ? dLat + velocidadLateral * (msAnticipacion / 1000.0)
                          : dLat;
       float desvCm = fabs(dLatPredicho);
-      if (Xp > 0 && dCm <= umbralCm && desvCm <= umbralDesvio) {
+      // Con medirAntesDeDespejar se dispara MAS LEJOS: a esa distancia
+      // empieza a MIRAR. Salir, sale recien a umbralCm (ver MIRANDO).
+      float distDisparo = medirAntesDeDespejar ? distanciaParaMirar : umbralCm;
+      if (Xp > 0 && dCm <= distDisparo && desvCm <= umbralDesvio) {
         if (vecesSeguidas < VECES_PARA_CREERLE) vecesSeguidas++;
       } else {
         vecesSeguidas = 0;
@@ -1607,11 +1947,32 @@ bool calcularDiagonal(int &avance, int &lateral, unsigned long &msIda) {
   if (!despejeEnDiagonal) return true;     // modo viejo: sale derecho
   if (!veLaPelota())      return true;     // sin datos, sale derecho
 
+  // 2026-10-27 (revision): SIN GIROSCOPIO, DERECHO. Sin rumbo no hay quien
+  // sostenga el frente: la diagonal sale girando y despues no se puede
+  // enderezar (por eso se apago el 15/09). Es la misma condicion que piden
+  // el limite lateral, la patrulla e ir al medio.
+  if (!enderezarActivado || rumboBase < 0 || !giroscopoRespondiendo) return true;
+
   float d = distanciaPelota();
   if (d < 1.0) d = 1.0;                    // no dividir por cero
   float y  = desvioPelota();               // + = a la derecha
-  float vy = velocidadLateral;
+  motivoNoSale = 0;
+  float vy = hayMirada ? vyMirada : velocidadLateral;
   if (fabs(vy) < PISO_VELOCIDAD) vy = 0;   // eso es ruido, no movimiento
+  float va = hayMirada ? vaMirada : 0;     // acercamiento: solo si lo midio quieto
+  if (va < PISO_VELOCIDAD) va = 0;         // (alejandose no suma)
+
+  // 2026-10-27: LA VELOCIDAD DE LA PELOTA, SOLO CON EL ROBOT QUIETO.
+  // La camara va arriba del robot: si el robot se esta moviendo de costado,
+  // la pelota PARECE moverse para el otro lado aunque este quieta. Es lo que
+  // hacia ir y venir al seguimiento con la prediccion prendida (20/10). Aca
+  // haria salir la diagonal torcida para el lado contrario. Asi que si en los
+  // ultimos MS_QUIETO_PARA_PREDECIR se movio de costado, se apunta a donde la
+  // pelota ESTA, sin adelantarse.
+  // 2026-10-27 (2): con la MIRADA el robot estuvo quieto a proposito y la
+  // velocidad es de verdad, asi que no se mira t_ultimoCostado.
+  if (!predecirEnDiagonal || (!hayMirada && millis() - t_ultimoCostado < MS_QUIETO_PARA_PREDECIR)) vy = 0;
+  if (!predecirEnDiagonal) va = 0;
 
   // ---- HAY DOS MOTIVOS PARA IRSE EN DIAGONAL, Y SE SUMAN ----
   //
@@ -1631,6 +1992,11 @@ bool calcularDiagonal(int &avance, int &lateral, unsigned long &msIda) {
   // medido con regla: 2 de PWM por cada cm/s.
   float m = vy * PWM_POR_CM_S;
 
+  // MOTIVO 3 (27/10, con la mirada) — LA PELOTA SE VIENE ENCIMA. Entonces se
+  // encuentran ANTES, y el costado hay que hacerlo en menos tiempo: la regla
+  // de tres se hace con avance + lo que se acerca la pelota (en PWM).
+  m += k * va * PWM_POR_CM_S;
+
   // ---- ¿ENTRA EN EL MOTOR? ----
   // La rueda mas cargada recibe el avance entero mas MEDIO costado, y no
   // puede pasar del presupuesto. Despejando el avance de:
@@ -1647,9 +2013,17 @@ bool calcularDiagonal(int &avance, int &lateral, unsigned long &msIda) {
   // NO es la que calculo: ni derecho ni en la diagonal buena, el peor de
   // los mundos. Achicando los dos en la misma proporcion, la diagonal
   // apunta exactamente igual, solo que se recorre mas despacio.
-  if (avance < PWM_MIN_AVANCE_DESPEJE) return false;   // no llego: no salgo
+  if (avance < PWM_MIN_AVANCE_DESPEJE) { motivoNoSale = 1; return false; }   // no llego: no salgo
 
   float costado = (k * avance + m) / r;
+
+  // 2026-10-27: TOPE DE ANGULO. Para donde sale de verdad: por cada parte de
+  // avance, costado x rendimiento de costado. Si para encontrarse con la
+  // pelota tiene que salir mas abierto que MAX_ANGULO_DIAGONAL, NO SALE (la
+  // misma decision de siempre: un arquero que sale y no llega es lo peor).
+  float tangenteSalida = fabs(costado * r / avance);
+  if (tangenteSalida > tan(MAX_ANGULO_DIAGONAL * PI / 180.0)) { motivoNoSale = 2; return false; }
+
   if (fabs(costado) < COSTADO_MINIMO_UTIL) costado = 0;   // sale derecho
   lateral = (int)costado;
 
@@ -1786,6 +2160,26 @@ void pasarAEnderezarse() {
 // cerca y de frente. Aca se decide el ANGULO y, sobre todo, SI SALIR.
 // Devuelve true si arranco el despeje.
 bool intentarDespejar(unsigned long ahora) {
+  // 2026-10-27 (2): MIRAR ANTES DE SALIR. En vez de salir, frena y mira la
+  // pelota quieto (fase MIRANDO); de ahi se vuelve a llamar a esta funcion.
+  // Devuelve true porque cambio de fase. Despues de una mirada que no salio,
+  // descansa MS_DESCANSO_MIRADA, salvo que la pelota ya este a umbralCm.
+  // 0.1027d: si el robot YA estaba quieto (no se corrio de costado en
+  // MS_QUIETO_PARA_PREDECIR) y la pelota ya esta a umbralCm, no hace falta
+  // frenarse a mirar: la velocidad que tiene es de verdad. Sale ya, como la b.
+  bool yaEstabaQuieto = (millis() - t_ultimoCostado >= MS_QUIETO_PARA_PREDECIR);
+  if (medirAntesDeDespejar && fase != MIRANDO
+      && !(yaEstabaQuieto && distanciaPelota() <= umbralCm)) {
+    if (ahora - t_finMirada < MS_DESCANSO_MIRADA && distanciaPelota() > umbralCm) {
+      vecesSeguidas = 0;
+      return false;
+    }
+    fase = MIRANDO; t_fase = ahora;
+    empezarMirada();
+    frenar();
+    return true;
+  }
+
   int avance = potenciaDespeje;
   int lateral = 0;
   unsigned long msIda = msAdelante;
@@ -1856,7 +2250,7 @@ void terminarDespeje() {
 // 2026-10-13: vuelve a decir ESTABLE, pedido del equipo. La copia congelada
 // de esta version es `respaldos/estable1013conlimiteslaterales/`; su cartel dice RESPALDO.
 // Con la prediccion prendida ya no es igual a la copia congelada: EN PRUEBA.
-const char* VERSION = "0.1020 EN PRUEBA (ESTABLE 0.1013 + frena 400 ms antes de volver; prediccion apagada)";
+const char* VERSION = "0.1027d EN PRUEBA (diagonal + MIRAR CORTO + umbralDesvio 20)";
 
 void setup() {
   Serial.begin(19200);
@@ -1912,7 +2306,7 @@ void setup() {
   // los reintentos hacen que "a veces arranque" en vez de fallar parejo.
   //
   // Es un solo numero: volver a 10 es cambiar este 1.
-  const int INTENTOS_GIRO = 1;
+  // INTENTOS_GIRO: en el PANEL DE CONTROL (arriba).
 
   int intentos = 0;
   while (!hayGiroscopo && intentos < INTENTOS_GIRO) {
@@ -2460,6 +2854,58 @@ void loop() {
         }
       }
       break;
+
+    case MIRANDO: {
+      // 2026-10-27 (2): ver "MIRAR ANTES DE SALIR". Frena, despues mide
+      // QUIETO, y sale recien con la pelota a umbralCm.
+      digitalWrite(LED, HIGH);
+      if (ahora - t_fase < MS_ASENTAR_MIRADA) { frenar(); break; }
+      parar();
+      if (!veLaPelota()) { hayMirada = false; pasarAEsperar(); break; }
+
+      bool vencio = (ahora - t_fase >= MS_MAX_MIRANDO);
+      bool yaMidio = (ahora - t_fase >= MS_ASENTAR_MIRADA + MS_MIRAR) && calcularMirada();
+
+      // 0.1027d: ya midio y la pelota todavia esta lejos. Esperar SOLO si
+      // viene y va a llegar a umbralCm antes del tope; si no, a seguirla YA
+      // (la c esperaba siempre hasta el tope, y por eso despejaba menos).
+      if (yaMidio && distanciaPelota() > umbralCm) {
+        unsigned long pasaron = ahora - t_fase;
+        float quedanS = (pasaron < MS_MAX_MIRANDO) ? (MS_MAX_MIRANDO - pasaron) / 1000.0 : 0;
+        bool viene = vaMirada > PISO_VELOCIDAD
+                  && (distanciaPelota() - umbralCm) / vaMirada <= quedanS;
+        if (!viene) {
+          Serial.print("MIRE y la pelota no viene (se acerca a "); Serial.print(vaMirada, 0);
+          Serial.println(" cm/s): vuelvo a seguirla");
+          vencio = true;
+        }
+      }
+
+      if (yaMidio && distanciaPelota() <= umbralCm) {
+        hayMirada = true;
+        bool salio = intentarDespejar(ahora);
+        Serial.print("MIRE "); Serial.print(nMirada); Serial.print(" cuadros: a ");
+        Serial.print(distanciaPelota(), 0); Serial.print(" cm, costado ");
+        Serial.print(desvioPelota(), 1); Serial.print(" cm, va de costado a ");
+        Serial.print(vyMirada, 0); Serial.print(" cm/s, se acerca a ");
+        Serial.print(vaMirada, 0); Serial.print(" cm/s -> ");
+        if (salio) { Serial.print("SALE, costado "); Serial.println(lateralDelDespeje); }
+        else Serial.println(motivoNoSale == 2 ? "NO SALE (muy abierto, mas de MAX_ANGULO_DIAGONAL)"
+                                              : "NO SALE (el avance no alcanza)");
+        hayMirada = false;
+        if (salio) break;
+        vencio = true;                     // no sale: a seguirla
+      }
+      if (vencio) {
+        if (!yaMidio) Serial.println("MIRE y no junte 3 cuadros a tiempo: vuelvo a seguirla");
+        t_finMirada = ahora;
+        vecesSeguidas = 0;
+        fase = SIGUIENDO; t_fase = ahora;
+        reiniciarRampaMovimiento();
+        reiniciarCorreccion();
+      }
+      break;
+    }
 
     case ENFRIANDO:
       parar();

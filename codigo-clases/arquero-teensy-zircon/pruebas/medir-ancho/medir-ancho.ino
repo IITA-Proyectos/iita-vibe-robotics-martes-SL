@@ -340,8 +340,8 @@ const uint16_t MARCA_ANCHO_V1 = 0xA2C1;
 // asi, y el que agregue un programa que guarde algo tiene que respetarlo:
 //      0 .. 255   esta medicion (medir-ancho y medir-ancho-sin-giro)
 //    256 .. 767   derecho-y-vuelta
-//   1024 .. 1535  ajustar-movimientos (desde el 2026-10-20)
-//    768 .. 1023 y 1536 .. 4095  libre
+//   1024 .. 2047  ajustar-movimientos (desde el 2026-10-20)
+//    768 .. 1023 y 2048 .. 4095  libre
 const int DIR_EEPROM_ANCHO = 0;
 
 MedicionAncho medicion = { 0, 0, 0, 0, 0, 0 };

@@ -136,8 +136,11 @@ const bool SENTIDO_ORBITA_INVERTIDO    = false;            // [01/09] cambiar SO
 const bool GIRO_RUMBO_INVERTIDO        = false;            // [sin verificar] si al apuntar al cero girando en el lugar se aleja del cero
 
 // ---- CAMARA Y GIROSCOPIO ----
-const int XP_MAX                       = 150;              // mas lejos que esto (cm) no le cree a la PELOTA: suelen ser manchas naranjas
+const int XP_MAX                       = 200;              // [03/11: era 150] mas lejos que esto (cm) no le cree a la PELOTA. 200 = lo maximo que manda la camara: le cree a todo
 const int XARCO_MAX                    = 200;              // el techo para el ARCO. 200 = lo maximo que manda la camara: acepta todo
+const bool FILTRO_BRILLO_PELOTA        = true;             // [03/11] un arco amarillo PEGADO a la pelota es su brillo: no creerle. false = como antes
+const float BRILLO_ANG                 = 10.0;             // grados: "pegado" = en la misma direccion que la pelota (menos que esto)...
+const float BRILLO_FACTOR              = 1.5;              // ...y a menos de esta cantidad de veces la distancia de la pelota
 const unsigned long MS_GRACIA          = 300;              // sin ver la pelota (o el arco) menos que esto (ms), cuenta como que la ve
 const unsigned long SIN_DATOS_MS       = 1500;             // sin datos de la camara este tiempo (ms), avisa por el monitor
 const unsigned long MS_CHEQUEO_GIRO    = 500;              // cada cuanto pregunta si el giroscopio sigue vivo (ms). OJO: cada pregunta clava el programa 200 ms (bitacora 13/10)
@@ -244,6 +247,7 @@ int  nDestrabes = 0;
 bool avisadoSinCamara = false;
 
 unsigned long nPaquetes = 0, nTirados = 0, nLoops = 0;
+unsigned long nBrillos = 0;   // arcos amarillos descartados por ser el brillo de la pelota (total)
 unsigned long t_contadores = 0;
 
 bool rumboPatadaValido = false;
@@ -423,6 +427,19 @@ void girarContinuo(bool sentidoA) {
 // ===== CAMARA =====
 // Paquete de 9 bytes: 201,Xp,Yp+100, 202,Xam,Yam+100, 203,Xaz,Yaz+100 (cm).
 // X adelante, Y al costado (Y positivo = izquierda). 200 y +-100 = recortes.
+// [03/11] Con mucha luz, el brillo de la pelota la camara lo ve amarillo y lo
+// manda como ARCO, pegado a la pelota (se vio: pelota a 19 cm, "arco" a 23 cm
+// en la misma direccion) y el robot pateaba. Por color no se separan (se midio:
+// el L, A y B del brillo y del arco se pisan). Por LUGAR si: un arco de verdad
+// nunca esta pegado a la pelota. Al robot la camara no le manda el tamano ni
+// la forma de la mancha, solo donde esta: por eso se decide por la posicion.
+bool esBrilloDeLaPelota(int xa, int ya) {
+  if (!FILTRO_BRILLO_PELOTA) return false;
+  if (!((Xp > 0) && (Xp <= XP_MAX) && (abs(Yp) < 100))) return false;   // sin pelota en este paquete
+  float dif = fabs(diferencia(anguloDe(xa, ya), anguloDe(Xp, Yp)));
+  return (dif <= BRILLO_ANG) && (xa <= Xp * BRILLO_FACTOR);
+}
+
 void leerCamara() {
   while (Serial1.available() >= 9) {
     int h1 = Serial1.read();
@@ -449,8 +466,12 @@ void leerCamara() {
         t_ultimaPelota = millis();
       }
       if ((Xam > 0) && (Xam <= XARCO_MAX) && (abs(Yam) < 100)) {
-        XamBueno = Xam; YamBueno = Yam;
-        t_ultimoAmarillo = millis();
+        if (esBrilloDeLaPelota(Xam, Yam)) {
+          nBrillos++;                       // es el brillo de la pelota: no es el arco
+        } else {
+          XamBueno = Xam; YamBueno = Yam;
+          t_ultimoAmarillo = millis();
+        }
       }
       if ((Xaz > 0) && (Xaz <= XARCO_MAX) && (abs(Yaz) < 100)) {
         XazBueno = Xaz; YazBueno = Yaz;
@@ -689,6 +710,8 @@ void setup() {
   Serial.println("telemetria repite las ultimas 5 para leerlas despues sin cable.");
   Serial.print("patada: "); Serial.print(VEL_PATADA);
   Serial.print(" x "); Serial.print(MS_PATADA); Serial.println(" ms");
+  Serial.println(FILTRO_BRILLO_PELOTA ? "camara: un arco amarillo pegado a la pelota es su brillo -> NO le creo"
+                                      : "camara: filtro del brillo de la pelota APAGADO");
   if (ARCO_FIJO) {
     Serial.print("ARCO: "); Serial.print(arcoNombre());
     Serial.println("  (fijo por programa)");
@@ -1219,7 +1242,7 @@ void loop() {
       Serial.print("        camara: "); Serial.print(nPaquetes * 1000UL / dt);
       Serial.print(" paq/s   "); Serial.print(nTirados * 1000UL / dt);
       Serial.print(" bytes tirados/s   loop: "); Serial.print(nLoops * 1000UL / dt);
-      Serial.println(" /s");
+      Serial.print(" /s   brillos descartados: "); Serial.println(nBrillos);
     }
     if (nPatadas > 0) {
       Serial.print("        patadas: "); Serial.print(nPatadas);

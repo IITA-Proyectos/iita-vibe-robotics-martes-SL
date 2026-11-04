@@ -233,7 +233,9 @@ struct Cabecera {
 //      0  ..  255   medir-ancho / medir-ancho-sin-giro  (tiempos de cruce)
 //    256  ..  767   derecho-y-vuelta  (este historial)
 //   1024  .. 2047   ajustar-movimientos (desde el 2026-10-20)
-//    768  .. 1023 y 2048 .. 4095   libre
+//   2048  .. 3071   el tablero (pruebas/tablero, desde el 2026-11-03)
+//   3072  .. 3583   el registro de despejes de seguir-y-despejar (0.1103)
+//    768  .. 1023 y 3584 .. 4095   libre
 const int DIR_CABECERA = 256;
 const int DIR_TABLA    = DIR_CABECERA + sizeof(Cabecera);
 

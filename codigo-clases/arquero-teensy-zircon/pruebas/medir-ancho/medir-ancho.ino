@@ -341,7 +341,9 @@ const uint16_t MARCA_ANCHO_V1 = 0xA2C1;
 //      0 .. 255   esta medicion (medir-ancho y medir-ancho-sin-giro)
 //    256 .. 767   derecho-y-vuelta
 //   1024 .. 2047  ajustar-movimientos (desde el 2026-10-20)
-//    768 .. 1023 y 2048 .. 4095  libre
+//   2048 .. 3071  el tablero (pruebas/tablero, desde el 2026-11-03)
+//   3072 .. 3583  el registro de despejes de seguir-y-despejar (0.1103, 2026-11-03)
+//    768 .. 1023 y 3584 .. 4095  libre
 const int DIR_EEPROM_ANCHO = 0;
 
 MedicionAncho medicion = { 0, 0, 0, 0, 0, 0 };

@@ -105,7 +105,10 @@ al robot de frente en vez de desde el robot. La tabla de arriba es lo medido. Ve
 
 | Programa | Qué hace |
 |---|---|
-| [`seguir-y-despejar/`](funciona/seguir-y-despejar/) | ⭐ **El arquero completo.** Sigue la pelota de costado sin dejar de mirar al frente, y la despeja cuando se acerca |
+| [`partido-0921/`](funciona/partido-0921/) | ⭐ **EL QUE SE USA PARA JUGAR (desde el 03/11).** El programa de los amistosos del 21/09, que el equipo vio "mucho más confiable", con los cambios del 03/11 (versión 0921f): costado 160/70, margen 20 cm, sin predicción, espera de plano y rampa al volver, corrección por cámara en la ida, límite lateral, patrulla e ir al medio al arrancar. No escribe nada por el cable. Ver la [bitácora del 03/11](bitacora/2026-11-03-el-programa-del-21-09-vuelve-a-la-cancha.md) |
+| [`partido-0921c/`](funciona/partido-0921c/), [`partido-0921d/`](funciona/partido-0921d/) | Versiones intermedias del 03/11, guardadas para comparar |
+| [`seguir-y-despejar/`](funciona/seguir-y-despejar/) | El arquero con todo lo nuevo (0.1103: panel de control, diagonal, mirar antes de salir, registro de despejes). Desde el 03/11 **no se usa para jugar** |
+| [`../respaldos/partido-2026-09-21/`](respaldos/partido-2026-09-21/) | 🧊 **Copia exacta del programa de los amistosos del 21/09** (de GitHub, commit `d93aaaf`). No se toca |
 | [`../respaldos/estable1013conlimiteslaterales/`](respaldos/estable1013conlimiteslaterales/) | 🧊 **Copia congelada de la version ESTABLE 0.1013** (13/10): patrulla a los 10 s, limite lateral que vuelve al medio y despeje de 35 cm. No se toca. Es la ultima que el equipo declaro estable |
 | [`../respaldos/estable-0.0929/`](respaldos/estable-0.0929/) | 🧊 **Copia congelada de la version ESTABLE 0.0929** (29/09). No se toca. Si algo se rompe experimentando, se carga esta y el robot vuelve a como estaba |
 | [`despeje-pelota/`](funciona/despeje-pelota/) | Solo el despeje, sin seguimiento. Más simple para probar de a una cosa |

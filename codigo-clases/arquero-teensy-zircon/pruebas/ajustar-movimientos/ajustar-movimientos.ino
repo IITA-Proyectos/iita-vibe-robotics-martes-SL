@@ -362,6 +362,8 @@ void avisarSiNoSonLosDelPartido() {
 //      0  ..  255   medir-ancho / medir-ancho-sin-giro
 //    256  ..  767   derecho-y-vuelta
 //   1024  .. 2047   ajustar-movimientos (este; era 1024..1535 hasta el 27/10)
+//   2048  .. 3071   el tablero (pruebas/tablero, desde el 2026-11-03)
+//   3072  .. 3583   el registro de despejes de seguir-y-despejar (0.1103)
 //    resto          libre
 //
 // Si agregan otro programa que guarde algo, anotenlo aca Y en los otros dos.

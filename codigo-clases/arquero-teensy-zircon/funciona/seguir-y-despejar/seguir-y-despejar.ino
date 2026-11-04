@@ -1,7 +1,7 @@
 /* =====================================================================
    ARQUERO — sigue la pelota de costado y la despeja
    =====================================================================
-            V E R S I O N   0 . 1 0 2 7 d   -   E N   P R U E B A
+             V E R S I O N   0 . 1 1 0 3   -   E N   P R U E B A
    =====================================================================
    IITA Salta — taller de los martes — Roboliga 2026
    Ultimo cambio: 2026-10-27 (el panel de control, el despeje en diagonal y
@@ -202,6 +202,16 @@ const int RESERVA_RUMBO                          = 45;    // ⚠️ no se usa en
 /* =====================================================================
    HISTORIA: lo que cambio en cada clase (lo mas nuevo arriba)
    =====================================================================
+
+   ---------------------------------------------------------------------
+   📋 CAMBIO DEL 2026-11-03: EL REGISTRO DE DESPEJES (0.1103)
+   ---------------------------------------------------------------------
+   "En cancha no tenemos USB": las lineas "MIRE ..." no las veia nadie.
+   Ahora el robot anota cada intento de despeje (los ultimos 40: si salio,
+   o por que no, con distancia, costado y velocidades) y lo guarda en la
+   EEPROM (3072..3583) solo con el robot quieto a proposito. Al enchufar el
+   USB y abrir MIRAR.bat lo imprime todo con un resumen. NO cambia nada de
+   como juega: es la 0.1027d + el registro.
 
    ---------------------------------------------------------------------
    📋 CAMBIO DEL 2026-10-27 (5): MIRAR MAS CORTO (0.1027d)
@@ -591,6 +601,7 @@ const int RESERVA_RUMBO                          = 45;    // ⚠️ no se usa en
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BNO055.h>
+#include <EEPROM.h>     // solo para el REGISTRO DE DESPEJES (2026-11-03)
 
 
 // ---- ARQUERO (ROBOT1) ----
@@ -1358,6 +1369,125 @@ bool calcularMirada() {
   vyMirada =  (nMirada * sTY - sT * sY) / den;
   vaMirada = -(nMirada * sTD - sT * sD) / den;   // la distancia BAJA al acercarse
   return true;
+}
+
+
+// ---- 📒 REGISTRO DE DESPEJES (2026-11-03) ----
+// En la cancha NO HAY CABLE, asi que las lineas "MIRE ..." no las ve nadie.
+// El robot anota cada intento de despeje (si salio o por que no, con lo que
+// vio) y lo guarda en la EEPROM, que sobrevive a apagar la bateria.
+//
+// COMO SE LEE: enchufar el USB y abrir MIRAR.bat. Apenas se conecta, el
+// robot imprime todo el registro y un resumen. (Si se apago, imprime al
+// prenderlo con el cable puesto.)
+//
+// 🚨 Escribir la EEPROM puede tardar unos milisegundos, y eso no puede pasar
+// en medio de un despeje. Por eso se anota en la memoria comun y se guarda
+// SOLO con el robot quieto a proposito: en ENFRIANDO (despues de cada
+// despeje) o esperando sin pelota a la vista.
+//
+// Zona de EEPROM: 3072 .. 3583 (ver el mapa en medir-ancho).
+const int      DIR_REGISTRO   = 3072;
+const uint32_t MAGIA_REGISTRO = 0x52454731;      // "REG1": si no esta, es basura
+const int      MAX_INTENTOS   = 40;              // los ultimos 40; el mas viejo se pisa
+
+enum Resultado { R_SALE_MIRANDO, R_SALE_SIN_MIRAR, R_MUY_ABIERTO, R_NO_ALCANZA,
+                 R_NO_VIENE, R_POCOS_CUADROS, R_CANTIDAD };
+const char* NOMBRE_RESULTADO[R_CANTIDAD] = {
+  "SALE (miro antes)", "SALE (sin mirar, ya estaba quieto)",
+  "NO SALE: muy abierto (mas de MAX_ANGULO_DIAGONAL)", "NO SALE: el avance no alcanza",
+  "NO SALE: la pelota no venia, volvio a seguirla", "NO SALE: no junto 3 cuadros a tiempo" };
+
+struct Intento {          // 12 bytes
+  uint8_t arranque;       // en que encendido paso (para separar las tandas)
+  uint8_t resultado;      // un Resultado
+  uint8_t cuadros;        // cuadros de la mirada (0 = no miro)
+  int8_t  distancia;      // cm
+  int16_t costado;        // decimas de cm, + = derecha
+  int16_t vy;             // cm/s de costado, + = va a la derecha
+  int16_t va;             // cm/s de acercamiento, + = se viene encima
+  int16_t lateral;        // empuje de costado con que salio (0 = derecho o no salio)
+};
+struct Registro {         // 8 + 40 x 12 = 488 bytes: de 3072 a 3559
+  uint32_t magia;
+  uint8_t  arranque, cuantos, proximo, libre;
+  Intento  i[MAX_INTENTOS];
+};
+Registro registro;
+bool registroSucio = false;
+unsigned long t_ultimoRegistro = 0;
+
+void cargarRegistro() {
+  EEPROM.get(DIR_REGISTRO, registro);
+  if (registro.magia != MAGIA_REGISTRO || registro.cuantos > MAX_INTENTOS
+      || registro.proximo >= MAX_INTENTOS) {
+    memset(&registro, 0, sizeof(registro));
+    registro.magia = MAGIA_REGISTRO;
+  }
+  registro.arranque++;                // un encendido mas (en setup: el robot esta quieto)
+  EEPROM.put(DIR_REGISTRO, registro);
+}
+
+void registrarIntento(uint8_t resultado, int cuadros, float d, float y,
+                      float vy, float va, int lateral) {
+  unsigned long ahora = millis();
+  // Un "no sale" que se repite cada 3 cuadros es UNA sola situacion: se
+  // anota una vez por segundo, para no llenar el registro con lo mismo.
+  if (resultado != R_SALE_MIRANDO && resultado != R_SALE_SIN_MIRAR && registro.cuantos > 0) {
+    const Intento &ult = registro.i[(registro.proximo + MAX_INTENTOS - 1) % MAX_INTENTOS];
+    if (ult.resultado == resultado && ahora - t_ultimoRegistro < 1000) return;
+  }
+  Intento &n = registro.i[registro.proximo];
+  n.arranque  = registro.arranque;
+  n.resultado = resultado;
+  n.cuadros   = (uint8_t)constrain(cuadros, 0, 255);
+  n.distancia = (int8_t)constrain((int)d, -127, 127);
+  n.costado   = (int16_t)constrain((int)(y * 10), -32000, 32000);
+  n.vy        = (int16_t)constrain((int)vy, -32000, 32000);
+  n.va        = (int16_t)constrain((int)va, -32000, 32000);
+  n.lateral   = (int16_t)lateral;
+  registro.proximo = (registro.proximo + 1) % MAX_INTENTOS;
+  if (registro.cuantos < MAX_INTENTOS) registro.cuantos++;
+  registroSucio = true;
+  t_ultimoRegistro = ahora;
+}
+
+void guardarRegistro() {
+  EEPROM.put(DIR_REGISTRO, registro);   // solo reescribe los bytes que cambiaron
+  registroSucio = false;
+}
+
+void imprimirRegistro() {
+  Serial.println();
+  Serial.print("=== REGISTRO DE DESPEJES: los ultimos "); Serial.print(registro.cuantos);
+  Serial.print(" intentos, del mas viejo al mas nuevo. Este encendido es el ");
+  Serial.print(registro.arranque); Serial.println(" ===");
+  int cuenta[R_CANTIDAD] = {0};
+  int cuentaHoy[R_CANTIDAD] = {0};
+  for (int k = 0; k < registro.cuantos; k++) {
+    const Intento &n = registro.i[(registro.proximo + MAX_INTENTOS - registro.cuantos + k) % MAX_INTENTOS];
+    if (n.resultado >= R_CANTIDAD) continue;
+    cuenta[n.resultado]++;
+    if (n.arranque == registro.arranque) cuentaHoy[n.resultado]++;
+    Serial.print("encendido "); Serial.print(n.arranque);
+    Serial.print(" | a "); Serial.print(n.distancia); Serial.print(" cm, costado ");
+    Serial.print(n.costado / 10.0, 1); Serial.print(" cm");
+    if (n.cuadros > 0) {
+      Serial.print(", miro "); Serial.print(n.cuadros); Serial.print(" cuadros: de costado ");
+      Serial.print(n.vy); Serial.print(" cm/s, se acerca "); Serial.print(n.va); Serial.print(" cm/s");
+    }
+    Serial.print(" -> "); Serial.print(NOMBRE_RESULTADO[n.resultado]);
+    if (n.resultado == R_SALE_MIRANDO || n.resultado == R_SALE_SIN_MIRAR) {
+      Serial.print(", empuje de costado "); Serial.print(n.lateral);
+    }
+    Serial.println();
+  }
+  Serial.println("--- RESUMEN (todos los encendidos / solo este encendido) ---");
+  for (int r = 0; r < R_CANTIDAD; r++) {
+    Serial.print("  "); Serial.print(cuenta[r]); Serial.print(" / "); Serial.print(cuentaHoy[r]);
+    Serial.print("  "); Serial.println(NOMBRE_RESULTADO[r]);
+  }
+  Serial.println("===");
 }
 
 
@@ -2189,9 +2319,16 @@ bool intentarDespejar(unsigned long ahora) {
     // Un arquero que sale y no llega queda fuera de posicion Y ademas le
     // hacen el gol: es lo peor de los dos mundos.
     vecesSeguidas = 0;          // que vuelva a juntar cuadros desde cero
+    // (desde MIRANDO lo anota MIRANDO, con lo que midio)
+    if (!hayMirada)
+      registrarIntento(motivoNoSale == 2 ? R_MUY_ABIERTO : R_NO_ALCANZA, 0,
+                       distanciaPelota(), desvioPelota(), velocidadLateral, 0, 0);
     return false;
   }
 
+  if (!hayMirada)
+    registrarIntento(R_SALE_SIN_MIRAR, 0, distanciaPelota(), desvioPelota(),
+                     velocidadLateral, 0, lateral);
   lateralDelDespeje  = lateral;
   pwmAvanceDespeje   = avance;
   msIdaDespeje       = msIda;
@@ -2250,7 +2387,7 @@ void terminarDespeje() {
 // 2026-10-13: vuelve a decir ESTABLE, pedido del equipo. La copia congelada
 // de esta version es `respaldos/estable1013conlimiteslaterales/`; su cartel dice RESPALDO.
 // Con la prediccion prendida ya no es igual a la copia congelada: EN PRUEBA.
-const char* VERSION = "0.1027d EN PRUEBA (diagonal + MIRAR CORTO + umbralDesvio 20)";
+const char* VERSION = "0.1103 EN PRUEBA (0.1027d + registro de despejes)";
 
 void setup() {
   Serial.begin(19200);
@@ -2259,6 +2396,8 @@ void setup() {
   Serial.print("=== ARQUERO  version ");
   Serial.print(VERSION);
   Serial.println(" ===");
+
+  cargarRegistro();             // el registro de despejes (sumar un encendido)
 
   pinMode(INA1, OUTPUT); pinMode(INB1, OUTPUT); pinMode(PWM1, OUTPUT);
   pinMode(INA2, OUTPUT); pinMode(INB2, OUTPUT); pinMode(PWM2, OUTPUT);
@@ -2336,6 +2475,17 @@ void loop() {
 
   leerCamara();
   unsigned long ahora = millis();
+
+  // 📒 REGISTRO DE DESPEJES: apenas se abre la consola (MIRAR.bat), lo
+  // imprime. Y lo guarda en la EEPROM solo con el robot quieto a proposito.
+  static bool estabaConectado = false;
+  bool conectado = (bool)Serial;
+  if (conectado && !estabaConectado) imprimirRegistro();
+  estabaConectado = conectado;
+  if (registroSucio && ahora - t_ultimoRegistro > 300
+      && (fase == ENFRIANDO || (fase == ESPERANDO && !veLaPelota()))) {
+    guardarRegistro();
+  }
 
   // Patrullando y aparecio la pelota: se corta la patrulla y se la sigue.
   // Varios cuadros SEGUIDOS, para que no la corte un reflejo suelto. Solo
@@ -2877,6 +3027,7 @@ void loop() {
         if (!viene) {
           Serial.print("MIRE y la pelota no viene (se acerca a "); Serial.print(vaMirada, 0);
           Serial.println(" cm/s): vuelvo a seguirla");
+          registrarIntento(R_NO_VIENE, nMirada, distanciaPelota(), desvioPelota(), vyMirada, vaMirada, 0);
           vencio = true;
         }
       }
@@ -2892,12 +3043,18 @@ void loop() {
         if (salio) { Serial.print("SALE, costado "); Serial.println(lateralDelDespeje); }
         else Serial.println(motivoNoSale == 2 ? "NO SALE (muy abierto, mas de MAX_ANGULO_DIAGONAL)"
                                               : "NO SALE (el avance no alcanza)");
+        registrarIntento(salio ? R_SALE_MIRANDO : (motivoNoSale == 2 ? R_MUY_ABIERTO : R_NO_ALCANZA),
+                         nMirada, distanciaPelota(), desvioPelota(), vyMirada, vaMirada,
+                         salio ? lateralDelDespeje : 0);
         hayMirada = false;
         if (salio) break;
         vencio = true;                     // no sale: a seguirla
       }
       if (vencio) {
-        if (!yaMidio) Serial.println("MIRE y no junte 3 cuadros a tiempo: vuelvo a seguirla");
+        if (!yaMidio) {
+          Serial.println("MIRE y no junte 3 cuadros a tiempo: vuelvo a seguirla");
+          registrarIntento(R_POCOS_CUADROS, nMirada, distanciaPelota(), desvioPelota(), 0, 0, 0);
+        }
         t_finMirada = ahora;
         vecesSeguidas = 0;
         fase = SIGUIENDO; t_fase = ahora;

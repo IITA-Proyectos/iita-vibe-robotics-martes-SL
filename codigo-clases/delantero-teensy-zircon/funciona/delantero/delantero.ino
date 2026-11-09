@@ -40,7 +40,7 @@ const int VEL_ORB_TRASERA              = 67;               // fuerza de la vuelt
 const unsigned long MS_ORBITA_MAX      = 10000;            // cuanto orbita buscando el arco antes de pasar al plan B (ms)
 
 // ---- PATEAR ----
-const int VEL_PATADA                   = 180;              // fuerza del golpe. Mas = llega mas lejos, pero se levanta y vuelca mas facil
+const int VEL_PATADA                   = 180;              // [08/11: se probo 170 y 190; con 190 se vuelca un poco -> queda en 180] fuerza del golpe. Mas = llega mas lejos, pero se levanta y vuelca mas facil
 const int MS_PATADA                    = 450;              // cuanto dura el golpe (ms). Mas = llega mas lejos y se pasa mas cerca de la linea
 const int TRIM_PATADA                  = 5;                // compensacion fija. Si se va siempre a la DERECHA: subir. A la IZQUIERDA: bajar
 const float KP_PATADA                  = 6.0;              // corrige por GRADO torcido. Mas = corrige mas fuerte (y puede zigzaguear)

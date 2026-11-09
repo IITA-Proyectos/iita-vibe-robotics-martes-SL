@@ -242,7 +242,7 @@ const unsigned long BAUDIOS = 19200;
 // ---- 🏷️ LA LINEA DE VERSION (2026-11-08, version 0921g) ----
 // Pedido del equipo: "agrega tambien lo de la linea con la version". Al
 // arrancar, si hay una compu escuchando por el USB, el robot dice UN renglon:
-//   #PARTIDO version=0921g sello=fabrica giro=1 umbralBlanco=425 ... interruptores=1111111110101
+//   #PARTIDO version=0921i sello=fabrica giro=1 umbralBlanco=425 ... interruptores=1111111110101
 // Con eso el TABLERO (pestana PARTIDO) confirma que quedo cargado lo que se
 // queria. Se repite cada medio segundo mientras parpadea antes de arrancar,
 // por si la primera no la escucho nadie (cargar.py abre el puerto un rato tarde).
@@ -253,7 +253,12 @@ const unsigned long BAUDIOS = 19200;
 const char* VERSION_PARTIDO = "0921i";
 // La escribe el TABLERO cada vez que guarda valores (fecha y hora, sin espacios).
 // "fabrica" = los valores tal como salieron del taller. A mano no hace falta tocarla.
-const char* SELLO = "20261109-092611";
+// 2026-11-09 (tarde): vuelve a "fabrica". Decia "20261109-092611", que es el
+// sello de un guardado del tablero viejo sobre la 0921g (09:26, patrullarSinPelota
+// NO) y quedo pegado cuando se armo la 0921i encima. Con ese sello, una 0921i con
+// OTROS valores (la de la manana, con la patrulla por la linea prendida) se podia
+// confundir con esta. Estos valores (los de ebb5518) son los de fabrica del tablero.
+const char* SELLO = "fabrica";
 unsigned long t_ultimaVersion = 0;     // la ultima vez que se mando la linea
 
 
@@ -1791,9 +1796,7 @@ void terminarDespeje() {
 
 
 // ---------------------------------------------------------- la linea de version
-// 🚨 El orden de los campos es el CONTRATO con el tablero (tablero.py: CAMPOS_PARTIDO
-// y ORDEN_INTERRUPTORES): version primero, interruptores ultimo. Si se agrega uno,
-// va antes de interruptores y se agrega tambien alla.
+// (El contrato de la linea esta en avisarVersion(), abajo del largo de la linea.)
 // ---- 0921i: el largo de la linea del area, guardado en la EEPROM ----
 struct LargoLinea { uint32_t magia; uint32_t ms; uint32_t veces; };
 
@@ -1831,6 +1834,13 @@ void avisarLargoLinea() {
   }
 }
 
+// 🚨 El orden de los campos es el CONTRATO con el tablero (tablero.py: CAMPOS_PARTIDO
+// y ORDEN_INTERRUPTORES): version primero, interruptores ultimo. Si se agrega uno,
+// va antes de interruptores y se agrega tambien alla.
+// 2026-11-09: la 0921i manda los MISMOS campos que la 0921g (13 interruptores).
+// Lo nuevo (patrullaPorLaLinea, alternarLadoPatrulla, buscarLineaDelAreaAlVolver,
+// MS_AVANCE_10CM, MS_PUNTA_A_PUNTA_FIJO, VEL_LINEA...) NO va en la linea: lo
+// confirma el SELLO, como todo lo que no va (DISENO del tablero, 16.11).
 void avisarVersion() {
   if (!Serial) return;                 // nadie escuchando (en la cancha): nada
   Serial.print("#PARTIDO version=");            Serial.print(VERSION_PARTIDO);

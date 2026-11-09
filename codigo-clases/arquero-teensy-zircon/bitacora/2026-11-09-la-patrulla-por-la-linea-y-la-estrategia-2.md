@@ -5,10 +5,10 @@
 **Robot:** el **ARQUERO**, Teensy con número de serie `13348550`
 **Programas nuevos:** `funciona/estrategia-2/`, `pruebas/medir-ancho-area/` y
 `respaldos/estrategia-2-a-caballo/` (la primera versión de la estrategia 2)
-**Modificados:** `funciona/partido-0921` (de la 0921g a la **0921i**)
-**No se subió:** el tablero (`pruebas/tablero/`, quedó a medio adaptar, §6), la carpeta
-`pruebas/tablero/copias-partido/` (copia local que hizo el tablero) y el script de la cámara
-(umbral naranja 79 → 78, cambiado solo en esta PC)
+**Modificados:** `funciona/partido-0921` (de la 0921g a la **0921i**); a la noche, el tablero
+(`pruebas/tablero/`, adaptado a la 0921i, §6) y `pruebas/herramientas/cargar.py` (§6b)
+**No se subió:** la carpeta `pruebas/tablero/copias-partido/` (copia local que hizo el tablero) y
+el script de la cámara (umbral naranja 79 → 78, cambiado solo en esta PC)
 **PC:** la notebook que viaja. Plataforma `teensy` 6.0.0, Teensyduino 1.62.
 
 ---
@@ -27,7 +27,11 @@ eso es **lo que quedó en el robot**.
 
 **3. Se midió el ancho del área:** 2548 ms de punta a punta a 90 (§3).
 
-**4. El tablero NO está adaptado a la 0921i** (§6). **No usar `PARTIDO.bat` ni `TABLERO.bat`.**
+**4. A la noche el tablero quedó adaptado a la 0921i** (§6), con la patrulla y la medición del
+ancho del área. **Todavía no se usó con el robot.**
+
+**5. Desde las 18:06 Windows bloquea `pio.exe`** (§6b). `cargar.py` y el tablero ahora usan
+`python -m platformio`. Compila; **la carga con esa forma todavía no se probó**.
 
 ---
 
@@ -160,16 +164,57 @@ Para volver al programa de juego hay que cargar `funciona/partido-0921` (0921i).
 
 ---
 
-## 6. El tablero
+## 6. El tablero, adaptado a la 0921i (a la noche)
 
-Por la mañana se pidió agregarle la patrulla al tablero (*"sí a todo"*). El armado se cortó a la
-mitad. `tablero.py` y `tablero.ino` quedaron modificados en esta PC, **su autoprueba falla**, y no
-saben de la 0921i.
-- **No se subieron.** En GitHub sigue el tablero del 08/11, que espera `version=0921g`.
-- **No usar `PARTIDO.bat` ni `TABLERO.bat`** hasta adaptarlo: el tablero del 08/11 no reconoce la
-  0921i.
-- A las 09:26 el tablero guardó valores en la 0921 y dejó una copia de antes en
-  `pruebas/tablero/copias-partido/` (solo en esta PC).
+Por la mañana se pidió agregarle la patrulla al tablero (*"sí a todo"*). Ese armado se cortó a la
+mitad. A la noche el equipo pidió: *"adaptá el programa solo para el 0921i, después podemos ver si lo
+adaptamos para la estrategia 2"*. Se siguió desde lo que estaba a medias (un agente lo terminó,
+3 lo revisaron, otros intentaron refutar cada hallazgo y uno arregló lo confirmado).
+
+**Qué tiene nuevo:**
+- **Reconoce la 0921i de hoy.** Si encuentra una 0921g, la muestra como "VERSIÓN ANTERIOR".
+- **PARTIDO, grupo "5 · LA PATRULLA":**
+  - cuándo sale (`patrullarSinPelota`, 20 s);
+  - cuál patrulla (`patrullaPorLaLinea`, que pide confirmar; `patrullaPorElLateral`;
+    `alternarLadoPatrulla`);
+  - la vuelta con la línea del área (`buscarLineaDelAreaAlVolver`, `MS_AVANCE_10CM`);
+  - el ancho del área (`MS_PUNTA_A_PUNTA_FIJO`, `VEL_LINEA`);
+  - los números de la patrulla por la línea, en gris mientras esté apagada.
+  - Cada fila dice para qué lado tocarla. Avisos nuevos: E8 (no deja guardar el ancho en 0 con la
+    vuelta con la línea prendida) y O22 (lo medido fue a otra fuerza).
+- **CANCHA, paso "7 · Medir el ancho del ÁREA":** el robot hace lo mismo que `medir-ancho-area`,
+  y con **"PASAR A PARTIDO →"** el número va a `MS_PUNTA_A_PUNTA_FIJO`.
+- En `partido-0921.ino` el `SELLO` volvió a `"fabrica"` (decía el del guardado de las 09:26). Fuera
+  de eso, solo comentarios: **no cambia cómo se mueve**.
+
+**La revisión confirmó 3 problemas, arreglados:**
+1. `MS_AVISO_ARMADO` aceptaba 2000, y con eso el robot salía sin el parpadeo de "manos afuera".
+   Ahora no baja de 3000.
+2. CANCHA 2c decía que hacía lo mismo que el partido, pero vuelve al medio **solo por tiempo** (no
+   prueba la vuelta con la línea del área). Ahora lo dice.
+3. El texto de `MS_AVANCE_10CM` daba el consejo de `msEmpujonFinal`. Ahora explica que el que decide
+   dónde queda al final es `msEmpujonFinal`.
+
+**Autoprueba: OK, 5008 verificaciones.** Compilan el tablero, la 0921i y la estrategia 2.
+**Nunca se usó con el robot de verdad.** Cargar el tablero o el partido **borra la estrategia 2**
+del robot.
+
+A las 09:26 el tablero viejo guardó valores en la 0921 y dejó una copia de antes en
+`pruebas/tablero/copias-partido/` (solo en esta PC).
+
+## 6b. Windows bloquea `pio.exe`
+
+Desde las **18:06** Windows dice *"Una directiva de Control de aplicaciones bloqueó este
+archivo"* al correr `pio.exe`. Es el **Control inteligente de aplicaciones** de Windows, que quedó
+activado y bloquea los programas sin firma digital. `pio.exe` no tiene firma.
+- **No se tocó esa protección:** es de seguridad, y si se apaga no se puede volver a prender sin
+  reinstalar Windows.
+- **Lo que sí anda:** el `python.exe` de PlatformIO (firmado) con `-m platformio`, que es el mismo
+  PlatformIO. Y `teensy_loader_cli.exe` (el que pasa el programa al Teensy) no está bloqueado.
+- **Se cambiaron `cargar.py` y el tablero** para usar `python -m platformio`. Con eso compilan los
+  tres programas. **Falta probar una carga de verdad** con el robot enchufado.
+- **Las herramientas del delantero** también llaman a `pio.exe`: en esta compu les va a pasar lo
+  mismo.
 
 ---
 
@@ -183,7 +228,7 @@ saben de la 0921i.
    la línea blanca"*).
 4. **El despeje se cargó sin probar.** Fue a pedido y por el apuro, pero el robot jugó con algo sin
    probar.
-5. **El tablero se cortó otra vez** y quedó a medio adaptar.
+5. **El tablero se cortó otra vez** a la mañana. Se terminó recién a la noche.
 
 ---
 
@@ -204,9 +249,15 @@ saben de la 0921i.
   5 cm, con un interruptor para apagarlo.
 - ⬜ `MS_MEDIO_AL_MEDIO` (2228) se midió antes de mover los motores.
 
+### 🔴 Cargar en esta compu
+- 🔴 **Probar una carga de verdad con `python -m platformio`** (§6b). Se puede volver a cargar la
+  estrategia 2, que es la que ya tiene el robot. Si no anda, cargar con el Arduino IDE.
+- ⬜ Avisarle al delantero que sus `.bat` usan `pio.exe`.
+
 ### ⬜ El tablero
-- ⬜ Adaptarlo a la 0921i: la patrulla, la medición del ancho del área y los valores de fábrica
-  nuevos.
+- ⬜ **Usarlo con el robot por primera vez**, con la compu al lado: medir el ancho (CANCHA 7),
+  pasarlo, cargar el partido y ver "PARTIDO 0921i ... ✔ coincide con el archivo".
+- ⬜ Para la estrategia 2 todavía no hay tablero (*"después podemos ver"*).
 
 ### ⬜ Arrastres
 - ⬜ Anotar en el mapa de la EEPROM (los comentarios de `medir-ancho`, `derecho-y-vuelta` y

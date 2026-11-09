@@ -78,7 +78,9 @@ hay USB) y una pestaña **CANCHA** para preparar una cancha nueva sin internet.
 | **2048..2943** | **TABLERO: el último MOVIMIENTO** | escribe |
 | **2944..3071** | **TABLERO: la última MEDICIÓN DE CANCHA** | escribe |
 | 3072..3583 | **registro de despejes de la 0.1103** (magia `REG1`) | **NUNCA** escribe |
-| 3584..4283 | libre | no toca |
+| 3584..3595 | (2026-11-09) partido **0921i**: el largo de la línea del área que midió solo (magia `LIN1`) | no toca |
+| 3600..3611 | (2026-11-09) `pruebas/medir-ancho-area` (magia `MAA1`) | no toca (la P guarda en 2944..3071) |
+| 3612..4283 | libre | no toca |
 
 ### 1.3 Los dos robots (por qué nunca cargar el de uno en el otro)
 
@@ -923,8 +925,13 @@ Además, en el texto de cada uno: `⚠ ` + "El rumbo que sostiene es el de cuand
 
 - Necesita giroscopio y no estar sobre una línea. Cuenta → `#INICIO I IR_AL_MEDIO tope=40000
   sincable=0|1` → entra como el partido cuando no encuentra la línea: `ubicandose = true`,
-  `encontroLaLinea = false`, `pausaMedio(MEDIO_AL_LATERAL)`, y la cadena del partido **tal cual**
+  `encontroLaLinea = false`, `pausaMedio(MEDIO_AL_LATERAL)`, y la cadena del partido **de la 0921g**
   (pasos 1 a 7 → `UBIC_FRENANDO` → enderezarse → empujón) hasta `pasarAEsperar()`.
+- (2026-11-09, revisión) **NO tiene la vuelta con la línea del área de la 0921i**: el paso 6 (al medio) es SOLO por
+  tiempo (`MS_MEDIO_AL_MEDIO`). La 0921i, con `buscarLineaDelAreaAlVolver` true, corta al ver la línea del área
+  (`MEDIO_LINEA_AVANZAR` con `MS_AVANCE_10CM`, `MEDIO_LINEA_AL_MEDIO` con `MS_PUNTA_A_PUNTA_FIJO / 2` a `VEL_LINEA`).
+  El paso 2c lo dice ("vuelve al medio SOLO POR TIEMPO") y manda a verlo con el partido cargado. Copiarla a
+  `tablero.ino` (con esos 4 en la RAM y en el `!I`) queda para después: no se pudo probar con el robot.
 - En cada `MEDIO_PAUSA` (robot frenado) manda `#PASO I paso=N ms=<lo que duró> como=L|T`.
 - Formato: `#MEDIO ok=<1 si terminó encontrando la línea del área sin abandonar> pasos=p1,...,p8
   como=c1,...,c8 desvio=<peor> acomodo=<reintentos>`. Los pasos son: 1 al lateral, 2 alejarse, 3 al
@@ -1422,7 +1429,7 @@ abierta (nombre y archivo) con `Nueva` / `Abrir` / `Comparar`, y **`TERMINAR`**.
 | 0 | A | ¿ANDA TODO? | (los `#S`, `g`) | no | - |
 | 1 | A | La línea | `!L v` (repetible), `!L i`, `!L d`, o `!L c` | no | `umbralBlanco` (línea 79) |
 | 2 | A | El ancho | `!A` / `!A c`, 2 corridas | sí | `MS_MEDIO_AL_MEDIO` (línea 81) |
-| 2c | B | Comprobar ir al medio | `!I` / `!I c` | sí | - |
+| 2c | B | Comprobar ir al medio (por tiempo: sin la vuelta con la línea de la 0921i, 5.5) | `!I` / `!I c` | sí | - |
 | 3 | B | El fondo | `!F` con TOCÓ (x2), o `!F c` comprobar | sí | `MS_MEDIO_FONDO_POR_TIEMPO` (línea 82) |
 | 4 | B | La cámara con esta luz | `!C` (4a y 4b) | no | `CAMARA_POR_CM` (línea 80) |
 | 5 | B | Cuánto sale el despeje | `=msPruebaIda 250` + `!10`, ídem 383 y 500 | sí | `msAdelante` (línea 101) |
@@ -2063,3 +2070,103 @@ abre ningún USB.
   PROGRAMA DE PARTIDO"), `pruebas/ajustar-movimientos/AJUSTAR.bat:13`, `tablero.ino:71`,
   `ajustar-movimientos.ino:43`, `pruebas/herramientas/README.md:47` y `cargar.py:9`, que siguen mandando a
   CARGAR-PARTIDO.bat.
+
+### 16.11 LA 0921i (2026-11-09, a la tarde)
+
+Pedido del equipo: *"no, adapta el programa solo para el 0921i despues podemos ver si lo adaptamos para la
+estrategia 2"*. O sea: el tablero maneja la **0921i** que quedó en `funciona/partido-0921` (la de `ebb5518`);
+`funciona/estrategia-2` NO se tocó (es otro trabajo).
+
+**Ojo, hubo DOS "0921i".** A la mañana del 09/11 se armó una con la patrulla por la línea PRENDIDA y
+`MS_QUIETO_PARA_PATRULLAR` 15000; a la tarde se cambió sin cambiarle el nombre. Un armado del tablero para la de la
+mañana se cortó a la mitad (sin commitear) y se siguió desde ahí. Lo que vale es la de `ebb5518`: esos son los de
+FÁBRICA de `TABLA_PARTIDO` (la autoprueba lo controla si el archivo dice `sello=fabrica`).
+
+**Qué cambió contra la 0921g** (`git diff a5aba53 ebb5518 -- funciona/partido-0921/partido-0921.ino`):
+
+| Qué | 0921g | 0921i | En el tablero |
+|---|---|---|---|
+| `MS_AVISO_ARMADO` | 2000, después de prender el giroscopio (~4,5 s en total) | **3000, desde que se PRENDE**. El giroscopio NO arranca en paralelo: `setup()` lo espera (`bno.begin`, `delay(1000)`, los datos) con el LED APAGADO y `loop()` empieza a los ~2,2-2,6 s; el parpadeo es solo lo que sobra (con 3000, ~0,5 s) | AVANZADO › Arranque, **de 3000 a 10000** (revisión: con 2000 la cuenta ya estaba cumplida al empezar `loop()` y se movía sin parpadear) |
+| `msEmpujonFinal` | 320 (~10 cm) | **450** (~15 cm, cuenta del 18/08) | grupo 3 |
+| `MS_QUIETO_PARA_PATRULLAR` | 10000 | **20000** | grupo 5 (va en la `#PARTIDO`) |
+| la patrulla al lateral a los DOS lados (de la 0921h) | no | `alternarLadoPatrulla` true | grupo 5, nueva |
+| la VUELTA AL MEDIO CON LA LÍNEA DEL ÁREA | no | `buscarLineaDelAreaAlVolver` true: volviendo de un lateral (patrulla, ir al medio, límite lateral), si un sensor de atrás ve la línea del área, avanza `MS_AVANCE_10CM` (450, a `potenciaEmpujon`) y va al medio `MS_PUNTA_A_PUNTA_FIJO / 2` a `VEL_LINEA` | grupo 5, nuevas |
+| la PATRULLA POR LA LÍNEA DEL ÁREA | no | escrita pero **APAGADA** (`patrullaPorLaLinea` false) | grupo 5, nuevas |
+| EEPROM | - | 3584..3595 `LIN1` (lo que la patrulla por la línea midió sola) | mapa 1.2 |
+| `SELLO` | `fabrica` | decía `20261109-092611` (el de un guardado de la 0921g a las 09:26, que quedó pegado) → **vuelve a `fabrica`** (solo eso y comentarios en el `.ino`) | |
+
+**La línea `#PARTIDO`** (16.6) NO cambia de campos: la 0921i manda los mismos 16 campos y los 13 interruptores que
+la 0921g. Lo nuevo lo confirma el `SELLO`. `LINEA_PARTIDO_FABRICA` = la de la 0921i con `MS_QUIETO_PARA_PATRULLAR=20000`.
+Una `#PARTIDO version=0921g` se sigue entendiendo y se dice **"VERSIÓN ANTERIOR"** (`VERSIONES_PARTIDO_ANTERIORES`).
+`FABRICA_DE_ANTES` dice lo que valía la 0921g (y la 0921f, `None`): 10000 / 320 / 2000, sin las 10 filas de
+`NUEVOS_EN_LA_0921I`. Un archivo 0921g o 0921f se lee: lo que no tiene es un OJO (no un ERROR) y esas filas quedan
+grises. "Volver a como estaba" desde una copia de otra versión NO vuelve lo que cambió la versión
+(`cambiados_por_la_version`), solo lo que cambió alguien con el tablero.
+
+**El grupo 5 · LA PATRULLA Y EL LÍMITE LATERAL (0921i)**, en el orden en que lo pidieron, con subtítulos:
+
+| Subtítulo | Filas (fábrica) | Gris si... |
+|---|---|---|
+| Cuándo sale a patrullar | `patrullarSinPelota` (SÍ), `MS_QUIETO_PARA_PATRULLAR` (20000, 5000..60000), `MS_SIN_PELOTA_PARA_PATRULLAR`, `CUADROS_PARA_CORTAR_PATRULLA` | sin patrulla |
+| Cuál patrulla | `patrullaPorLaLinea` (NO; poner SÍ pide confirmar: está a medio probar), `patrullaPorElLateral` (SÍ), `alternarLadoPatrulla` (SÍ) | la del lateral: sin patrulla o con la de la línea |
+| Volviendo al medio desde un lateral | `buscarLineaDelAreaAlVolver` (SÍ), `MS_AVANCE_10CM` (450, 100..800, de a 10) | si nunca vuelve de un lateral / sin la vuelta con la línea |
+| El ANCHO DEL ÁREA | `MS_PUNTA_A_PUNTA_FIJO` (2548, 0..4000, de a 10), `VEL_LINEA` (90, 75..150, de a 5) | si no lo usa nadie (ni la vuelta con la línea ni la patrulla por la línea) |
+| La patrulla POR LA LÍNEA DEL ÁREA | `MS_QUIETO_PARA_MIRAR` (3000, 0..5000: "ES DE PRUEBA", para jugar bajarlo), `VEL_ATRAS_A_LA_LINEA` (80, 75..150), `MS_PUNTA_SOSTENIDA` (80), `MS_TOPE_PUNTA` (5000) | sin la patrulla por la línea (así viene) |
+| Límite lateral | `LECTURAS_PARA_CREER_LATERAL` | sin límite lateral |
+
+Las grises salen de `SE_USA_SI_PARTIDO` (manda sobre `GRIS_SI_PARTIDO`), con las cuentas de lo que hace el `.ino`
+(`arrancarPatrulla()`, `vueltaVioLaLineaDelArea()`, `MEDIO_LINEA_AL_MEDIO`): `patrulla_por_la_linea`,
+`patrulla_al_lateral`, `vuelve_de_un_lateral` (la patrulla al lateral, `irAlMedioSiNoHayLinea` o
+`volverAlMedioEnElLateral`), `vuelta_con_la_linea` y `usa_el_ancho_del_area`. Lo que falta en el archivo cuenta como
+NO si es de la 0921i y como SÍ si es de siempre. `potenciaEmpujon` ahora también la usa el avance de la vuelta.
+Quedan fijos en el `.ino` (no van en la tabla): `MS_MIN_ANTES_DE_PUNTA` 300, `LADO_PATRULLA_LINEA` -1,
+`remedirLineaSiempre` false, `MS_VERDE_PARA_ARMAR` 150 y `MS_BLANCO_LINEA_VUELTA` 20.
+
+**Las reglas nuevas** (16.4): **E7** `MS_PUNTA_A_PUNTA_FIJO` entre 1 y 499 · **E8** `MS_PUNTA_A_PUNTA_FIJO` 0 con la
+vuelta con la línea (no iría al medio) · **O18** `MS_QUIETO_PARA_MIRAR` ≥ 1000 con la patrulla por la línea · **O19**
+cambiar `VEL_LINEA` sin cambiar `MS_PUNTA_A_PUNTA_FIJO` (aunque hoy no lo use nadie) · **O20** 0 con la patrulla por la
+línea (usa lo que midió solo) · **O21** `MS_TOPE_PUNTA` < `MS_PUNTA_A_PUNTA_FIJO` con la patrulla por la línea · **O22**
+lo medido en CANCHA paso 7 fue a otra fuerza que `VEL_LINEA` (si no salió la O19). La O6 (tocar lo del movimiento)
+nombra también `MS_PUNTA_A_PUNTA_FIJO`. Con la fábrica de la 0921i sale solo la N1, como antes.
+
+**CANCHA paso 7 · Medir el ancho del ÁREA** y **la P** (CONTRATO, los dos lados):
+- `!P [fuerza] [c]`: fuerza de 75 a 150 (sin número, `VEL_LINEA_AREA` = 90). La ventana manda la `VEL_LINEA` de la
+  pestaña PARTIDO (el archivo con el editor encima): `!P 90` / `!P 90 c`.
+- `#INICIO P ANCHO_AREA tope=12000 sincable=0|1` → `#AREA ok= error= ms= izq= vel= umbral= desvio= rampa=` (`ok`
+  primero y `rampa` último; `ms` = de costado a costado, lo que va en `MS_PUNTA_A_PUNTA_FIJO`; `izq` = hasta la línea
+  izquierda; `vel` = la fuerza con que midió) → `RESULTADO: P ANCHO_AREA -> ...` (texto) → `#FIN P`. Errores: 0 midió
+  bien, 2 el sensor de ADELANTE sobre una línea al terminar la cuenta, 3 no encontró la línea en 4 s, 4 se cayó el
+  giroscopio (10 mudas seguidas), 5 menos de 500 ms (no creíble), 6 lo frenaron, 7 el tope. `rc`, `#REPITE P` y
+  `#GUARDADO que=cancha n=P` como las otras de cancha; guarda en el bloque de cancha del tablero (2944..3071): no
+  toca 3584 ni 3600.
+- La lógica es COPIA de `pruebas/medir-ancho-area` (los mismos números: la autoprueba los compara contra ese `.ino`):
+  adentro del área, el sensor de ADELANTE en el verde; de costado a la IZQUIERDA hasta que ese sensor ve la línea del
+  costado del área, frena, 500 ms quieto, y a la DERECHA (primero deja atrás la primera línea) hasta la del otro costado
+  CONTANDO EL TIEMPO. Cambia: la fuerza la manda la ventana, la cuenta es la del tablero (3 s, o 10 s sin cable), PARAR
+  y el tope andan, y el resultado va a la EEPROM del tablero.
+- `FECHA_CONTRATO` = `2026-11-09`. Con un `#HOLA` de un tablero más viejo la ventana NO manda `!P` y dice "Cargar el
+  TABLERO".
+- La ventana: el paso dice cómo apoyarlo (y lo repite al mandar `!P`); el sugerido es el promedio de las corridas buenas
+  A LA `VEL_LINEA` DE PARTIDO (las de otra fuerza no cuentan, y lo dice), con aviso si hay una sola o difieren más de
+  5 %; la hoja guarda `[AREA] sugerido` y `vel`; en vez de USAR ESTE / COPIAR AL PANEL tiene **PASAR A PARTIDO →**, que
+  lo pone (tildado) en `MS_PUNTA_A_PUNTA_FIJO` del EDITOR. De una hoja medida a otra fuerza sale en rojo y no se pasa.
+
+**La autoprueba** suma: la tabla de la 0921i (fábrica, rangos, orden del grupo, textos, confirmación), las grises en
+cada combinación, E7/E8/O18..O22, la 0921g como ANTERIOR (línea, archivo, copias), la P en el traductor, la memoria, el
+robot de mentira y la ventana, el `#AREA` de `tablero.ino` campo por campo, los números de la P contra
+`medir-ancho-area.ino`, y sobre el partido de verdad (solo leído): que sea la 0921i, que con `sello=fabrica` tenga los
+de fábrica, y que siga haciendo lo que dicen los textos del grupo 5 (la vuelta a `VEL_LINEA` la mitad, el avance a
+`potenciaEmpujon`, `patrullaPorLaLinea` manda, la alternancia, los 300 ms y la cuenta desde que se prende).
+
+**La revisión (09/11 a la tarde) arregló tres textos que no decían lo que hace la 0921i:**
+- `MS_AVISO_ARMADO`: el mínimo pasó de 2000 a **3000** (ver la tabla de arriba). Un archivo 0921g con 2000 (que ahí
+  sí servía: se contaba después del giroscopio) sale en rojo (E6): para jugar, cargar la 0921i.
+- CANCHA 2c: dice que vuelve al medio SOLO POR TIEMPO (5.5) y se llama "Comprobar ir al medio (por tiempo)".
+  `MS_MEDIO_AL_MEDIO` dice que si en el partido corta en la línea y ahí queda corrido, es `MS_PUNTA_A_PUNTA_FIJO`.
+- `MS_AVANCE_10CM` ya no dice "queda pegado a la línea → SUBIR" (eso es `msEmpujonFinal`): después del avance y de
+  ir al medio viene `MEDIO_AL_AREA` (atrás HASTA la línea) y el empujoncito, así que dónde queda al final lo decide
+  `msEmpujonFinal`; `MS_AVANCE_10CM` solo cambia por dónde va de costado al medio. `msEmpujonFinal` lo dice.
+
+**Lo que NO se hizo:** la estrategia 2 (después, si el equipo quiere); nada se probó con el robot (el robot tiene
+cargada la estrategia 2: cargar el TABLERO o el PARTIDO desde el tablero la reemplaza); `README.md` y los `.bat` no se
+tocaron.

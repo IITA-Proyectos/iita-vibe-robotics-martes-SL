@@ -27,11 +27,21 @@ SERIE_DELANTERO = "15708680"   # el otro robot: a este NO se le carga nada
 
 
 def buscar_pio():
-    pio = os.path.join(os.path.expanduser("~"), ".platformio", "penv",
-                       "Scripts", "pio.exe")
+    """La orden para correr PlatformIO, como lista.
+
+    2026-11-09: desde ese dia Windows (el "Control inteligente de
+    aplicaciones") BLOQUEA pio.exe, porque no tiene firma digital. Por eso se
+    usa el python.exe de PlatformIO (firmado) con "-m platformio": es el mismo
+    PlatformIO, sin pasar por pio.exe.
+    """
+    scripts = os.path.join(os.path.expanduser("~"), ".platformio", "penv", "Scripts")
+    python = os.path.join(scripts, "python.exe")
+    if os.path.exists(python):
+        return [python, "-m", "platformio"]
+    pio = os.path.join(scripts, "pio.exe")
     if os.path.exists(pio):
-        return pio
-    return "pio"   # si esta en el PATH
+        return [pio]
+    return ["pio"]   # si esta en el PATH
 
 
 def teensys_enchufados():
@@ -111,8 +121,8 @@ def main():
     print(" 🚨 Si es el programa de partido, el robot va a arrancar solo.")
     print("=" * 60)
 
-    r = subprocess.run([buscar_pio(), "run", "-e", "teensy41", "-t", "upload",
-                        "-d", carpeta])
+    r = subprocess.run(buscar_pio() + ["run", "-e", "teensy41", "-t", "upload",
+                                       "-d", carpeta])
     if r.returncode != 0:
         print()
         print("FALLO. Si es un error de compilacion, no se cargo nada.")

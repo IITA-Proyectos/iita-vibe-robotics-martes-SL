@@ -21,8 +21,9 @@
        10 s para desenchufar, el robot la hace solo, la GUARDA en la
        EEPROM y el LED dice la nota. Al volver a enchufar (sin apagar la
        bateria) la ventana la pide y la muestra.
-     - las MEDICIONES DE CANCHA: la linea, el ancho, el fondo, la camara e
-       ir al medio, para preparar una cancha nueva sin internet.
+     - las MEDICIONES DE CANCHA: la linea, el ancho, el fondo, la camara,
+       ir al medio y (09/11) el ancho del AREA para la patrulla, para
+       preparar una cancha nueva sin internet.
 
    LOS 10 MOVIMIENTOS (todo lo que mueve el robot es COPIA DEL PARTIDO)
      1 COSTADO_IZQ   de costado a la IZQUIERDA, lento (velLenta)
@@ -38,13 +39,18 @@
                      Termina en el primer despeje que sale
     10 IDA           solo la ida del despeje (msPruebaIda): frena y se queda,
                      para medir con regla cuanto sale
-   LAS 5 MEDICIONES DE CANCHA
+   LAS 6 MEDICIONES DE CANCHA
      L  la linea (4 s por fase: verde, blanco IZQ, blanco DER; o guiada por
         el LED, sin cable). No mueve.
      A  el ancho y MS_MEDIO_AL_MEDIO (la logica de medir-ancho). MUEVE.
      F  el fondo: MS_MEDIO_FONDO_POR_TIEMPO (con TOCO) o comprobarlo. MUEVE.
      C  3 s de camara con esta luz. No mueve.
      I  la rutina de ir al medio del partido, para comprobar. MUEVE.
+     P  (2026-11-09) el ancho del AREA para la patrulla por la linea de la
+        0921i: MS_PUNTA_A_PUNTA_FIJO (la logica de pruebas/medir-ancho-area).
+        Adentro del area, el sensor de ADELANTE en el verde: de costado a la
+        IZQUIERDA hasta la linea del costado del area, y a la DERECHA hasta
+        la del otro costado CONTANDO EL TIEMPO. MUEVE.
 
    QUE MIDE
    En cada vuelta del programa, el giroscopio dice cuanto se torcio contra
@@ -119,7 +125,11 @@
      2048 .. 2943   TABLERO: el ultimo MOVIMIENTO  (magia "ATM1")
      2944 .. 3071   TABLERO: la ultima MEDICION DE CANCHA (magia "ATC1")
      3072 .. 3583   registro de despejes del partido 0.1103 (NUNCA se escribe)
-     3584 .. 4283   libre
+     3584 .. 3595   partido 0921i: el largo de la linea del area que midio solo
+     3600 .. 3611   pruebas/medir-ancho-area (lo que midio ese programa)
+     3612 .. 4283   libre
+   (La P de este tablero guarda en SU bloque de cancha, 2944..3071: no toca
+   ni 3584 ni 3600.)
    La EEPROM se escribe SOLO con el robot quieto y frenado.
 
    ---------------------------------------------------------------------
@@ -136,14 +146,15 @@
    distinguir mayusculas. El robot habla SOLO si hay alguien escuchando
    (if (Serial)), y mientras se mueve no manda NADA, salvo los #PASO de A e
    I con el robot frenado entre tramo y tramo.
-   Las 26 etiquetas: HOLA S V DEF OK ERROR GIRO CUENTA INICIO PASO FRENO M
+   Las 27 etiquetas: HOLA S V DEF OK ERROR GIRO CUENTA INICIO PASO FRENO M
    MIRE R USADOS CONSEJO FIN REPITE GUARDADO LIN ANCHO FONDO CAM MEDIO
-   PANEL FINPANEL.
+   PANEL FINPANEL AREA.
 
    CODIGOS: 1 COSTADO_IZQ, 2 COSTADO_DER, 3 RAPIDO_IZQ, 4 RAPIDO_DER,
    5 IDA_Y_VUELTA, 6 DESPEJE, 7 UBICARSE, 8 SEGUIR, 9 ATAJAR, 10 IDA;
    L (LINEA_VERDE, LINEA_BLANCO_IZQ, LINEA_BLANCO_DER, LINEA_GUIADA),
-   A ANCHO, F (FONDO, FONDO_COMPROBAR), C CAMARA, I IR_AL_MEDIO.
+   A ANCHO, F (FONDO, FONDO_COMPROBAR), C CAMARA, I IR_AL_MEDIO,
+   P ANCHO_AREA (2026-11-09).
 
    PC -> ROBOT (solo se leen en ESPERA)
      !1 .. !10        la prueba con cable (cuenta 3 s)
@@ -152,6 +163,9 @@
      !L c             la linea GUIADA por el LED, sin cable
      !A [c]  !F [c]  !C [c]  !I [c]     (en !F la "c" es COMPROBAR, sin cable;
                                          midiendo con !F, la letra t = TOCO)
+     !P [fuerza] [c]  el ancho del area a esa fuerza de costado (75 a 150;
+                      sin numero: VEL_LINEA_AREA = 90). La ventana manda la
+                      VEL_LINEA de la pestana PARTIDO: !P 90  /  !P 90 c
      x                en ESPERA: frena 400 ms y suelta
      =NOMBRE valor    cambiar un numero en la RAM (tambien =NOMBRE=valor)
      ?  ayuda (#V, #DEF y texto)     v  lineas para el panel (#PANEL)
@@ -192,6 +206,10 @@
      #FONDO ms= como=TOCO|LINEA|TOPE|TIEMPO|PARADO desvio= umbral= probado=
      #CAM n= cero= val= xp=min,max,prom yp= am= az=
      #MEDIO ok= pasos=p1..p8 como=c1..c8 desvio= acomodo=
+     #AREA ok= error= ms= izq= vel= umbral= desvio= rampa=
+         (ms = de costado a costado del area, el numero que va en
+          MS_PUNTA_A_PUNTA_FIJO; izq = lo que tardo hasta la linea izquierda;
+          vel = la fuerza con que midio, TIENE que ser la VEL_LINEA del partido)
      #PANEL declaracion nombre = valor; ... #FINPANEL
 
    SECUENCIAS
@@ -208,7 +226,7 @@
               Una prueba SIN CABLE queda nuevo=1 aunque la tanda haya
               salido en vivo (el Teensy no sabe si lo desenchufaron:
               ver terminarPrueba). Solo r / rc la pasan a nuevo=0.
-     cancha:  igual, pero la tanda es #LIN/#ANCHO/#FONDO/#CAM/#MEDIO + #FIN.
+     cancha:  igual, pero la tanda es #LIN/#ANCHO/#FONDO/#CAM/#MEDIO/#AREA + #FIN.
    ===================================================================== */
 
 #include <Arduino.h>
@@ -218,7 +236,7 @@
 #include <Adafruit_BNO055.h>
 
 const char*    SALUDO_PROGRAMA = "tablero-arquero";
-const char*    FECHA_CONTRATO  = "2026-11-03";
+const char*    FECHA_CONTRATO  = "2026-11-09";      // 09/11: + la P (el ancho del area)
 const char*    PARTIDO_COPIADO = "0.1103";      // la VERSION del partido de la que son las copias
 const uint32_t SERIE_ARQUERO   = 13348550;      // el numero de serie USB del Teensy del ARQUERO
 
@@ -272,7 +290,8 @@ enum Fase { APAGADO, ARMANDOSE, ESPERANDO, SIGUIENDO,
             // ---- TABLERO (2026-11-03): las fases de la prueba ----
             COSTADO, COSTADO_VUELTA,     // 1 a 5 (de ajustar-movimientos)
             P_FRENO, P_QUIETO,           // el freno y el quieto del final
-            P_LINEA, P_ANCHO, P_FONDO, P_FONDO_FRENO, P_CAMARA };   // cancha
+            P_LINEA, P_ANCHO, P_FONDO, P_FONDO_FRENO, P_CAMARA,     // cancha
+            P_AREA };                    // (2026-11-09) el ancho del area
 
 // COPIA del partido (0.1103): por que salio o no salio un despeje.
 enum Resultado { R_SALE_MIRANDO, R_SALE_SIN_MIRAR, R_MUY_ABIERTO, R_NO_ALCANZA,
@@ -315,7 +334,7 @@ struct Intento {
 struct Cabecera {
   uint32_t magia;          // "ATM1" o "ATC1": si no esta, es basura
   uint8_t  version;        // 1
-  uint8_t  codigo;         // 1..10, o 'L' 'A' 'F' 'C' 'I'
+  uint8_t  codigo;         // 1..10, o 'L' 'A' 'F' 'C' 'I' 'P'
   uint8_t  nuevo;          // 1 = nadie lo vio todavia
   uint8_t  sinCable;       // 1 = se pidio sin cable
   uint16_t largo;          // sizeof de lo guardado (para validar)
@@ -352,12 +371,15 @@ struct DatosAncho { uint8_t error, endereza, calgiro, libre;
 struct DatosFondo { uint8_t como, libre; uint16_t ms, umbral, probado; int16_t desvio; };
 struct DatosCam   { uint16_t n, cero, val, am, az; uint8_t xpmin, xpmax; uint16_t xpprom10; int16_t yp10; };
 struct DatosMedio { uint8_t acomodo, libre; uint16_t pasos[8]; char como[8]; int16_t desvio; };
+// (2026-11-09) P: el ancho del area. ms = de costado a costado (lo que va en
+// MS_PUNTA_A_PUNTA_FIJO), izq = hasta la linea izquierda, desvio en decimas.
+struct DatosArea  { uint8_t error, libre; uint16_t ms, izq, vel, umbral, rampa; int16_t desvio; };
 struct DatosCancha {
-  char    codigo;          // 'L' 'A' 'F' 'C' 'I'
+  char    codigo;          // 'L' 'A' 'F' 'C' 'I' 'P'
   char    variante;        // L: v i d c; F: 0 medir, c comprobar; los demas 0
   uint8_t ok;              // 1 = OK, 0 = ERROR
   uint8_t libre;
-  union { DatosLin lin; DatosAncho an; DatosFondo fo; DatosCam ca; DatosMedio me; } u;
+  union { DatosLin lin; DatosAncho an; DatosFondo fo; DatosCam ca; DatosMedio me; DatosArea ar; } u;
 };
 struct BloqueCancha { Cabecera c; DatosCancha d; };
 
@@ -673,7 +695,7 @@ unsigned long nPaquetes = 0, paquetesPorSegundo = 0, t_contadores = 0;
 //   ESTADO DEL TABLERO
 // =====================================================================
 Modo modo = ESPERA;
-int  prueba = 0;                       // 1..10, o 'L' 'A' 'F' 'C' 'I'
+int  prueba = 0;                       // 1..10, o 'L' 'A' 'F' 'C' 'I' 'P'
 char variante = 0;                     // L: v i d c; F: 0 medir, c comprobar
 bool sinCablePedido = false;
 unsigned long t_cuenta = 0;
@@ -767,6 +789,22 @@ int  camXpMin = 255, camXpMax = 0;
 // I
 uint16_t mePasos[8];
 char     meComo[8];
+// P (2026-11-09): el ancho del area. COPIA de pruebas/medir-ancho-area, con
+// los MISMOS numeros. Solo cambia que la fuerza la manda la ventana (la
+// VEL_LINEA de la pestana PARTIDO) y que arranca con la cuenta del tablero.
+const int VEL_LINEA_AREA = 90;                  // la VEL_LINEA de la 0921i (si la orden no trae fuerza)
+const int VEL_AREA_MIN = 75, VEL_AREA_MAX = 150; // los de la pestana PARTIDO (parado no arranca con menos)
+const unsigned long AR_MS_BLANCO_SOSTENIDO = 15;     // la linea del costado: blanco este rato seguido
+const unsigned long AR_MS_MIN_ANTES_DE_LA_LINEA = 200; // al arrancar cada tramo no mira la linea
+const unsigned long AR_MS_TOPE_TRAMO = 4000;    // tope de cada tramo (adentro del area son menos de 3 s)
+const unsigned long AR_MS_QUIETO = 500;         // quieto entre los dos tramos
+const unsigned long AR_MS_FRENO = 200;          // freno electrico sostenido
+const unsigned long AR_MS_VERDE_SOSTENIDO = 30; // para dar por "dejada atras" la primera linea
+const unsigned long AR_MS_MINIMO = 500;         // menos que esto de costado a costado no es creible
+const int AR_REVISAR = 0, AR_IZQ = 1, AR_QUIETO = 2, AR_DER = 3, AR_FRENO = 4;
+int   arPaso = AR_REVISAR, arVel = VEL_LINEA_AREA, arError = 0, arCeros = 0;
+unsigned long arMs = 0, arMsIzq = 0, t_arBlanco = 0, t_arVerde = 0;
+bool  arSalioDelBlanco = false, arPasoLaPrimera = false, arVioLaPrimera = false;
 
 
 // =====================================================================
@@ -1841,7 +1879,7 @@ void pasoDeFaseDePrueba(unsigned long ahora) {
 // Por que letra va cada fase en el grafico (seccion 2.4 del diseno).
 char letraDeFase(Fase f) {
   switch (f) {
-    case COSTADO: case COSTADO_VUELTA:            return 'l';
+    case COSTADO: case COSTADO_VUELTA: case P_AREA: return 'l';
     case ESPERANDO: case SIGUIENDO:               return 's';
     case MIRANDO:                                 return 'm';
     case ADELANTE:                                return 'i';
@@ -1867,7 +1905,7 @@ bool letraEnMovimiento(char c) {
   return c == 'l' || c == 's' || c == 'i' || c == 'a' || c == 'c' || c == 'v';
 }
 
-bool esCancha(int p) { return p == 'L' || p == 'A' || p == 'F' || p == 'C' || p == 'I'; }
+bool esCancha(int p) { return p == 'L' || p == 'A' || p == 'F' || p == 'C' || p == 'I' || p == 'P'; }
 
 // L y C no mueven y A mide a su manera: en esas no se usa anotar().
 bool midoElGiro() { return prueba != 'L' && prueba != 'C' && prueba != 'A'; }
@@ -2477,6 +2515,7 @@ bool canchaValida() {
   }
   if (d.codigo == 'F' && d.u.fo.como > FO_PARADO) return false;
   if (d.codigo == 'A' && d.u.an.error > 7) return false;
+  if (d.codigo == 'P' && (d.u.ar.error > 7 || d.u.ar.vel > 255)) return false;
   if (d.codigo == 'I') {
     for (int i = 0; i < 8; i++) {
       char x = d.u.me.como[i];
@@ -2571,7 +2610,7 @@ void repetirCancha() {
 
 
 // =====================================================================
-//   LAS MEDICIONES DE CANCHA (L A F C I)
+//   LAS MEDICIONES DE CANCHA (L A F C I P)
 // =====================================================================
 
 const char* nombreDe(int p, char v) {
@@ -2586,6 +2625,7 @@ const char* nombreDe(int p, char v) {
     case 'F': return (v == 'c') ? "FONDO_COMPROBAR" : "FONDO";
     case 'C': return "CAMARA";
     case 'I': return "IR_AL_MEDIO";
+    case 'P': return "ANCHO_AREA";
     default:  return "?";
   }
 }
@@ -2876,6 +2916,128 @@ void pasoCamara(unsigned long ahora) {
   }
 }
 
+// ---------- P: el ancho del area (la logica de pruebas/medir-ancho-area) ----------
+// (2026-11-09) Pedido del equipo: "agregale una funcion en el tablero sobre la
+// patrulla". Es lo que hace medir-ancho-area (con el que midieron los 2548 ms
+// de MS_PUNTA_A_PUNTA_FIJO), adentro del tablero: con la cuenta, PARAR, el
+// tope, el modo sin cable y el informe en la EEPROM, como las otras.
+//   1. al terminar la cuenta, el sensor de ADELANTE tiene que estar en el
+//      VERDE (si no, error 2: no mide);
+//   2. de costado a la IZQUIERDA hasta que el sensor de adelante ve la linea
+//      blanca del COSTADO del area. Frena y queda quieto;
+//   3. a la DERECHA hasta la linea del OTRO costado, CONTANDO EL TIEMPO.
+//      Primero deja atras la linea de la que salio (aunque se haya pasado
+//      con el envion del freno): el problema que vio el equipo el 09/11.
+// Va a la fuerza arVel (la que manda la ventana: la VEL_LINEA del partido),
+// con moverDeCostado: la mezcla 50/50/89, la rampa y SOLO la correccion de
+// rumbo del giroscopio, igual que la patrulla de la 0921i.
+bool adelanteVeBlanco() { return analogRead(LINEA_ADELANTE) >= umbralBlanco; }
+
+void empezarTramoArea(int paso, unsigned long ahora) {
+  arPaso = paso;
+  t_fase = ahora;
+  t_arBlanco = 0;
+  arSalioDelBlanco = false;
+  arPasoLaPrimera = false;
+  arVioLaPrimera = adelanteVeBlanco();      // ¿arranca encima de la linea, o se paso?
+  t_arVerde = 0;
+  arCeros = 0;
+  reiniciarRampaMovimiento();
+  reiniciarCorreccion();
+}
+
+// Un paso de un tramo hacia `lado` (-1 izquierda, +1 derecha). true al llegar
+// a la LINEA del costado: el sensor de adelante estuvo en verde en este tramo
+// y despues ve blanco AR_MS_BLANCO_SOSTENIDO seguidos (sin mirar los primeros
+// AR_MS_MIN_ANTES_DE_LA_LINEA). COPIA de tramo() de medir-ancho-area.
+bool tramoArea(int lado, unsigned long ahora) {
+  moverDeCostado(lado * arVel);             // tambien lee el giroscopio
+  if (ultimaMuda) arCeros++; else arCeros = 0;
+  bool blanco = adelanteVeBlanco();
+
+  // Solo en la vuelta: primero dejar atras la linea de la que salio.
+  if (arPaso == AR_DER && !arPasoLaPrimera) {
+    if (blanco) { arVioLaPrimera = true; t_arVerde = 0; }
+    else if (arVioLaPrimera) {
+      if (t_arVerde == 0) t_arVerde = ahora;
+      if (ahora - t_arVerde >= AR_MS_VERDE_SOSTENIDO) arPasoLaPrimera = true;
+    }
+    t_arBlanco = 0;
+    return false;
+  }
+
+  if (!blanco) arSalioDelBlanco = true;
+  if (!blanco || !arSalioDelBlanco || ahora - t_fase < AR_MS_MIN_ANTES_DE_LA_LINEA) { t_arBlanco = 0; return false; }
+  if (t_arBlanco == 0) t_arBlanco = ahora;
+  return ahora - t_arBlanco >= AR_MS_BLANCO_SOSTENIDO;
+}
+
+void fallaArea(int error) {
+  frenar();
+  arError = error;
+  terminarPrueba(COMO_NORMAL);
+}
+
+void pasoArea(unsigned long ahora) {
+  switch (arPaso) {
+    case AR_REVISAR:
+      // Recien termino la cuenta (el rumbo a sostener ya esta tomado).
+      parar();
+      if (adelanteVeBlanco()) { fallaArea(2); return; }   // sobre una linea: no mide
+      empezarTramoArea(AR_IZQ, ahora);
+      break;
+    case AR_IZQ:
+      digitalWrite(LED, HIGH);
+      if (tramoArea(-1, ahora)) {
+        arMsIzq = ahora - t_fase;
+        frenar();
+        arPaso = AR_QUIETO; t_fase = ahora;
+        break;
+      }
+      if (arCeros >= 10) { fallaArea(4); return; }          // el giroscopio se cayo
+      if (ahora - t_fase >= AR_MS_TOPE_TRAMO) { fallaArea(3); return; }
+      break;
+    case AR_QUIETO:
+      if (ahora - t_fase < AR_MS_FRENO) { frenar(); break; }
+      parar();
+      if (ahora - t_fase >= AR_MS_FRENO + AR_MS_QUIETO) empezarTramoArea(AR_DER, ahora);
+      break;
+    case AR_DER:
+      digitalWrite(LED, HIGH);
+      if (tramoArea(+1, ahora)) {
+        arMs = ahora - t_fase;                // 🎯 la medicion: de costado a costado
+        frenar();
+        arError = (arMs < AR_MS_MINIMO) ? 5 : 0;
+        arPaso = AR_FRENO; t_fase = ahora;
+        break;
+      }
+      if (arCeros >= 10) { fallaArea(4); return; }
+      if (ahora - t_fase >= AR_MS_TOPE_TRAMO) { fallaArea(3); return; }
+      break;
+    case AR_FRENO:
+      // Frena quieto y recien despues termina (la EEPROM se escribe quieto).
+      if (ahora - t_fase < AR_MS_FRENO) { frenar(); break; }
+      parar();
+      terminarPrueba(COMO_NORMAL);
+      break;
+    default:
+      break;
+  }
+}
+
+const char* textoErrorArea(int e) {
+  switch (e) {
+    case 0: return "midio bien";
+    case 2: return "el sensor de ADELANTE estaba sobre una linea blanca: ponelo en el verde";
+    case 3: return "no encontro la linea del costado a tiempo (4 s): estaba adentro del area?";
+    case 4: return "sin giroscopio (se cayo andando)";
+    case 5: return "de costado a costado tardo muy poco: no es creible (vio la misma linea?)";
+    case 6: return "lo frenaron";
+    case 7: return "se paso del tope de tiempo";
+    default: return "?";
+  }
+}
+
 // Arma el resultado de cancha en bCancha.d.
 void cerrarCancha(Como como, unsigned long ahora) {
   DatosCancha &c = bCancha.d;
@@ -2939,6 +3101,21 @@ void cerrarCancha(Como como, unsigned long ahora) {
       m.desvio  = s16(lround(peorEnMov * 10));
       m.acomodo = (uint8_t)constrain(acomodoMax, 0, 255);
       c.ok = (!corte && encontroLaLinea) ? 1 : 0;
+      break;
+    }
+    case 'P': {
+      DatosArea &a = c.u.ar;
+      int err = arError;
+      if (como == COMO_TECLA) err = 6;
+      if (como == COMO_TOPE)  err = 7;
+      a.error  = (uint8_t)err;
+      a.ms     = a16(arMs);
+      a.izq    = a16(arMsIzq);
+      a.vel    = (uint16_t)arVel;
+      a.umbral = (uint16_t)umbralBlanco;
+      a.rampa  = (uint16_t)RAMPA_MOV_PASO;
+      a.desvio = s16(lround(peorEnMov * 10));
+      c.ok = (err == 0) ? 1 : 0;
       break;
     }
     default:
@@ -3043,6 +3220,28 @@ void mandarTandaCancha(bool conFreno, Como como) {
       finDeLinea();
       break;
     }
+    case 'P': {
+      // 🚨 CONTRATO con la ventana (tablero.py: _i_area): estos campos, en este orden.
+      const DatosArea &a = c.u.ar;
+      Serial.print("#AREA ok="); Serial.print(c.ok);
+      Serial.print(" error=");   Serial.print(a.error);
+      Serial.print(" ms=");      Serial.print(a.ms);
+      Serial.print(" izq=");     Serial.print(a.izq);
+      Serial.print(" vel=");     Serial.print(a.vel);
+      Serial.print(" umbral=");  Serial.print(a.umbral);
+      Serial.print(" desvio=");  imprimirDecimas(a.desvio);
+      Serial.print(" rampa=");   Serial.print(a.rampa);
+      finDeLinea();
+      Serial.print("RESULTADO: P ANCHO_AREA -> "); Serial.print(c.ok ? "OK, " : "ERROR, ");
+      Serial.print(textoErrorArea(a.error));
+      if (c.ok) {
+        Serial.print(". De costado a costado: "); Serial.print(a.ms);
+        Serial.print(" ms a fuerza "); Serial.print(a.vel);
+        Serial.print(" (al medio: "); Serial.print(a.ms / 2); Serial.print(" ms)");
+      }
+      finDeLinea();
+      break;
+    }
     default:
       break;
   }
@@ -3100,6 +3299,7 @@ unsigned long topeDe(int p) {
     case 'F':         return (variante == 'c') ? 8000 : 6000;
     case 'C':         return 4000;
     case 'I':         return 40000;
+    case 'P':         return 12000;         // 2 tramos de 4 s como mucho + los frenos
     default:          return 3000;
   }
 }
@@ -3243,6 +3443,8 @@ void arrancarMovimiento() {
   camN = 0; camCero = 0; camVal = 0; camAm = 0; camAz = 0; camXpSuma = 0; camYpSuma = 0;
   camXpMin = 255; camXpMax = 0; camMidiendo = false;
   for (int i = 0; i < 8; i++) { mePasos[i] = 0; meComo[i] = '-'; }
+  arPaso = AR_REVISAR; arError = 0; arCeros = 0; arMs = 0; arMsIzq = 0;   // (arVel lo puso la orden)
+  t_arBlanco = 0; t_arVerde = 0; arSalioDelBlanco = false; arPasoLaPrimera = false; arVioLaPrimera = false;
 
   if (Serial) {
     Serial.print("#INICIO "); imprimirCodigo(prueba); Serial.print(' ');
@@ -3277,6 +3479,7 @@ void arrancarMovimiento() {
     case 'A': fase = P_ANCHO; break;
     case 'F': fase = P_FONDO; break;
     case 'C': fase = P_CAMARA; camMidiendo = true; break;
+    case 'P': fase = P_AREA; break;
     case 'I':
       // Como el partido cuando no encuentra la linea al ubicarse.
       ubicandose = true;
@@ -3304,6 +3507,7 @@ void pasoDeLaPrueba(unsigned long ahora) {
     case P_ANCHO:  pasoAncho(ahora);  break;
     case P_FONDO: case P_FONDO_FRENO: pasoFondo(ahora); break;
     case P_CAMARA: pasoCamara(ahora); break;
+    case P_AREA:   pasoArea(ahora);   break;
     default:       pasoDelPartido(ahora); break;
   }
   if (modo != MOVIENDO) return;            // termino en esta vuelta
@@ -3386,6 +3590,8 @@ void ledEnEspera(unsigned long ahora) {
       digitalWrite(LED, ((ahora % 2000) < 120) ? HIGH : LOW);   // latido lento = bien
     } else if (bCancha.d.codigo == 'A' && bCancha.d.u.an.error >= 2 && bCancha.d.u.an.error <= 5) {
       destellos(bCancha.d.u.an.error, ahora);                   // el error del ancho
+    } else if (bCancha.d.codigo == 'P' && bCancha.d.u.ar.error >= 2 && bCancha.d.u.ar.error <= 5) {
+      destellos(bCancha.d.u.ar.error, ahora);                   // el del area: 2 sobre una linea, 3 no la vio
     } else {
       digitalWrite(LED, temblar ? HIGH : LOW);                  // no salio
     }
@@ -3570,6 +3776,8 @@ void ayuda() {
   decir("  !F c                 comprobar MS_MEDIO_FONDO_POR_TIEMPO, sin cable");
   decir("  !C  (!C c)           3 s de camara (no mueve)");
   decir("  !I  (!I c)           ir al medio como el partido, para comprobar (mueve)");
+  decir("  !P 90  (!P 90 c)     el ancho del AREA a fuerza 90 (MS_PUNTA_A_PUNTA_FIJO): adentro del");
+  decir("                       area, el sensor de ADELANTE en el verde (mueve de costado)");
   decir("PARAR: x   (y CUALQUIER tecla en la cuenta o mientras se mueve; Enter solo no).");
   decir("       SIN CABLE, PARAR no llega: levantarlo o apagar la bateria.");
   decir("CAMBIAR UN NUMERO: =NOMBRE valor   por ejemplo  =umbralCm 32");
@@ -3780,10 +3988,29 @@ void cambiarNumero(char* s) {
   mandarValores(false);
 }
 
-// "!..." (llega sin el "!"): !1..!10 [c], !L v|i|d|c, !A !F !C !I [c].
+// (2026-11-09) "!P [fuerza] [c]" (llega sin el "!P"): el ancho del area.
+void pedirArea(char* q) {
+  while (*q == ' ' || *q == '\t') q++;
+  long vel = VEL_LINEA_AREA;
+  if (isdigit((unsigned char)*q)) {
+    vel = strtol(q, &q, 10);
+    while (*q == ' ' || *q == '\t') q++;
+  }
+  bool sc = false;
+  if (*q == 'c' || *q == 'C') {
+    sc = true; q++;
+    while (*q == ' ' || *q == '\t') q++;
+  }
+  if (*q != 0) { mandarError("!P se pide asi: !P, !P 90, !P c o !P 90 c (la fuerza de costado)", "", ""); return; }
+  if (vel < VEL_AREA_MIN || vel > VEL_AREA_MAX) { mandarError("!P: la fuerza va de 75 a 150", "", ""); return; }
+  arVel = (int)vel;
+  empezarCuenta('P', sc ? 'c' : 0, sc);
+}
+
+// "!..." (llega sin el "!"): !1..!10 [c], !L v|i|d|c, !A !F !C !I [c], !P [fuerza] [c].
 void pedirMovimiento(char* r) {
   while (*r == ' ' || *r == '\t') r++;
-  if (*r == 0) { mandarError("falta el numero del movimiento: !1 a !10, o !L !A !F !C !I", "", ""); return; }
+  if (*r == 0) { mandarError("falta el numero del movimiento: !1 a !10, o !L !A !F !C !I !P", "", ""); return; }
   char* original = r;
   if (isdigit((unsigned char)*r)) {
     char* resto;
@@ -3795,13 +4022,14 @@ void pedirMovimiento(char* r) {
       while (*resto == ' ' || *resto == '\t') resto++;
     }
     if (*resto != 0 || k < 1 || k > 10) {
-      mandarError("no hay movimiento ", original, ": son del !1 al !10, y los de cancha !L !A !F !C !I");
+      mandarError("no hay movimiento ", original, ": son del !1 al !10, y los de cancha !L !A !F !C !I !P");
       return;
     }
     empezarCuenta((int)k, 0, sc);
     return;
   }
   char letra = (char)toupper((unsigned char)*r);
+  if (letra == 'P') { pedirArea(r + 1); return; }
   char* resto = r + 1;
   while (*resto == ' ' || *resto == '\t') resto++;
   bool hayArg = (*resto != 0);
@@ -3823,7 +4051,7 @@ void pedirMovimiento(char* r) {
     default:
       break;
   }
-  mandarError("no hay movimiento ", original, ": son del !1 al !10, y los de cancha !L !A !F !C !I");
+  mandarError("no hay movimiento ", original, ": son del !1 al !10, y los de cancha !L !A !F !C !I !P");
 }
 
 void procesarLinea(char* s) {

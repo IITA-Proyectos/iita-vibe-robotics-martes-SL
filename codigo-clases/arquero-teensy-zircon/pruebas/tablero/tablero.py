@@ -21,8 +21,11 @@ QUÉ TIENE
                Da la línea exacta para copiar al PANEL DE CONTROL y anota
                todo en una HOJA DE CANCHA (canchas/AAAA-MM-DD_nombre.txt).
   PARTIDO      (2026-11-08) los valores del programa con el que JUEGAN
-               (funciona\partido-0921, la 0921): arriba lo de cada cancha
-               (los sensores, el tamaño), abajo lo demás. Se cambian, se
+               (funciona\partido-0921, la 0921i desde el 09/11: la 0921g +
+               la patrulla a los DOS laterales, la vuelta al medio con la
+               línea del área, arrancar a los 3 s y la patrulla por la línea
+               del área, escrita pero APAGADA; grupo 5 · LA PATRULLA): arriba
+               lo de cada cancha (los sensores, el tamaño), abajo lo demás. Se cambian, se
                guardan (con copia) y se CARGAN al robot con un botón; el
                robot confirma con su línea #PARTIDO. También "Cargar el
                TABLERO" (para MOVIMIENTOS y CANCHA).
@@ -96,10 +99,10 @@ TRANSPORTE
   separados por UN espacio, listas con comas, decimales con punto. Nombres
   como en el panel del partido (umbralCm, KP_RUMBO): ^[A-Za-z][A-Za-z0-9_]*$
   (el robot los compara sin distinguir mayúsculas).
-  Las 27 etiquetas: HOLA S V DEF OK ERROR GIRO CUENTA INICIO PASO FRENO M
+  Las 28 etiquetas: HOLA S V DEF OK ERROR GIRO CUENTA INICIO PASO FRENO M
   MIRE R USADOS CONSEJO FIN REPITE GUARDADO LIN ANCHO FONDO CAM MEDIO PANEL
-  FINPANEL PARTIDO (la PARTIDO la manda el programa de PARTIDO, desde la
-  0921g, al arrancar: NO tablero.ino). Otra = DESCONOCIDA. Otra #ETIQUETA adentro del renglón = ROTA.
+  FINPANEL AREA PARTIDO (AREA desde el 09/11; la PARTIDO la manda el programa de PARTIDO, desde la
+  0921g, al arrancar: NO tablero.ino; la 0921i la manda igual). Otra = DESCONOCIDA. Otra #ETIQUETA adentro del renglón = ROTA.
   El robot habla solo si hay alguien escuchando (if (Serial)), y MIENTRAS
   SE MUEVE NO MANDA NADA (salvo #PASO de A e I, con el robot frenado).
 
@@ -107,12 +110,15 @@ CÓDIGOS  1 COSTADO_IZQ  2 COSTADO_DER  3 RAPIDO_IZQ  4 RAPIDO_DER
          5 IDA_Y_VUELTA  6 DESPEJE  7 UBICARSE  8 SEGUIR  9 ATAJAR  10 IDA
          L LINEA_VERDE/LINEA_BLANCO_IZQ/LINEA_BLANCO_DER/LINEA_GUIADA
          A ANCHO   F FONDO/FONDO_COMPROBAR   C CAMARA   I IR_AL_MEDIO
+         P ANCHO_AREA (09/11: el ancho del área, para MS_PUNTA_A_PUNTA_FIJO)
 
 PC -> ROBOT (solo se leen en ESPERA; en CUENTA o MOVIENDO cualquier byte
              que no sea \r ni \n FRENA y no se interpreta)
   !1..!10 [c]        un movimiento (c = SIN CABLE: cuenta 10 s en vez de 3)
   !L v|i|d|c         la línea: verde / blanco IZQ / blanco DER / guiada sin cable
   !A [c]  !F [c]  !C [c]  !I [c]     ancho, fondo (t = TOCÓ), cámara, ir al medio
+  !P [fuerza] [c]    el ancho del área a esa fuerza (75 a 150; la ventana manda
+                     la VEL_LINEA de la pestaña PARTIDO: !P 90)
   x                  en ESPERA: frena 400 ms y suelta
   =NOMBRE valor      cambiar un número en la RAM   -> #OK + #V, o #ERROR
   ?  ayuda (#V #DEF)   v  líneas para el panel (#PANEL... #FINPANEL)
@@ -121,7 +127,7 @@ PC -> ROBOT (solo se leen en ESPERA; en CUENTA o MOVIENDO cualquier byte
   rc repetir la última MEDICIÓN DE CANCHA
 
 ROBOT -> PC (ejemplos exactos)
-  #HOLA tablero-arquero 2026-11-03 serie=13348550 partido=0.1103
+  #HOLA tablero-arquero 2026-11-09 serie=13348550 partido=0.1103   (era 2026-11-03: sin la P)
   #GUARDADO que=mov hay=1 n=9 nombre=ATAJAR nota=CASI sincable=1 nuevo=1 mismo=1 hace=48210
   #GUARDADO que=cancha hay=0
   #GIRO buscando  /  #GIRO ok=1 estado=5
@@ -151,10 +157,14 @@ ROBOT -> PC (ejemplos exactos)
   #FONDO ms= como=TOCO|LINEA|TOPE|TIEMPO|PARADO desvio= umbral= probado=
   #CAM n= cero= val= xp=min,max,prom yp= am= az=
   #MEDIO ok= pasos=p1..p8 como=c1..c8 desvio= acomodo=
+  #AREA ok= error= ms= izq= vel= umbral= desvio= rampa=   (ok PRIMERO, rampa
+     ÚLTIMO; ms = de costado a costado del área = MS_PUNTA_A_PUNTA_FIJO, a vel)
   #PANEL <declaración del panel> nombre = valor;  ...  #FINPANEL
-  #PARTIDO version=0921g sello=fabrica giro=1 umbralBlanco=425 ... interruptores=1111111110101
+  #PARTIDO version=0921i sello=fabrica giro=1 umbralBlanco=425 ... interruptores=1111111110101
      (la manda el programa de PARTIDO al arrancar, cada 1/2 s mientras
-     parpadea; version PRIMERO e interruptores ÚLTIMO. DISENO sección 16.)
+     parpadea; version PRIMERO e interruptores ÚLTIMO. DISENO sección 16.
+     La 0921i manda los MISMOS campos que la 0921g; una 0921g se entiende
+     igual y se dice "versión ANTERIOR". DISENO 16.11.)
 
 SECUENCIAS
   (a) normal: >>> -> #CUENTA... -> #INICIO -> (silencio) -> #M... -> (#MIRE en
@@ -221,11 +231,19 @@ PARTIDO_0921_INO = os.path.join(PARTIDO_CARPETA, NOMBRE_PARTIDO_INO)
 COPIAS_PARTIDO = os.path.join(CARPETA, "copias-partido")     # las copias de seguridad (.txt, NUNCA .ino)
 CARGAR_PY = os.path.normpath(os.path.join(CARPETA, "..", "herramientas", "cargar.py"))
 _PENV = os.path.join(os.path.expanduser("~"), ".platformio", "penv", "Scripts")
-PIO = os.path.join(_PENV, "pio.exe") if os.path.exists(os.path.join(_PENV, "pio.exe")) else "pio"
 if os.path.exists(os.path.join(_PENV, "python.exe")):
     PY = os.path.join(_PENV, "python.exe")
 else:                            # con pythonw no hay consola: cargar.py va con python.exe
     PY = re.sub(r"pythonw(\.exe)?$", r"python\1", sys.executable or "python", flags=re.IGNORECASE)
+# La orden de PlatformIO, como LISTA. 2026-11-09: Windows (el "Control inteligente
+# de aplicaciones") bloquea pio.exe porque no tiene firma; el python.exe de
+# PlatformIO sí la tiene, y "-m platformio" es el mismo PlatformIO. cargar.py hace igual.
+if os.path.exists(os.path.join(_PENV, "python.exe")):
+    PIO = [PY, "-m", "platformio"]
+elif os.path.exists(os.path.join(_PENV, "pio.exe")):
+    PIO = [os.path.join(_PENV, "pio.exe")]
+else:
+    PIO = ["pio"]
 # Los archivos que NUNCA se escriben (la autoprueba pone acá el partido de verdad).
 RUTAS_QUE_NO_SE_ESCRIBEN = set()
 # Dónde la DEMO hace su copia de práctica del partido (None = la carpeta temporal de Windows).
@@ -243,18 +261,25 @@ PID_SERIE = 0x0483               # una Teensy corriendo un programa, con su puer
 BAUDIOS = 19200
 PROGRAMA = "tablero-arquero"     # lo que dice "#HOLA" si el robot tiene ESTE programa
 PROGRAMA_DELANTERO = "tablero-delantero"   # el del otro equipo: pines cruzados
-FECHA_CONTRATO = "2026-11-03"
+FECHA_CONTRATO = "2026-11-09"   # (09/11: + la P, el ancho del área; era 2026-11-03)
+# Desde esta fecha el tablero.ino sabe medir el ancho del área (!P, #AREA). Un
+# robot con un TABLERO más viejo contesta "no hay movimiento P": la ventana
+# lo dice antes de mandarlo (cargar el TABLERO de nuevo).
+FECHA_TABLERO_CON_AREA = "2026-11-09"
 PARTIDO_COPIADO = "0.1103"       # la versión del partido de la que son las copias
 LARGO_MAX_ORDEN = 71             # el búfer del robot es de 72 (con el '\n')
 
 ETIQUETAS = ("HOLA", "S", "V", "DEF", "OK", "ERROR", "GIRO", "CUENTA", "INICIO", "PASO", "FRENO",
              "M", "MIRE", "R", "USADOS", "CONSEJO", "FIN", "REPITE", "GUARDADO",
              "LIN", "ANCHO", "FONDO", "CAM", "MEDIO", "PANEL", "FINPANEL",
-             "PARTIDO")          # la #PARTIDO la manda el programa de PARTIDO (0921g), NO tablero.ino
+             "AREA",             # (2026-11-09) el ancho del área (la P), para la patrulla
+             "PARTIDO")          # la #PARTIDO la manda el programa de PARTIDO (0921g, 0921i), NO tablero.ino
 # ---- la línea de versión del partido (0921g, 2026-11-08). Es un CONTRATO con
 # avisarVersion() del .ino: version PRIMERO e interruptores ÚLTIMO (si no, el
 # renglón vino cortado). Si se agrega un campo, va antes de interruptores y
-# se agrega también allá.
+# se agrega también allá. (2026-11-09) La 0921i manda EXACTAMENTE los mismos
+# campos que la 0921g: lo nuevo de la patrulla por la línea NO va en la línea
+# (lo confirma el SELLO, como todo lo que no va).
 CAMPOS_PARTIDO = ("version", "sello", "giro", "umbralBlanco", "CAMARA_POR_CM", "MS_MEDIO_AL_MEDIO",
                   "MS_MEDIO_FONDO_POR_TIEMPO", "MS_MAX_RETROCESO", "msAdelante", "umbralCm", "umbralDesvio",
                   "potenciaDespeje", "pwmMinLateral", "pwmMaxLateral", "kpLateral", "MS_QUIETO_PARA_PATRULLAR",
@@ -265,17 +290,45 @@ ORDEN_INTERRUPTORES = ("volverAlMedioEnElLateral", "patrullarSinPelota", "patrul
                        "irAlMedioSiNoHayLinea", "avanzarAlUbicarse", "perseguirEnElDespeje",
                        "esperarPlanoAntesDeVolver", "rampaAlVolver", "empujonFinal", "despejeEnDiagonal",
                        "enderezarActivado", "lateralInvertido", "camaraYInvertida")
-LINEA_PARTIDO_FABRICA = ("#PARTIDO version=0921g sello=fabrica giro=1 umbralBlanco=425 CAMARA_POR_CM=2.87 "
+# ---- las versiones del programa de partido (2026-11-09) ----
+# La que maneja ESTE tablero (la de funciona/partido-0921, subida en ebb5518):
+# la 0921i = la 0921g + la patrulla al lateral A LOS DOS LADOS (de la 0921h) +
+# la VUELTA AL MEDIO CON LA LÍNEA DEL ÁREA + arrancar a los 3 s de prenderlo +
+# el empujoncito de 15 cm + LA PATRULLA POR LA LÍNEA DEL ÁREA (escrita, pero
+# APAGADA: patrullaPorLaLinea = false) + MS_QUIETO_PARA_PATRULLAR 20000.
+# (2026-11-09, a la tarde) Ojo: a la mañana del 09/11 hubo OTRA "0921i" (con
+# la patrulla por la línea PRENDIDA y 15000) que se cambió sin cambiarle el
+# nombre. Lo que vale es la de ebb5518: son los de fábrica de TABLA_PARTIDO.
+VERSION_PARTIDO_HOY = "0921i"
+# Las ANTERIORES que también dicen su #PARTIDO (con los MISMOS campos): se
+# entienden igual y la ventana dice "versión ANTERIOR" (para jugar con la de
+# hoy: CARGAR EL PARTIDO). Qué valía cada una de fábrica: FABRICA_DE_ANTES (1b).
+VERSIONES_PARTIDO_ANTERIORES = {
+    "0921g": "la del 08/11: patrulla siempre al lateral izquierdo, sin la vuelta con la línea del área, empujoncito "
+             "de 10 cm y patrulla a los 10 s",
+}
+LINEA_PARTIDO_FABRICA = ("#PARTIDO version=0921i sello=fabrica giro=1 umbralBlanco=425 CAMARA_POR_CM=2.87 "
                          "MS_MEDIO_AL_MEDIO=2228 MS_MEDIO_FONDO_POR_TIEMPO=2000 MS_MAX_RETROCESO=1500 msAdelante=533 "
                          "umbralCm=30.0 umbralDesvio=20.0 potenciaDespeje=200 pwmMinLateral=70 pwmMaxLateral=160 "
-                         "kpLateral=11.50 MS_QUIETO_PARA_PATRULLAR=10000 interruptores=1111111110101")
+                         "kpLateral=11.50 MS_QUIETO_PARA_PATRULLAR=20000 interruptores=1111111110101")
+# La de la 0921g (la ANTERIOR), tal cual la decía de fábrica: la usa la autoprueba.
+LINEA_PARTIDO_0921G = ("#PARTIDO version=0921g sello=fabrica giro=1 umbralBlanco=425 CAMARA_POR_CM=2.87 "
+                       "MS_MEDIO_AL_MEDIO=2228 MS_MEDIO_FONDO_POR_TIEMPO=2000 MS_MAX_RETROCESO=1500 msAdelante=533 "
+                       "umbralCm=30.0 umbralDesvio=20.0 potenciaDespeje=200 pwmMinLateral=70 pwmMaxLateral=160 "
+                       "kpLateral=11.50 MS_QUIETO_PARA_PATRULLAR=10000 interruptores=1111111110101")
 MODOS = ("ESPERA", "CUENTA", "MOVIENDO")
-CODIGOS = ("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "L", "A", "F", "C", "I")
-CODIGOS_CANCHA = ("L", "A", "F", "C", "I")
+CODIGOS = ("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "L", "A", "F", "C", "I", "P")
+CODIGOS_CANCHA = ("L", "A", "F", "C", "I", "P")
 NOMBRES_CANCHA = {
     "L": ("LINEA_VERDE", "LINEA_BLANCO_IZQ", "LINEA_BLANCO_DER", "LINEA_GUIADA"),
     "A": ("ANCHO",), "F": ("FONDO", "FONDO_COMPROBAR"), "C": ("CAMARA",), "I": ("IR_AL_MEDIO",),
+    "P": ("ANCHO_AREA",),
 }
+# (2026-11-09) Los errores de la P (#AREA error=), como los dice tablero.ino.
+TEXTO_ERROR_AREA = {0: "midió bien", 2: "el sensor de ADELANTE estaba sobre una línea blanca (ponelo en el verde)",
+                    3: "no encontró la línea del costado a tiempo (¿estaba adentro del área?)",
+                    4: "sin giroscopio (se cayó andando)", 5: "tardó muy poco: no es creíble (¿vio la misma línea?)",
+                    6: "lo frenaron", 7: "se pasó del tope de tiempo"}
 # Las fases de las muestras #M: (cómo se lee, color en el gráfico)
 FASES = {
     "l": ("de costado", "#6a1b9a"),
@@ -624,7 +677,12 @@ ESTADOS_GIRO = {
 #  cambiar los valores y cargarlo con esos nuevos de forma rápida". Arriba lo
 #  fundamental (los sensores y el tamaño de la cancha) y abajo lo demás.
 #  De ESTA tabla sale todo (como de TABLA): las filas, los rangos, los de
-#  fábrica y la autoprueba. "Fábrica" = el texto TAL CUAL en la 0921f.
+#  fábrica y la autoprueba. "Fábrica" = el texto TAL CUAL en la 0921i del
+#  09/11 (la de ebb5518) = la 0921f congelada en respaldos/ con lo que cambió
+#  la versión (FABRICA_DE_ANTES, abajo: MS_QUIETO_PARA_PATRULLAR 10000 -> 20000,
+#  msEmpujonFinal 320 -> 450, MS_AVISO_ARMADO 2000 -> 3000) y las 10 filas
+#  que la 0921g no tenía (NUEVOS_EN_LA_0921I: la patrulla y la vuelta con la
+#  línea del área).
 #    (nombre, declaración en el .ino, tipo, FÁBRICA, unidad, mínimo, máximo,
 #     paso, grupo, qué es, para qué lado, atado)
 #    tipo: "i" int · "u" unsigned long · "f" float · "b" bool · "l" lado (-1/+1)
@@ -644,10 +702,13 @@ TABLA_PARTIDO = (
      "pruebas: " + COPIAS_A_MANO["umbralBlanco"] + "."),
     ("MS_MEDIO_AL_MEDIO", _CUL, "u", "2228", "ms", 500, 3200, 10, "cancha",
      "Cuánto va de costado, a fuerza 100, desde el lateral IZQUIERDO hasta el medio. Lo usan ir al medio, la "
-     "patrulla y el límite lateral.",
+     "patrulla al lateral y el límite lateral. (0921i) Con buscarLineaDelAreaAlVolver SÍ, si en la vuelta ve la "
+     "línea del área, corta ahí y sigue con la mitad de MS_PUNTA_A_PUNTA_FIJO (grupo 5).",
      "No llega al medio (queda del lado del lateral del que salió) → SUBIR. Se pasa del medio → BAJAR. "
      "Miralo en ir al medio o la patrulla: salen del lateral de LADO_MEDIO (−1 = el IZQUIERDO, la izquierda "
-     "del robot mirando para donde mira él). El límite lateral sale del que pisó. Se mide: CANCHA paso 2.",
+     "del robot mirando para donde mira él). El límite lateral sale del que pisó. Se mide: CANCHA paso 2, y se "
+     "comprueba en el 2c (solo por tiempo). Si en el partido corta en la línea del área y AHÍ queda corrido, no es "
+     "esto: es MS_PUNTA_A_PUNTA_FIJO (grupo 5).",
      "ATADO a VEL_MEDIO_MEDIR (100), LADO_TRASERA, RAMPA_MOV_PASO y el rumbo: si se toca uno, medirlo de nuevo. "
      "Desde el lateral DERECHO daba 2331."),
     ("MS_MEDIO_FONDO_POR_TIEMPO", _CUL, "u", "2000", "ms", 500, 4000, 100, "cancha",
@@ -684,16 +745,6 @@ TABLA_PARTIDO = (
      "la pelota) y retrocede a la línea del área.",
      "NO = sin límite, como el 21/09: se puede ir de largo y chocar la madera.",
      "Necesita giroscopio. Ojo si NO y pwmMaxLateral 150 o más."),
-    ("patrullarSinPelota", "bool", "b", "true", "", None, None, None, "interruptores",
-     "PATRULLA: sin pelota y quieto 10 s, va al lateral, vuelve al medio y a la línea del área. Así el juez ve "
-     "que está vivo (el 21/09 y el 12/10 lo sacaron por quieto).",
-     "NO = quieto para siempre.",
-     "Ojo con NO: el juez lo puede sacar por quieto."),
-    ("patrullaPorElLateral", "bool", "b", "true", "", None, None, None, "interruptores",
-     "Cómo patrulla. SÍ = hasta el lateral y de vuelta al medio (~8 s, ~5 con el arco solo).",
-     "NO = PLAN B: solo atrás a la línea, enderezarse y el poquito (~1,3 s; no descubre el arco, pero tampoco "
-     "se vuelve a centrar).",
-     "Gris si patrullarSinPelota = NO."),
     ("irAlMedioSiNoHayLinea", "bool", "b", "true", "", None, None, None, "interruptores",
      "IR AL MEDIO AL ARRANCAR: si al ubicarse no encuentra la línea del área, hace la rutina (lateral, fondo, "
      "lateral, medio, área).",
@@ -701,7 +752,7 @@ TABLA_PARTIDO = (
      "Atado a MS_MAX_RETROCESO y a la rutina de ir al medio (grupo 1)."),
     ("avanzarAlUbicarse", "bool", "b", "true", "", None, None, None, "interruptores",
      "Al encontrar la línea del área (al arrancar, después de patrullar o del límite lateral) se endereza y "
-     "avanza el poquito (~10 cm).",
+     "avanza el poquito (msEmpujonFinal: ~15 cm desde la 0921i).",
      "NO = se queda parado sobre la línea (y la patrulla da por hecho que NO arranca sobre el blanco).",
      "Atado a potenciaEmpujon y msEmpujonFinal."),
     ("perseguirEnElDespeje", "bool", "b", "true", "", None, None, None, "interruptores",
@@ -787,10 +838,12 @@ TABLA_PARTIDO = (
     ("potenciaEmpujon", "int", "i", "100", "fuerza", 70, 150, 10, "despeje",
      "Fuerza del empujoncito final. Despacio a propósito: rápido patina.",
      "",
-     "ATADO a msEmpujonFinal."),
-    ("msEmpujonFinal", "int", "i", "320", "ms", 0, 600, 20, "despeje",
-     "Cuánto dura el empujoncito. 320 ≈ 10 cm a 100 (18/08).",
-     "Queda pegado a la línea → SUBIR. Queda muy adelante → BAJAR.",
+     "ATADO a msEmpujonFinal y a MS_AVANCE_10CM (grupo 5: avanzan a esta fuerza)."),
+    ("msEmpujonFinal", "int", "i", "450", "ms", 0, 600, 20, "despeje",
+     "Cuánto dura el empujoncito (después del despeje y al ubicarse). 450 ≈ 15 cm a fuerza 100: el 09/11 pasó de "
+     "320 (10 cm) a 450, pedido del equipo. Es una CUENTA del 18/08 (15 / 0,041 + 83 ms), no está medido con regla.",
+     "Queda pegado a la línea → SUBIR. Queda muy adelante → BAJAR. Medilo con regla. ES EL QUE DECIDE dónde queda "
+     "AL FINAL, también después de ir al medio, de la patrulla y del límite lateral (MS_AVANCE_10CM no).",
      "ATADO a potenciaEmpujon."),
     ("MS_ENFRIAMIENTO", _CUL, "u", "1500", "ms", 300, 3000, 100, "despeje",
      "Después de un despeje se queda quieto esto, sin volver a salir.",
@@ -814,10 +867,25 @@ TABLA_PARTIDO = (
      "También la usa la ida.",
      "Tiembla con la pelota quieta → SUBIR. No se acomoda con la pelota apenas corrida → BAJAR.",
      ""),
-    # ---- 5 · PATRULLA Y LÍMITE LATERAL ----
-    ("MS_QUIETO_PARA_PATRULLAR", _CUL, "u", "10000", "ms", 5000, 60000, 1000, "patrulla",
-     "Si pasa este rato sin moverse (y sin pelota), sale a patrullar.",
-     "Si el juez aguanta más quieto → SUBIR: cada patrulla deja el arco solo ~5 s. Preguntarle al juez.",
+    # ---- 5 · LA PATRULLA Y EL LÍMITE LATERAL (0921i) ----
+    # (2026-11-09) Pedido del equipo: "agregale una funcion en el tablero sobre
+    # la patrulla", y a la tarde "adapta el programa solo para el 0921i". Todo
+    # lo de la patrulla junto, en el orden en que lo usa el robot: cuándo sale,
+    # CUÁL patrulla, la del lateral (la que se usa: patrullaPorLaLinea = false),
+    # la vuelta al medio con la línea del área, el ancho del área (lo usan las
+    # dos) y la patrulla por la línea (escrita, pero APAGADA). Lo que NO está acá
+    # se deja fijo en el .ino: MS_MIN_ANTES_DE_PUNTA 300, LADO_PATRULLA_LINEA -1,
+    # remedirLineaSiempre false, MS_VERDE_PARA_ARMAR 150, MS_BLANCO_LINEA_VUELTA 20.
+    ("patrullarSinPelota", "bool", "b", "true", "", None, None, None, "patrulla",
+     "LA LLAVE DE LA PATRULLA: sin pelota y quieto MS_QUIETO_PARA_PATRULLAR (20 s), sale a patrullar. Así el juez ve "
+     "que está vivo (el 21/09 y el 12/10 lo sacaron por quieto). CUÁL patrulla: patrullaPorLaLinea (abajo).",
+     "NO = quieto para siempre: no patrulla NADA, ni al lateral ni por la línea del área (el 09/11 a la mañana la "
+     "apagaron para un partido y después la prendieron otra vez).",
+     "Ojo con NO: el juez lo puede sacar por quieto."),
+    ("MS_QUIETO_PARA_PATRULLAR", _CUL, "u", "20000", "ms", 5000, 60000, 1000, "patrulla",
+     "Si pasa este rato sin moverse (y sin pelota), sale a patrullar. 0921i: 20 s, pedido del equipo (\"que inicie a "
+     "20\"; era 10 s, y a la mañana del 09/11, 15).",
+     "Si el juez aguanta más quieto → SUBIR. Si lo saca por quieto antes → BAJAR. Preguntarle al juez.",
      "Gris si patrullarSinPelota = NO."),
     ("MS_SIN_PELOTA_PARA_PATRULLAR", _CUL, "u", "3000", "ms", 1000, 10000, 500, "patrulla",
      "...y además tiene que llevar este rato SEGUIDO sin ver la pelota (si un rival se la tapa un instante, "
@@ -825,9 +893,93 @@ TABLA_PARTIDO = (
      "",
      "Gris si patrullarSinPelota = NO."),
     ("CUADROS_PARA_CORTAR_PATRULLA", "const int", "i", "5", "cuadros", 2, 15, 1, "patrulla",
-     "Si patrullando ve la pelota estos cuadros seguidos (~0,2 s), corta la patrulla y la sigue.",
+     "Si patrullando ve la pelota estos cuadros seguidos (~0,2 s), corta la patrulla y la sigue (también en la "
+     "vuelta con la línea del área de la patrulla y del límite lateral, y en la patrulla por la línea aunque esté "
+     "quieto mirando; ir al medio al ARRANCAR se deja terminar).",
      "Corta por reflejos → SUBIR. Tarda en reaccionar → BAJAR.",
      "Gris si patrullarSinPelota = NO."),
+    ("patrullaPorLaLinea", "bool", "b", "false", "", None, None, None, "patrulla",
+     "CUÁL PATRULLA. NO (así viene: pedido del equipo, 09/11, \"la patrulla de antes, que iba hacia un lateral y "
+     "luego volvía al medio por tiempo\") = la patrulla AL LATERAL de la cancha (patrullaPorElLateral, a los dos "
+     "lados con alternarLadoPatrulla). SÍ = la patrulla POR LA LÍNEA DEL ÁREA: atrás hasta la línea, a la punta "
+     "IZQUIERDA y a la derecha la mitad de MS_PUNTA_A_PUNTA_FIJO; nunca sale del área.",
+     "SÍ = no deja el arco solo, pero quedó a medio probar (el 09/11 la cambiaron por la de antes). Antes de jugar "
+     "con SÍ: probala y bajá MS_QUIETO_PARA_MIRAR.",
+     "Gris si patrullarSinPelota = NO. Con SÍ, patrullaPorElLateral y alternarLadoPatrulla no se usan. Si en "
+     "MS_MAX_RETROCESO no ve la línea, se endereza y juega desde ahí."),
+    ("patrullaPorElLateral", "bool", "b", "true", "", None, None, None, "patrulla",
+     "La patrulla AL LATERAL (con patrullaPorLaLinea = NO, la de hoy). SÍ = hasta el lateral de la cancha y de "
+     "vuelta al medio por tiempo (~8 s, ~5 con el arco solo).",
+     "NO = PLAN B: solo atrás a la línea, enderezarse y el poquito (~1,3 s; no descubre el arco, pero tampoco "
+     "se vuelve a centrar).",
+     "Gris si patrullarSinPelota = NO o si patrullaPorLaLinea = SÍ (con SÍ manda la de la línea)."),
+    ("alternarLadoPatrulla", "bool", "b", "true", "", None, None, None, "patrulla",
+     "La patrulla al lateral A LOS DOS LADOS (de la 0921h): una al lateral IZQUIERDO, la siguiente al DERECHO, y "
+     "así. Ir al medio al arrancar va siempre por el de LADO_MEDIO (el izquierdo, de donde se midió).",
+     "NO = siempre al lateral IZQUIERDO (como la 0921f).",
+     "Desde el DERECHO vuelve con el MISMO MS_MEDIO_AL_MEDIO (la cuenta del 06/10 daba 2331): si desde la derecha "
+     "queda corto del medio, es eso. Con buscarLineaDelAreaAlVolver SÍ se centra con la línea del área. Gris si no "
+     "patrulla al lateral."),
+    ("buscarLineaDelAreaAlVolver", "bool", "b", "true", "", None, None, None, "patrulla",
+     "VOLVIENDO AL MEDIO desde un lateral (la patrulla al lateral, ir al medio al arrancar y el límite lateral): si un "
+     "sensor de atrás ve la línea del área, frena, avanza MS_AVANCE_10CM y va de costado hacia el medio la MITAD de "
+     "MS_PUNTA_A_PUNTA_FIJO, a VEL_LINEA. Después, atrás hasta la línea como siempre.",
+     "NO = como antes: vuelve el tiempo entero de MS_MEDIO_AL_MEDIO y listo.",
+     "ATADO a MS_AVANCE_10CM, MS_PUNTA_A_PUNTA_FIJO y VEL_LINEA (aunque la patrulla por la línea esté en NO). Gris "
+     "si nunca vuelve de un lateral (sin patrulla al lateral, sin ir al medio y sin límite lateral)."),
+    # (2026-11-09, revisión) NO decide dónde queda al final: después del avance
+    # y de ir de costado al medio viene MEDIO_AL_AREA (atrás HASTA VER la línea)
+    # y el empujoncito (msEmpujonFinal). Antes decía lo mismo que msEmpujonFinal.
+    ("MS_AVANCE_10CM", _CUL, "u", "450", "ms", 100, 800, 10, "patrulla",
+     "Volviendo al medio, al ver la línea del área: cuánto AVANZA (a potenciaEmpujon, 100) para despegarse de la "
+     "línea ANTES de ir de costado al medio. 450 ≈ 15 cm. El nombre dice 10CM, pero el 09/11 pasó de 320 (10 cm) a "
+     "450, pedido del equipo. NO cambia dónde queda al final: después vuelve para atrás HASTA la línea y avanza "
+     "msEmpujonFinal (grupo 3).",
+     "Queda pegado a la línea o muy adelante AL FINAL → eso es msEmpujonFinal (grupo 3), NO esto. Esto solo cambia "
+     "POR DÓNDE va de costado hacia el medio: en ese tramo va pisando la línea → SUBIR. Va muy adelante y deja el "
+     "arco solo ese rato → BAJAR. Es una cuenta del 18/08: medilo con regla.",
+     "ATADO a potenciaEmpujon (avanza a esa fuerza). Gris si buscarLineaDelAreaAlVolver = NO."),
+    ("MS_PUNTA_A_PUNTA_FIJO", _CUL, "u", "2548", "ms", 0, 4000, 10, "patrulla",
+     "EL ANCHO DEL ÁREA en tiempo: cuánto tarda de costado, a VEL_LINEA, de un costado del área al otro (09/11: "
+     "2548, medido por el equipo con medir-ancho-area). Lo usan DOS cosas, y las dos van la MITAD (1274 ms): la "
+     "vuelta con la línea del área y la patrulla por la línea (desde la punta izquierda). Se mide: CANCHA paso 7.",
+     "No llega al medio → SUBIR. Se pasa del medio → BAJAR. 0 = la patrulla por la línea usa lo que midió el robot "
+     "solo y guardó; para la vuelta con la línea NO sirve (no iría al medio: no deja guardar).",
+     "ATADO a VEL_LINEA: se midió a ESA fuerza (2548 a 90). Si cambiás VEL_LINEA, medilo de nuevo (CANCHA paso 7 "
+     "mide a la VEL_LINEA de acá) y pasalo con PASAR A PARTIDO. También cambia si se tocan LADO_TRASERA, "
+     "RAMPA_MOV_PASO o el rumbo. Gris si no lo usa nadie."),
+    ("VEL_LINEA", "const int", "i", "90", "fuerza", 75, 150, 5, "patrulla",
+     "Fuerza de costado con la que se MIDIÓ el ancho del área y con la que se usa: la vuelta con la línea (hacia el "
+     "medio) y la patrulla por la línea (hasta la punta y al medio).",
+     "Zumba y no avanza → SUBIR de a 5 (no menos de 75: parado no arranca). Se pasa mucho de la punta → BAJAR.",
+     "ATADO a MS_PUNTA_A_PUNTA_FIJO: ese tiempo se midió a ESTA fuerza. Si la cambiás, medí de nuevo el ancho del "
+     "área (CANCHA paso 7) y pasalo. Atado también a MS_PUNTA_SOSTENIDA (más rápido = más se pasa de la punta). "
+     "Gris si no lo usa nadie."),
+    ("MS_QUIETO_PARA_MIRAR", _CUL, "u", "3000", "ms", 0, 5000, 500, "patrulla",
+     "Patrulla por la línea: cuánto se queda QUIETO al llegar a la línea, y otra vez al llegar al medio, para que el "
+     "equipo vea dónde quedó. ⚠ ES DE PRUEBA (09/11).",
+     "⚠ PARA EL PARTIDO conviene BAJARLO (500, o 0): con 3000 son 6 s quieto en cada patrulla. Si aparece la "
+     "pelota, igual corta y la sigue.",
+     "Gris si no patrulla por la línea (patrullaPorLaLinea = NO, así viene)."),
+    ("VEL_ATRAS_A_LA_LINEA", "const int", "i", "80", "fuerza", 75, 150, 5, "patrulla",
+     "Patrulla por la línea: fuerza para atrás hasta encontrar la línea del área, al empezar. Más despacio que la "
+     "vuelta del despeje (potenciaRetroceso), para que frene cerca de donde la vio.",
+     "Zumba y no llega → SUBIR de a 5 (no menos de 75: parado no arranca). Frena pasado de la línea (se mete en el "
+     "área) → BAJAR.",
+     "Atado a MS_MAX_RETROCESO (el tope: si no ve la línea, se endereza y juega desde ahí). Gris si no patrulla por "
+     "la línea."),
+    ("MS_PUNTA_SOSTENIDA", _CUL, "u", "80", "ms", 20, 400, 10, "patrulla",
+     "Patrulla por la línea: la PUNTA de la línea es cuando el sensor de atrás de ese lado (yendo a la izquierda, el "
+     "IZQUIERDO) ve VERDE todo este rato SEGUIDO (sin contar los primeros 300 ms del tramo).",
+     "Frena antes de la punta (por un temblor) → SUBIR de a 10. Se pasa mucho de la punta → BAJAR.",
+     "Atado a VEL_LINEA (más rápido = más se pasa en ese rato). Gris si no patrulla por la línea."),
+    ("MS_TOPE_PUNTA", _CUL, "u", "5000", "ms", 2000, 6000, 250, "patrulla",
+     "Patrulla por la línea: tope del tramo hasta la punta. Si no la encuentra en este rato, frena, se endereza y "
+     "juega desde donde quedó (no se queda yendo y viniendo).",
+     "Corta antes de llegar a la punta (el área es más larga) → SUBIR. Si no ve la punta, sigue de costado hasta "
+     "el tope: más chico = se aleja menos.",
+     "Tiene que ser más que MS_PUNTA_A_PUNTA_FIJO (desde la otra punta tarda eso). Gris si no patrulla por la "
+     "línea."),
     ("LECTURAS_PARA_CREER_LATERAL", "const int", "i", "3", "lecturas", 1, 10, 1, "patrulla",
      "Límite lateral: cuántas vueltas seguidas pisando el lateral necesita para creerle.",
      "Vuelve al medio sin haber llegado al lateral → SUBIR. Se pasa de la línea → BAJAR.",
@@ -952,10 +1104,18 @@ TABLA_PARTIDO = (
      "Tope de la ida cuando la diagonal la estira.",
      "",
      "Ojo si es menos que msAdelante. Gris sin diagonal."),
-    ("MS_AVISO_ARMADO", _CUL, "u", "2000", "ms", 1000, 10000, 500, "avanzado",
-     "Al prender, cuánto parpadea antes de empezar a moverse.",
-     "Para tener más tiempo de soltarlo → SUBIR.",
-     ""),
+    # (2026-11-09, revisión) El giroscopio NO arranca en paralelo: setup() se
+    # queda esperándolo (bno.begin + delay(1000) + los datos) con el LED
+    # APAGADO, y loop() empieza a los ~2,2-2,6 s de prenderlo. La cuenta es
+    # desde millis() = 0, así que con 2000 ya estaba cumplida: se movía sin
+    # parpadear nada. Por eso el mínimo es 3000 (el de fábrica).
+    ("MS_AVISO_ARMADO", _CUL, "u", "3000", "ms", 3000, 10000, 500, "avanzado",
+     "Al prender: tiempo DESDE QUE SE PRENDE hasta que empieza a moverse (desde la 0921i; 3000 = a los 3 s, pedido "
+     "del equipo, 09/11). Los primeros ~2,5 s el LED está APAGADO (prende el giroscopio) y después parpadea, rápido "
+     "(manos afuera), solo lo que sobra: con 3000, ~0,5 s. (La 0921g: ~2,5 s de giroscopio + 2000 parpadeando.)",
+     "Para tener más tiempo de sacar las manos → SUBIR: 4000 = ~1,5 s parpadeando. No baja de 3000: con menos, el "
+     "robot se mueve apenas termina el giroscopio, SIN parpadear (sin el aviso de manos afuera).",
+     "Si al terminar el giroscopio todavía no contesta, espera (LED temblando) y recién ahí se mueve."),
     ("PWM_CUENTA_COMO_MOVERSE", "const int", "i", "60", "fuerza", 30, 100, 5, "avanzado",
      "Para el reloj de la patrulla: con menos que esto en las tres ruedas, cuenta como que \"no se movió\".",
      "",
@@ -971,18 +1131,43 @@ GRUPOS_PARTIDO = (
     ("interruptores", "2 · INTERRUPTORES (SÍ / NO)", False),
     ("despeje", "3 · EL DESPEJE", False),
     ("seguir", "4 · SEGUIR LA PELOTA", False),
-    ("patrulla", "5 · PATRULLA Y LÍMITE LATERAL", False),
+    ("patrulla", "5 · LA PATRULLA Y EL LÍMITE LATERAL (0921i)", False),
     ("avanzado", "6 · AVANZADO (cerrado: casi nunca se toca)", True),
 )
 AVISO_AVANZADO = "Casi nunca se toca. Cambiarlo cambia lo medido."
-# Los subtítulos de AVANZADO: van ANTES de ese nombre.
+# Los subtítulos (de AVANZADO y de la PATRULLA): van ANTES de ese nombre.
 SUBTITULOS_PARTIDO = {"lateralInvertido": "Signos", "enderezarActivado": "Giroscopio",
                       "TOLERANCIA_ACOMODO": "Enderezarse", "LADO_TRASERA": "Movimiento",
                       "LADO_MEDIO": "Ir al medio", "rendimientoCostado": "Diagonal (solo con despejeEnDiagonal = SÍ)",
-                      "MS_AVISO_ARMADO": "Arranque"}
+                      "MS_AVISO_ARMADO": "Arranque",
+                      # (2026-11-09) el grupo 5, el de la patrulla de la 0921i
+                      "patrullarSinPelota": "Cuándo sale a patrullar",
+                      "patrullaPorLaLinea": "Cuál patrulla (de fábrica, la del LATERAL: patrullaPorLaLinea = NO)",
+                      "buscarLineaDelAreaAlVolver": "Volviendo al medio desde un lateral: si ve la línea del área",
+                      "MS_PUNTA_A_PUNTA_FIJO": "El ANCHO DEL ÁREA (lo usan la vuelta con la línea y la patrulla por la "
+                                               "línea)",
+                      "MS_QUIETO_PARA_MIRAR": "La patrulla POR LA LÍNEA DEL ÁREA (solo con patrullaPorLaLinea = SÍ): "
+                                              "atrás hasta la línea, a la punta IZQUIERDA y a la derecha la mitad",
+                      "LECTURAS_PARA_CREER_LATERAL": "Límite lateral"}
+# (2026-11-09) Las 10 filas que la 0921g NO tenía (las trajo la 0921i): la
+# patrulla a los dos lados (de la 0921h), la vuelta al medio con la línea del
+# área y la patrulla por la línea del área.
+NUEVOS_EN_LA_0921I = ("patrullaPorLaLinea", "alternarLadoPatrulla", "buscarLineaDelAreaAlVolver", "MS_AVANCE_10CM",
+                      "MS_PUNTA_A_PUNTA_FIJO", "VEL_LINEA", "VEL_ATRAS_A_LA_LINEA", "MS_QUIETO_PARA_MIRAR",
+                      "MS_PUNTA_SOSTENIDA", "MS_TOPE_PUNTA")
+# Las versiones ANTERIORES (las que conoce este tablero): lo que valía de
+# fábrica cada una, distinto de la de hoy. Esas NO tienen NUEVOS_EN_LA_0921I.
+# None = no dice su versión (la 0921f: los mismos números que la 0921g).
+# (MS_AVISO_ARMADO, además de valer otra cosa, se contaba desde otro momento:
+# en la 0921g, después de prender el giroscopio.)
+_FABRICA_0921G = {"MS_QUIETO_PARA_PATRULLAR": "10000", "msEmpujonFinal": "320", "MS_AVISO_ARMADO": "2000"}
+FABRICA_DE_ANTES = {
+    "0921g": dict(_FABRICA_0921G),
+    None: dict(_FABRICA_0921G),
+}
 # La fila se ve GRIS (no se usa) si TODOS estos interruptores están en NO.
 GRIS_SI_PARTIDO = {
-    "patrullaPorElLateral": ("patrullarSinPelota",), "MS_QUIETO_PARA_PATRULLAR": ("patrullarSinPelota",),
+    "MS_QUIETO_PARA_PATRULLAR": ("patrullarSinPelota",),
     "MS_SIN_PELOTA_PARA_PATRULLAR": ("patrullarSinPelota",), "CUADROS_PARA_CORTAR_PATRULLA": ("patrullarSinPelota",),
     "LECTURAS_PARA_CREER_LATERAL": ("volverAlMedioEnElLateral",),
     "kpPersecucion": ("perseguirEnElDespeje",), "PWM_MAX_PERSECUCION": ("perseguirEnElDespeje",),
@@ -990,7 +1175,71 @@ GRIS_SI_PARTIDO = {
     "MS_PLANO_SOSTENIDO": ("esperarPlanoAntesDeVolver",),
     "rendimientoCostado": ("despejeEnDiagonal",), "PWM_MIN_AVANCE_DESPEJE": ("despejeEnDiagonal",),
     "COSTADO_MINIMO_UTIL": ("despejeEnDiagonal",), "MS_MAX_ADELANTE": ("despejeEnDiagonal",),
-    "potenciaEmpujon": ("empujonFinal", "avanzarAlUbicarse"), "msEmpujonFinal": ("empujonFinal", "avanzarAlUbicarse"),
+    "msEmpujonFinal": ("empujonFinal", "avanzarAlUbicarse"),
+}
+
+
+# (2026-11-09) Qué patrulla y qué vuelta usa el robot con ESOS interruptores.
+# valores: {nombre: 'true'/'false'} (el archivo con el editor encima) o los
+# valores ya validados (True/False). Lo que no está (un archivo de antes, sin
+# esas filas) cuenta como NO si es de la 0921i (NUEVOS_EN_LA_0921I) y como SÍ
+# si es de siempre (como hacía _fila_no_aplica). Es lo que hace el .ino en
+# arrancarPatrulla(), vueltaVioLaLineaDelArea() y MEDIO_LINEA_AL_MEDIO.
+def _en_no(valores, nombre):
+    x = valores.get(nombre)
+    return x is False or x == "false"
+
+
+def _en_si(valores, nombre):
+    x = valores.get(nombre)
+    return x is True or x == "true"
+
+
+def patrulla_por_la_linea(v):
+    """¿Patrulla por la línea del área? (patrullaPorLaLinea SÍ manda)."""
+    return not _en_no(v, "patrullarSinPelota") and _en_si(v, "patrullaPorLaLinea")
+
+
+def patrulla_al_lateral(v):
+    """¿Patrulla al lateral de la cancha y vuelve al medio por tiempo?"""
+    return (not _en_no(v, "patrullarSinPelota") and not _en_si(v, "patrullaPorLaLinea")
+            and not _en_no(v, "patrullaPorElLateral"))
+
+
+def vuelve_de_un_lateral(v):
+    """¿Alguna vez vuelve al medio desde un lateral? La patrulla al lateral,
+    ir al medio al arrancar (y el plan B, que arranca igual) y el límite lateral."""
+    return (patrulla_al_lateral(v) or not _en_no(v, "irAlMedioSiNoHayLinea")
+            or not _en_no(v, "volverAlMedioEnElLateral"))
+
+
+def vuelta_con_la_linea(v):
+    """¿Volviendo de un lateral, busca la línea del área (y usa MS_AVANCE_10CM,
+    MS_PUNTA_A_PUNTA_FIJO y VEL_LINEA)?"""
+    return vuelve_de_un_lateral(v) and _en_si(v, "buscarLineaDelAreaAlVolver")
+
+
+def usa_el_ancho_del_area(v):
+    """¿Alguien usa MS_PUNTA_A_PUNTA_FIJO y VEL_LINEA?"""
+    return patrulla_por_la_linea(v) or vuelta_con_la_linea(v)
+
+
+# La fila se ve GRIS si esto da False (manda sobre GRIS_SI_PARTIDO).
+SE_USA_SI_PARTIDO = {
+    "patrullaPorLaLinea": lambda v: not _en_no(v, "patrullarSinPelota"),
+    "patrullaPorElLateral": lambda v: not _en_no(v, "patrullarSinPelota") and not _en_si(v, "patrullaPorLaLinea"),
+    "alternarLadoPatrulla": patrulla_al_lateral,
+    "buscarLineaDelAreaAlVolver": vuelve_de_un_lateral,
+    "MS_AVANCE_10CM": vuelta_con_la_linea,
+    "MS_PUNTA_A_PUNTA_FIJO": usa_el_ancho_del_area,
+    "VEL_LINEA": usa_el_ancho_del_area,
+    "MS_QUIETO_PARA_MIRAR": patrulla_por_la_linea,
+    "VEL_ATRAS_A_LA_LINEA": patrulla_por_la_linea,
+    "MS_PUNTA_SOSTENIDA": patrulla_por_la_linea,
+    "MS_TOPE_PUNTA": patrulla_por_la_linea,
+    # potenciaEmpujon: el empujoncito, al ubicarse y (0921i) el avance de la vuelta con la línea
+    "potenciaEmpujon": lambda v: (not _en_no(v, "empujonFinal") or not _en_no(v, "avanzarAlUbicarse")
+                                  or vuelta_con_la_linea(v)),
 }
 # Los que piden confirmar en una ventanita: nombre -> (con qué valor pregunta, o None = con cualquier cambio; texto)
 CONFIRMAR_PARTIDO = {
@@ -1004,6 +1253,11 @@ CONFIRMAR_PARTIDO = {
                                    "patrulla, ni ir al medio, ni se endereza. Es solo para pruebas.\n\n¿Seguro?"),
     "LADO_MEDIO": (None, "Cambiar SOLO si el lateral IZQUIERDO de esta cancha no tiene línea. OJO: "
                          "MS_MEDIO_AL_MEDIO está medido desde el IZQUIERDO (desde el derecho daba 2331).\n\n¿Seguro?"),
+    # (2026-11-09) la 0921i viene con la patrulla AL LATERAL, pedido del equipo
+    "patrullaPorLaLinea": ("true", "Con SÍ patrulla POR LA LÍNEA DEL ÁREA en vez de ir al lateral. Esa patrulla quedó "
+                                   "a MEDIO PROBAR (el 09/11 la cambiaron por la de antes) y se queda "
+                                   "MS_QUIETO_PARA_MIRAR quieto dos veces en cada patrulla (de fábrica, 3 s: para "
+                                   "jugar, bajalo).\n\n¿Seguro?"),
 }
 # Variables de ESTADO de la 0921: NUNCA van en la tabla aunque parezcan
 # valores (el programa las pisa en cada despeje). Lo mira la autoprueba.
@@ -1012,7 +1266,13 @@ ESTADO_DEL_PARTIDO = ("rumboBase", "hayGiroscopo", "giroscopoRespondiendo", "msI
                       "cuadrosConPelota", "lecturasDeLateral", "ladoDelLateral", "vecesSeguidas", "cuantos",
                       "sincronizado", "Xp", "Yp", "integralRumbo", "pwmAcomodoAplicado", "reintentosAcomodo",
                       "enderezandoEnEspera", "incBaseY", "incBaseZ", "hayIncBase", "potenciaRampa",
-                      "t_ultimaVersion", "msAdelanteChico", "t_fase", "VERSION_PARTIDO", "SELLO")
+                      "t_ultimaVersion", "msAdelanteChico", "t_fase", "VERSION_PARTIDO", "SELLO",
+                      # (0921i) los de la patrulla por la línea que cambian andando (y lo
+                      # que el robot midió solo y guardó en su EEPROM 3584..3595):
+                      "ladoLinea", "ladoAlMedio", "t_puntaDesde", "msLargoLinea", "msLineaGuardado",
+                      # (0921i) la patrulla a los dos lados y la vuelta con la línea del área
+                      "ladoMedio", "ladoProximaPatrulla", "vioVerdeVuelta", "t_verdeVuelta", "t_blancoVuelta",
+                      "dirVueltaLinea")
 # Los que la línea #PARTIDO imprime con decimales (los demás van enteros)
 DECIMALES_LINEA_PARTIDO = {"CAMARA_POR_CM": 2, "umbralCm": 1, "umbralDesvio": 1, "kpLateral": 2}
 
@@ -1404,6 +1664,26 @@ def _i_medio(resto):
     return m
 
 
+def _i_area(resto):
+    """(2026-11-09) El ancho del área (la P de tablero.ino, la lógica de
+    pruebas/medir-ancho-area): #AREA ok=1 error=0 ms=2548 izq=1180 vel=90
+    umbral=425 desvio=1.4 rampa=10. ms = de costado a costado (lo que va en
+    MS_PUNTA_A_PUNTA_FIJO); vel = la fuerza con que midió."""
+    d = _pares(resto)
+    claves = list(d)
+    if not claves or claves[0] != "ok" or claves[-1] != "rampa":
+        raise ValueError("ok= tiene que ir primero y rampa= último (renglón cortado)")
+    m = {"ok": _bit(d["ok"]), "error": _entero(d["error"])}
+    for clave in ("ms", "izq", "vel", "umbral", "rampa"):
+        m[clave] = _entero(d[clave])
+        if m[clave] < 0:
+            raise ValueError("%s= negativo" % clave)
+    m["desvio"] = _numero(d["desvio"]) if "desvio" in d else None
+    if m["error"] not in TEXTO_ERROR_AREA or (m["ok"] and m["error"] != 0):
+        raise ValueError("error= raro")
+    return m
+
+
 def _i_panel(resto):
     # Tal cual, con sus espacios: es una línea de C++ para pegar.
     return {"codigo": resto}
@@ -1418,8 +1698,9 @@ _RE_NUMERO_ASCII = re.compile(r"^-?[0-9]+(?:\.[0-9]+)?$")
 
 
 def _i_partido(resto):
-    """La línea de versión del programa de PARTIDO (0921g), NO de tablero.ino:
-    #PARTIDO version=0921g sello=fabrica giro=1 umbralBlanco=425 ... interruptores=1111111110101
+    """La línea de versión del programa de PARTIDO (0921g y 0921i: los mismos
+    campos), NO de tablero.ino:
+    #PARTIDO version=0921i sello=fabrica giro=1 umbralBlanco=425 ... interruptores=1111111110101
     version PRIMERO e interruptores ÚLTIMO: si no, vino cortada (o pegada).
     Las claves de más se aceptan y se ignoran (para el futuro)."""
     d = _pares(resto)
@@ -1450,6 +1731,7 @@ _INTERPRETES = {
     "M": _i_m, "MIRE": _i_mire, "R": _i_r, "USADOS": _i_usados, "CONSEJO": _i_consejo,
     "FIN": _i_fin, "REPITE": _i_repite, "GUARDADO": _i_guardado, "LIN": _i_lin, "ANCHO": _i_ancho,
     "FONDO": _i_fondo, "CAM": _i_cam, "MEDIO": _i_medio, "PANEL": _i_panel, "FINPANEL": _i_finpanel,
+    "AREA": _i_area,
     "PARTIDO": _i_partido,
 }
 
@@ -1509,8 +1791,8 @@ def reconocer_programa(texto):
 
 # Los renglones que son parte de una TANDA de resultado (lo que manda el
 # robot al terminar, o al repetirlo con r / rc).
-_DE_LA_TANDA = ("M", "MIRE", "R", "USADOS", "CONSEJO", "LIN", "ANCHO", "FONDO", "CAM", "MEDIO")
-_CODIGO_DE_LA_MEDICION = {"LIN": "L", "ANCHO": "A", "FONDO": "F", "CAM": "C", "MEDIO": "I"}
+_DE_LA_TANDA = ("M", "MIRE", "R", "USADOS", "CONSEJO", "LIN", "ANCHO", "FONDO", "CAM", "MEDIO", "AREA")
+_CODIGO_DE_LA_MEDICION = {"LIN": "L", "ANCHO": "A", "FONDO": "F", "CAM": "C", "MEDIO": "I", "AREA": "P"}
 
 
 class Estado:
@@ -2216,6 +2498,24 @@ def numeros_fuera_del_partido(valores, partido, nombres):
     return salida
 
 
+def sugerido_area(corridas):
+    """(2026-11-09) MS_PUNTA_A_PUNTA_FIJO con las corridas del paso 7 (#AREA
+    ya a la VEL_LINEA del partido): el promedio de las buenas. -> (texto o
+    None, diferencia en % entre la más larga y la más corta, aviso o None)."""
+    ms = [m["ms"] for m in corridas if m.get("ok") and m.get("ms")]
+    if not ms:
+        return None, None, None
+    prom = int(round(sum(ms) / float(len(ms))))
+    dif = (max(ms) - min(ms)) * 100.0 / prom if len(ms) > 1 else 0.0
+    aviso = None
+    if len(ms) == 1:
+        aviso = "Una sola corrida: hacé otra, para ver que dé parecido."
+    elif dif > 5:
+        aviso = ("Las corridas dan distinto (%.0f %% entre la más larga y la más corta): fijate que arranque derecho y "
+                 "con el sensor de adelante en el verde, y hacé otra." % dif)
+    return str(prom), dif, aviso
+
+
 def sugerido_fondo(corridas):
     """MS_MEDIO_FONDO_POR_TIEMPO sugerido = el máximo de las corridas que
     terminaron con TOCÓ + 500 ms, redondeado para arriba a 50 (la regla
@@ -2342,14 +2642,15 @@ def copias_viejas(defectos, panel):
 
 # ---------- la HOJA DE CANCHA (un .txt que se lee con el Bloc de notas) ----------
 
-SECCIONES_HOJA = ("DATOS", "LINEA", "ANCHO", "FONDO", "CAMARA", "DESPEJE", "SIGNOS", "REVISADO",
+SECCIONES_HOJA = ("DATOS", "LINEA", "ANCHO", "FONDO", "CAMARA", "DESPEJE", "SIGNOS", "AREA", "REVISADO",
                   "COPIADO AL PANEL", "NOTAS")
 CABECERA_HOJA = "# HOJA DE CANCHA del ARQUERO - la escribe el tablero. Se puede leer con el Bloc de notas."
 # Qué número sale de qué renglón de la hoja (para COMPARAR y "Volver a esta cancha")
 CLAVES_HOJA = (("umbralBlanco", "LINEA", "umbral"), ("MS_MEDIO_AL_MEDIO", "ANCHO", "sugerido"),
                ("MS_MEDIO_FONDO_POR_TIEMPO", "FONDO", "sugerido"), ("CAMARA_POR_CM", "CAMARA", "sugerido"),
                ("msAdelante", "DESPEJE", "sugerido"), ("lateralInvertido", "SIGNOS", "lateralInvertido"),
-               ("camaraYInvertida", "SIGNOS", "camaraYInvertida"))
+               ("camaraYInvertida", "SIGNOS", "camaraYInvertida"),
+               ("MS_PUNTA_A_PUNTA_FIJO", "AREA", "sugerido"))          # (2026-11-09) la patrulla de la 0921i
 
 
 def _limpio_hoja(texto, es_clave=False):
@@ -2486,6 +2787,9 @@ sugerido = 383   # para 35 cm (recta: a = 0.1, b = -3.33)
 [SIGNOS]
 lateralInvertido = 0   # 11/08: el movimiento 2 fue a la DERECHA
 camaraYInvertida = 1   # 11/08: pelota a la derecha, Yp = -24
+[AREA]
+sugerido = 2548   # 09/11: medido por el equipo con pruebas/medir-ancho-area, de costado a costado del area
+vel = 90   # la VEL_LINEA de la 0921i: MS_PUNTA_A_PUNTA_FIJO vale SOLO a esta fuerza
 [REVISADO]
 [COPIADO AL PANEL]
 [NOTAS]
@@ -3050,8 +3354,9 @@ def _reglas_con_codigo(valores, valores_del_archivo=None, medido=None):
                 tope, cruce), "MS_MEDIO_TOPE_LATERAL")
     movidos = [n for n in NUMEROS_DEL_MOVIMIENTO if cambio(n)]
     if movidos:
-        ojo("O6", "Cambiaste %s: MS_MEDIO_AL_MEDIO se midió con los de antes. Medilo de nuevo (CANCHA paso 2)." %
-            ", ".join(movidos), "MS_MEDIO_AL_MEDIO", *movidos)
+        ojo("O6", "Cambiaste %s: MS_MEDIO_AL_MEDIO y MS_PUNTA_A_PUNTA_FIJO se midieron con los de antes. "
+            "Medilos de nuevo (CANCHA pasos 2 y 7)." % ", ".join(movidos), "MS_MEDIO_AL_MEDIO", "MS_PUNTA_A_PUNTA_FIJO",
+            *movidos)
     if cambio("potenciaDespeje") or cambio("RAMPA_MOV_PASO"):
         ojo("O7", "msAdelante se midió a fuerza 200 y con la rampa de antes: medilo de nuevo (CANCHA paso 5).",
             "msAdelante", "potenciaDespeje", "RAMPA_MOV_PASO")
@@ -3071,8 +3376,8 @@ def _reglas_con_codigo(valores, valores_del_archivo=None, medido=None):
         ojo("O12", "¡Cambiaste un SIGNO (%s)! Si estaba bien, ahora el robot se aleja de la pelota." %
             ", ".join(signos), *signos)
     if hay("patrullarSinPelota") and not v["patrullarSinPelota"]:
-        ojo("O13", "Sin patrulla: si queda quieto mucho rato, el juez lo puede sacar (pasó el 21/09 y el 12/10).",
-            "patrullarSinPelota")
+        ojo("O13", "Sin patrulla (patrullarSinPelota NO): no patrulla NADA, ni al lateral ni por la línea del área. Si "
+            "queda quieto mucho rato, el juez lo puede sacar (pasó el 21/09 y el 12/10).", "patrullarSinPelota")
     if hay("potenciaDespeje") and v["potenciaDespeje"] != 200:
         ojo("O14", "potenciaDespeje no es 200: la cuenta de cuántos cm llega la ida ya no vale (no puedo revisar "
             "si la ida llega a la pelota).", "potenciaDespeje", "msAdelante")
@@ -3096,8 +3401,44 @@ def _reglas_con_codigo(valores, valores_del_archivo=None, medido=None):
         nota("N2", "pisoRampaIda (%d) es más que potenciaDespeje (%d): la ida sale de una con toda la fuerza." % (
             v["pisoRampaIda"], v["potenciaDespeje"]), "pisoRampaIda")
     if hay("MS_QUIETO_PARA_PATRULLAR") and v["MS_QUIETO_PARA_PATRULLAR"] < 10000:
-        nota("N3", "MS_QUIETO_PARA_PATRULLAR menos de 10 s: más patrullas, más rato con el arco solo.",
-             "MS_QUIETO_PARA_PATRULLAR")
+        nota("N3", "MS_QUIETO_PARA_PATRULLAR menos de 10 s: más patrullas (con la vieja, al lateral, más rato con el "
+             "arco solo).", "MS_QUIETO_PARA_PATRULLAR")
+    # ---- (2026-11-09) la patrulla y la vuelta con la línea del área (0921i) ----
+    # MS_PUNTA_A_PUNTA_FIJO y VEL_LINEA los usan DOS cosas: la vuelta al medio con
+    # la línea del área (prendida de fábrica) y la patrulla por la línea (apagada).
+    linea, vuelta = patrulla_por_la_linea(v), vuelta_con_la_linea(v)
+    if hay("MS_PUNTA_A_PUNTA_FIJO") and 0 < v["MS_PUNTA_A_PUNTA_FIJO"] < 500:
+        error("E7", "MS_PUNTA_A_PUNTA_FIJO %d: va 0 (usar lo que midió el robot) o de 500 a 4000 (el área de punta "
+              "a punta, a VEL_LINEA)." % v["MS_PUNTA_A_PUNTA_FIJO"], "MS_PUNTA_A_PUNTA_FIJO")
+    if hay("MS_PUNTA_A_PUNTA_FIJO") and v["MS_PUNTA_A_PUNTA_FIJO"] == 0:
+        if vuelta:
+            error("E8", "MS_PUNTA_A_PUNTA_FIJO en 0 con buscarLineaDelAreaAlVolver SÍ: volviendo del lateral, al ver la "
+                  "línea del área avanzaría y NO iría al medio (la mitad de 0 es 0). Poné el ancho medido (CANCHA paso "
+                  "7) o apagá buscarLineaDelAreaAlVolver.", "MS_PUNTA_A_PUNTA_FIJO", "buscarLineaDelAreaAlVolver")
+        elif linea:
+            ojo("O20", "MS_PUNTA_A_PUNTA_FIJO en 0: la patrulla por la línea usa lo que el robot midió SOLO y guardó "
+                "(yendo a la derecha con el sensor de atrás derecho, que frenaba pasado). Mejor medirlo: CANCHA paso 7.",
+                "MS_PUNTA_A_PUNTA_FIJO")
+    o19 = cambio("VEL_LINEA") and not cambio("MS_PUNTA_A_PUNTA_FIJO")
+    if o19:
+        # (aunque hoy no lo use nadie: después de guardar ya no se nota que no se midió)
+        ojo("O19", "Cambiaste VEL_LINEA (%s → %s): MS_PUNTA_A_PUNTA_FIJO se midió a la de antes, así ya no queda en "
+            "el medio. Medí de nuevo el ancho del área (CANCHA paso 7, mide a la VEL_LINEA de acá) y pasalo." % (
+                arch["VEL_LINEA"], v["VEL_LINEA"]), "VEL_LINEA", "MS_PUNTA_A_PUNTA_FIJO")
+    vels = medido.get("area_vel")
+    if vels and not o19 and hay("VEL_LINEA") and (linea or vuelta) and v["VEL_LINEA"] not in vels:
+        ojo("O22", "Lo que mediste en CANCHA (paso 7) fue a fuerza %s y VEL_LINEA es %d: ese ancho del área NO vale a "
+            "esta fuerza. Medilo de nuevo (mide a la VEL_LINEA de acá)." % (
+                ", ".join(str(x) for x in sorted(vels)), v["VEL_LINEA"]), "VEL_LINEA", "MS_PUNTA_A_PUNTA_FIJO")
+    if linea:
+        if hay("MS_QUIETO_PARA_MIRAR") and v["MS_QUIETO_PARA_MIRAR"] >= 1000:
+            ojo("O18", "MS_QUIETO_PARA_MIRAR %d: en cada patrulla por la línea se queda %s s quieto en la línea y otro "
+                "tanto en el medio (era para mirar dónde quedaba). PARA EL PARTIDO conviene bajarlo (500, o 0)." % (
+                    v["MS_QUIETO_PARA_MIRAR"], _g(v["MS_QUIETO_PARA_MIRAR"] / 1000.0)), "MS_QUIETO_PARA_MIRAR")
+        if hay("MS_TOPE_PUNTA", "MS_PUNTA_A_PUNTA_FIJO") and v["MS_TOPE_PUNTA"] < v["MS_PUNTA_A_PUNTA_FIJO"]:
+            ojo("O21", "MS_TOPE_PUNTA (%d) es menos que MS_PUNTA_A_PUNTA_FIJO (%d): si arranca cerca de la punta "
+                "derecha, corta antes de llegar a la izquierda." % (v["MS_TOPE_PUNTA"], v["MS_PUNTA_A_PUNTA_FIJO"]),
+                "MS_TOPE_PUNTA", "MS_PUNTA_A_PUNTA_FIJO")
     return salida
 
 
@@ -3231,20 +3572,29 @@ def copias_del_partido(carpeta_copias):
     return [ruta for _, ruta in sorted(copias, reverse=True)]
 
 
-def elegir_copia_para_volver(carpeta_copias, valores_archivo):
+_SIN_VERSION = object()     # (elegir_copia_para_volver sin decir la versión del archivo: como antes)
+
+
+def elegir_copia_para_volver(carpeta_copias, valores_archivo, version_archivo=_SIN_VERSION):
     """'Volver a como estaba': la copia más nueva cuyos VALORES (los de la
     tabla) son distintos de los del archivo. -> (ruta, [(nombre, archivo,
     copia)]) o None. Vuelve valores y no bytes, para no borrar cambios de
-    código que alguien haya hecho afuera."""
+    código que alguien haya hecho afuera. (2026-11-09) Con version_archivo:
+    de una copia de OTRA versión (una 0921g, con el archivo en la 0921i) no
+    vuelve lo que cambió la versión (MS_QUIETO_PARA_PATRULLAR, msEmpujonFinal y
+    MS_AVISO_ARMADO: cambiados_por_la_version),
+    solo lo que cambió alguien con el tablero."""
     for ruta in copias_del_partido(carpeta_copias):
         try:
             with open(ruta, "rb") as f:
                 lectura = leer_partido(f.read().decode("utf-8"))
         except (OSError, UnicodeDecodeError):
             continue
+        ignorar = set() if version_archivo is _SIN_VERSION else cambiados_por_la_version(lectura["version"],
+                                                                                          version_archivo)
         difs = [(n, valores_archivo[n], lectura["valores"][n]) for n in ORDEN_PARTIDO
                 if n in valores_archivo and n in lectura["valores"] and FILA_PARTIDO[n][2] != "v"
-                and not mismo_valor(n, valores_archivo[n], lectura["valores"][n])]
+                and n not in ignorar and not mismo_valor(n, valores_archivo[n], lectura["valores"][n])]
         if difs:
             return ruta, difs
     return None
@@ -3346,7 +3696,7 @@ def guardar_partido(ruta, carpeta_copias, cambios, huella_esperada, ahora=None, 
             "cambios": reales, "sello": nueva["sello"]}
 
 
-def linea_partido_de(valores, version="0921g", sello="fabrica", giro=1):
+def linea_partido_de(valores, version=VERSION_PARTIDO_HOY, sello="fabrica", giro=1):
     """La línea #PARTIDO que imprimiría avisarVersion() con esos valores
     (textos del .ino). La usa la autoprueba para el contrato."""
     partes = ["#PARTIDO version=%s sello=%s giro=%d" % (version, sello, 1 if giro else 0)]
@@ -3385,11 +3735,113 @@ def comparar_con_robot(m, lectura):
     return ("DISTINTO" if difs else "IGUAL"), difs
 
 
+# ---------- las versiones (2026-11-09: la 0921i, y la 0921g como ANTERIOR) ----------
+
+def que_version_es(version):
+    """'HOY' (la que maneja este tablero, VERSION_PARTIDO_HOY), 'ANTERIOR'
+    (una de antes que también dice su #PARTIDO: VERSIONES_PARTIDO_ANTERIORES)
+    u 'OTRA' (una que este tablero no conoce)."""
+    if version == VERSION_PARTIDO_HOY:
+        return "HOY"
+    if version in VERSIONES_PARTIDO_ANTERIORES:
+        return "ANTERIOR"
+    return "OTRA"
+
+
+def nombre_de_version(version):
+    """Cómo se muestra la versión del ARCHIVO arriba de la pestaña PARTIDO."""
+    if version is None:
+        return "(no dice: 0921f o anterior)"
+    que = que_version_es(version)
+    if que == "HOY":
+        return "%s (la de este tablero)" % version
+    if que == "ANTERIOR":
+        return "%s (ANTERIOR: %s)" % (version, VERSIONES_PARTIDO_ANTERIORES[version])
+    return "%s (este tablero es para la %s)" % (version, VERSION_PARTIDO_HOY)
+
+
+def texto_otra_version(robot, archivo):
+    """El robot dijo una #PARTIDO de OTRA versión que el archivo: cómo se dice
+    (sin el 'cargalo'). Una ANTERIOR conocida (la 0921g) se dice con su nombre."""
+    archivo = archivo or "0921f"
+    if que_version_es(robot) == "ANTERIOR" and robot != archivo:
+        return "el robot dice que tiene la %s, la VERSIÓN ANTERIOR (%s), y el archivo es la %s" % (
+            robot, VERSIONES_PARTIDO_ANTERIORES[robot], archivo)
+    return "el robot dice que tiene la %s y el archivo es la %s" % (robot, archivo)
+
+
+def fabrica_de(version=VERSION_PARTIDO_HOY):
+    """Los valores de fábrica ({nombre: texto}) de ESA versión. La de hoy, o
+    una que no conozco: VALORES_DE_FABRICA. Una anterior (FABRICA_DE_ANTES):
+    sin las filas que todavía no tenía y con lo que valía."""
+    if version not in FABRICA_DE_ANTES:
+        return dict(VALORES_DE_FABRICA)
+    v = {n: x for n, x in VALORES_DE_FABRICA.items() if n not in NUEVOS_EN_LA_0921I}
+    v.update(FABRICA_DE_ANTES[version])
+    return v
+
+
+def _version_conocida(version):
+    return version == VERSION_PARTIDO_HOY or version in FABRICA_DE_ANTES
+
+
+def cambiados_por_la_version(version_a, version_b):
+    """Los nombres cuya FÁBRICA es distinta entre esas dos versiones: lo que
+    cambió el que hizo la versión, no alguien con el tablero (0921g -> 0921i:
+    MS_QUIETO_PARA_PATRULLAR, msEmpujonFinal y MS_AVISO_ARMADO). Iguales, o
+    alguna que no conozco: ninguno."""
+    if version_a == version_b or not (_version_conocida(version_a) and _version_conocida(version_b)):
+        return set()
+    fa, fb = fabrica_de(version_a), fabrica_de(version_b)
+    return {n for n in fa if n in fb and not mismo_valor(n, fa[n], fb[n])}
+
+
+def avisos_de_la_lectura(lec):
+    """Los avisos de cómo se leyó el .ino (arriba de la lista de PARTIDO):
+    [(nivel, texto)]. (2026-11-09) Un archivo de una versión ANTERIOR (0921g,
+    0921f) no tiene lo de la 0921i: eso no es un ERROR, es la versión (ojo)."""
+    avisos = [("error", p) for p in lec["problemas"]]
+    de_antes = set(NUEVOS_EN_LA_0921I) if lec["version"] in FABRICA_DE_ANTES else set()
+    no_tenia = [n for n in lec["faltan"] if n in de_antes]
+    faltan = [n for n in lec["faltan"] if n not in de_antes]
+    if no_tenia:
+        texto = ("El archivo es la %s, ANTERIOR a la %s: no tiene lo nuevo de la patrulla (%s). Esas filas quedan "
+                 "grises." % (lec["version"] or "0921f", VERSION_PARTIDO_HOY, ", ".join(no_tenia)))
+        # (2026-11-09, revisión) la 0921g contaba MS_AVISO_ARMADO DESPUÉS del giroscopio (2000 servía); el
+        # mínimo de este tablero es el de la 0921i, que lo cuenta desde que se prende
+        aviso = lec["valores"].get("MS_AVISO_ARMADO")
+        if aviso is not None and validar_valor_partido("MS_AVISO_ARMADO", aviso)[1]:
+            texto += (" Su MS_AVISO_ARMADO (%s) está debajo del mínimo de la %s (%s: esa lo cuenta desde que se "
+                      "prende): para guardar o cargar desde acá hay que subirlo. Para jugar, mejor la %s." % (
+                          aviso, VERSION_PARTIDO_HOY, _g(FILA_PARTIDO["MS_AVISO_ARMADO"][5]), VERSION_PARTIDO_HOY))
+        avisos.append(("ojo", texto))
+    if faltan:
+        avisos.append(("error", "Faltan en el programa: %s. No los adivino: ¿es otra versión? Avisale al profe." %
+                       ", ".join(faltan)))
+    if lec["repetidos"]:
+        avisos.append(("error", "Están repetidos (no los toco): %s." % ", ".join(lec["repetidos"])))
+    for nombre, motivo in lec["raros"]:
+        avisos.append(("error", "%s: %s (no lo toco)." % (nombre, motivo)))
+    return avisos
+
+
+def fila_no_aplica(nombre, valores):
+    """¿La fila se ve GRIS (con esos interruptores no se usa)? Las de
+    SE_USA_SI_PARTIDO (la patrulla de la 0921i): si eso da False. Las demás: si
+    TODOS los de GRIS_SI_PARTIDO están en NO. valores: {nombre: texto}
+    ('true'/'false')."""
+    se_usa = SE_USA_SI_PARTIDO.get(nombre)
+    if se_usa is not None:
+        return not se_usa(valores)
+    llaves = GRIS_SI_PARTIDO.get(nombre)
+    return bool(llaves) and all(valores.get(k) == "false" for k in llaves)
+
+
 # ---------- cargar desde la ventana: las órdenes (puras, se prueban sin ejecutarlas) ----------
 
 def orden_compilar(carpeta):
     """Compilar SOLO (sin -t: el robot sigue conectado y no se toca)."""
-    return [PIO, "run", "-e", "teensy41", "-d", carpeta]
+    return PIO + ["run", "-e", "teensy41", "-d", carpeta]
 
 
 def orden_cargar(carpeta):
@@ -4286,6 +4738,15 @@ def linea_ancho(medioizq, izqder, derizq, desvio, ok=1, error=0, valores=None):
                 int(valor_num(valores, "umbralBlanco"))))
 
 
+# (2026-11-09) El ancho del área a fuerza 90 (el 09/11 midieron 2548 con medir-ancho-area).
+AREAS_DE_MENTIRA = (2548, 2571, 2530)
+
+
+def linea_area(ms, izq, vel=90, umbral=425, rampa=10, desvio="1.4", ok=1, error=0):
+    return "#AREA ok=%d error=%d ms=%d izq=%d vel=%d umbral=%d desvio=%s rampa=%d" % (
+        ok, error, ms, izq, vel, umbral, desvio, rampa)
+
+
 class RobotDeMentira:
     """Se hace pasar por la Conexion: misma forma de usarlo.
     escala_tiempo < 1 lo hace correr más rápido (la autoprueba usa 0.001)."""
@@ -4302,7 +4763,7 @@ class RobotDeMentira:
         self.forzar_linea = None          # None: cada 7 s pisa blanco un rato; True/False: siempre/nunca
         self.guardado = {"mov": None, "cancha": None}
         self._t_freno = -1e9
-        self._corridas = {"A": 0, "F": 0, "C": 0}
+        self._corridas = {"A": 0, "F": 0, "C": 0, "P": 0}
         self._pelota = None               # (Xp, Yp, t) crudos
         self._prev = None                 # para las velocidades
         self._vy = self._va = 0.0
@@ -4452,6 +4913,7 @@ class RobotDeMentira:
             self._decir(self.linea_DEF())
             self._decir("------------------- TABLERO DEL ARQUERO (de mentira) -------------------")
             self._decir("!1 a !10 = un movimiento (con c al final: SIN CABLE)   !L v|i|d|c !A !F !C !I = cancha")
+            self._decir("!P 90 (!P 90 c) = el ancho del AREA a fuerza 90 (MS_PUNTA_A_PUNTA_FIJO)")
             self._decir("x = parar   =NOMBRE valor = cambiar un numero   v = panel   0 = los del partido")
             self._decir("h = saludo   g = buscar el giroscopio   r / rc = repetir el ultimo resultado")
         elif c == "x":
@@ -4548,16 +5010,28 @@ class RobotDeMentira:
 
     def _orden_de_mover(self, resto):
         if not resto:
-            self._decir("#ERROR falta el numero del movimiento: !1 a !10, o !L !A !F !C !I")
+            self._decir("#ERROR falta el numero del movimiento: !1 a !10, o !L !A !F !C !I !P")
             return
-        m = re.match(r"^(\d+|[LAFCIlafci])\s*(.*)$", resto)
+        m = re.match(r"^(\d+|[LAFCIPlafcip])\s*(.*)$", resto)
         if not m:
-            self._decir("#ERROR no hay movimiento %s: son del !1 al !10, y los de cancha !L !A !F !C !I" % resto)
+            self._decir("#ERROR no hay movimiento %s: son del !1 al !10, y los de cancha !L !A !F !C !I !P" % resto)
             return
         codigo, arg = m.group(1).upper(), m.group(2).strip().lower()
         if codigo.isdigit() and not 1 <= int(codigo) <= 10:
-            self._decir("#ERROR no hay movimiento %s: son del !1 al !10, y los de cancha !L !A !F !C !I" % codigo)
+            self._decir("#ERROR no hay movimiento %s: son del !1 al !10, y los de cancha !L !A !F !C !I !P" % codigo)
             return
+        vel_area = 90
+        if codigo == "P":
+            # (2026-11-09) !P [fuerza] [c], como pedirArea() de tablero.ino
+            pa = re.match(r"^(?:([0-9]+))?\s*(c)?$", arg)
+            if not pa:
+                self._decir("#ERROR !P se pide asi: !P, !P 90, !P c o !P 90 c (la fuerza de costado)")
+                return
+            vel_area = int(pa.group(1)) if pa.group(1) else 90
+            if not 75 <= vel_area <= 150:
+                self._decir("#ERROR !P: la fuerza va de 75 a 150")
+                return
+            arg = "c" if pa.group(2) else ""
         if codigo == "L":
             if arg not in ("v", "i", "d", "c"):
                 self._decir("#ERROR !L necesita la fase: !L v (verde), !L i (blanco izq), !L d (blanco der) "
@@ -4579,6 +5053,8 @@ class RobotDeMentira:
             return
         if codigo.isdigit():
             self._mover(int(codigo), sincable)
+        elif codigo == "P":
+            self._medir_area(vel_area, sincable)
         else:
             self._medir(codigo, arg, sincable)
 
@@ -4742,6 +5218,29 @@ class RobotDeMentira:
                 ",".join(str(p[0]) for p in MEDIO_DE_MENTIRA), ",".join(p[1] for p in MEDIO_DE_MENTIRA)), "#FIN I"]
             self._terminar("cancha", "I", "IR_AL_MEDIO", "OK", sincable, tanda)
 
+    def _medir_area(self, vel, sincable):
+        """(2026-11-09) La P: el ancho del área. A fuerza 90 da lo que midió el
+        equipo el 09/11 (2548 ms); a otra fuerza, en proporción (inventado)."""
+        if not self._cuenta("P ANCHO_AREA", sincable):
+            return
+        self._decir("#INICIO P ANCHO_AREA tope=12000 sincable=%d" % (1 if sincable else 0))
+        k = self._corridas["P"]
+        self._corridas["P"] += 1
+        ms = int(round(AREAS_DE_MENTIRA[k % len(AREAS_DE_MENTIRA)] * 90.0 / vel))
+        izq = ms // 2 - 90
+        umbral = int(valor_num(self.valores, "umbralBlanco"))
+        rampa = int(valor_num(self.valores, "RAMPA_MOV_PASO"))
+        if self._esperar((izq + 700) / 1000.0) is not None or self._esperar(ms / 1000.0 + 0.2) is not None:
+            self._t_freno = time.monotonic()
+            tanda = ["#AREA ok=0 error=6 ms=0 izq=%d vel=%d umbral=%d desvio=1.1 rampa=%d" % (izq, vel, umbral, rampa),
+                     "RESULTADO: P ANCHO_AREA -> ERROR, lo frenaron", "#FIN P"]
+            self._terminar("cancha", "P", "ANCHO_AREA", "ERROR", sincable, tanda, "#FRENO tecla")
+            return
+        tanda = [linea_area(ms, izq, vel, umbral, rampa),
+                 "RESULTADO: P ANCHO_AREA -> OK, midio bien. De costado a costado: %d ms a fuerza %d (al medio: %d ms)"
+                 % (ms, vel, ms // 2), "#FIN P"]
+        self._terminar("cancha", "P", "ANCHO_AREA", "OK", sincable, tanda)
+
     def _ancho_frenado(self, sincable, medioizq=0):
         self._t_freno = time.monotonic()
         tanda = [linea_ancho(medioizq, 0, 0, "2.9,0.0,0.0,0.0", ok=0, error=6, valores=self.valores), "#FIN A"]
@@ -4820,26 +5319,31 @@ PASOS_CANCHA = (
     ("0", "0 · ¿ANDA TODO?", None, False),
     ("1", "1 · La LÍNEA", "umbralBlanco", False),
     ("2", "2 · El ANCHO", "MS_MEDIO_AL_MEDIO", True),
-    ("2c", "2c · Comprobar ir al medio", None, False),
+    ("2c", "2c · Comprobar ir al medio (por tiempo)", None, False),
     ("3", "3 · El FONDO", "MS_MEDIO_FONDO_POR_TIEMPO", True),
     ("4", "4 · La CÁMARA", "CAMARA_POR_CM", False),
     ("5", "5 · Cuánto sale el DESPEJE", "msAdelante", True),
     ("6", "6 · Los SIGNOS", "lateralInvertido", False),
+    # (2026-11-09) "agregale una funcion en el tablero sobre la patrulla": el
+    # ancho del área, para MS_PUNTA_A_PUNTA_FIJO (la lógica de medir-ancho-area).
+    # Lo usan la vuelta al medio con la línea del área y la patrulla por la línea.
+    ("7", "7 · Medir el ancho del ÁREA", "MS_PUNTA_A_PUNTA_FIJO", True),
     ("R", "Revisar a ojo", None, False),
 )
 REVISAR_A_OJO = (
     "MS_MAX_RETROCESO 1500 (la 0921): ¿lo apoyan más lejos de la línea del área?",
     "MS_MEDIO_TOPE_LATERAL 6000: tiene que ser 1,3 veces el cruce o más",
     "MS_MEDIO_ADELANTE 943: ¿el área es más honda?",
-    "msEmpujonFinal 320 y MS_MEDIO_ALEJARSE 400: ¿el piso patina distinto?",
+    "msEmpujonFinal 450 (15 cm), MS_AVANCE_10CM 450 y MS_MEDIO_ALEJARSE 400: ¿el piso patina distinto?",
     "umbralCm y msAdelante: ¿el tamaño de la cancha es otro?",
     "LADO_MEDIO -1: ¿el lateral IZQUIERDO tiene línea?",
     "El ancho de la línea contra la separación de los sensores de atrás",
     "Que no haya otra línea entre el lateral izquierdo y el fondo",
     "¿Hay rampa o pared en los bordes?",
     "La luz y las cosas naranjas cerca de la cancha",
-    "MS_QUIETO_PARA_PATRULLAR 10000: preguntarle al juez",
+    "MS_QUIETO_PARA_PATRULLAR 20000 (la 0921i): preguntarle al juez",
     "La batería: la de jugar, cargada",
+    "Si prenden patrullaPorLaLinea: MS_QUIETO_PARA_MIRAR (PARTIDO, grupo 5) bajarlo (500, o 0)",
 )
 RESPUESTAS_PELOTA = (
     ("DESPEJO", "LA DESPEJÓ"),
@@ -4950,7 +5454,8 @@ class Ventana:
         self.cancha = {"lineas": [], "anchos": [], "medios": [], "fondos": [], "comprobar": [],
                        "cam_4a": {}, "cam_4b": {}, "idas": [], "ida_espera_ok": None, "ida_en_curso": None,
                        "signo_en_curso": False, "lateral": None, "yp": None, "umbral_hecho": False,
-                       "umbral_confirmado": False, "medido": {}, "revisado": set(), "bateria": False}
+                       "umbral_confirmado": False, "medido": {}, "revisado": set(), "bateria": False,
+                       "areas": []}             # (2026-11-09) las #AREA del paso 7
         self._iniciar_partido(partido_carpeta)
         self._armar_estilos()
         self._armar()
@@ -5498,8 +6003,9 @@ class Ventana:
         if "fin" in cambios:
             self._llego_fin(m["codigo"])
         if tipo == "PARTIDO" and self.conectado and self.es_arquero:
-            # (2026-11-08) La manda el programa de PARTIDO (0921g) al arrancar,
-            # NO tablero.ino: no se le manda nada (ni h ni ?).
+            # (2026-11-08) La manda el programa de PARTIDO (0921g; desde el 09/11
+            # la 0921i, igual) al arrancar, NO tablero.ino: no se le manda nada
+            # (ni h ni ?). Una 0921g se entiende igual: es la "versión ANTERIOR".
             self.programa_detectado = "PARTIDO " + m["version"]
             self.estado.hola = None
             self.ultimo_partido = m
@@ -5527,8 +6033,8 @@ class Ventana:
             # manda h (ni nada): ajustar toma las teclas como órdenes.
             self.programa_detectado = programa
             self.estado.hola = None
-            self.ultimo_partido = None  # (un cartel de otro programa: ya no es la 0921g)
-            self.estado_archivo = "otro"        # (la 0921g no imprime carteles: solo su #PARTIDO)
+            self.ultimo_partido = None  # (un cartel de otro programa: ya no es la 0921g/0921i)
+            self.estado_archivo = "otro"        # (la 0921g y la 0921i no imprimen carteles: solo su #PARTIDO)
         self.pendientes |= {"conexion", "partido"}
 
     def _reconocer_tablero(self, tipo, ahora):
@@ -5739,6 +6245,16 @@ class Ventana:
         if prog and prog.startswith("PARTIDO"):
             version = prog[len("PARTIDO"):].strip() or "?"
             if self.ultimo_partido is not None:
+                lec = getattr(self, "lectura", None)
+                archivo = (lec["version"] or "0921f") if lec else VERSION_PARTIDO_HOY
+                if version != archivo:
+                    # (2026-11-09) una 0921g: se entiende, pero NO es la de hoy.
+                    cual = (", la VERSIÓN ANTERIOR (%s)" % VERSIONES_PARTIDO_ANTERIORES[version]
+                            if que_version_es(version) == "ANTERIOR" else ", que NO es la del archivo")
+                    return ("Tiene el programa de PARTIDO %s%s. El archivo es la %s: para jugar con esa, pestaña "
+                            "PARTIDO → CARGAR EL PARTIDO. Con la batería prendida se mueve solo y NO obedece PARAR. "
+                            "Para usar MOVIMIENTOS o CANCHA: pestaña PARTIDO → Cargar el TABLERO."
+                            % (version, cual, archivo)), ROJO
                 return ("Tiene el programa de PARTIDO %s (el de jugar). Con la batería prendida se mueve solo y "
                         "NO obedece PARAR. Para usar MOVIMIENTOS o CANCHA: pestaña PARTIDO → Cargar el TABLERO."
                         % version), ROJO
@@ -6713,7 +7229,7 @@ class Ventana:
         izq = tk.Frame(t, bg=FONDO)
         izq.grid(row=0, column=0, sticky="ns", padx=(6, 4), pady=6)
         self._etiqueta(izq, text="Preparar una cancha nueva (sin internet):", font=F_MEDIO_B).pack(fill="x")
-        self._etiqueta(izq, text="paso                          HOY            MEDIDO AHORA", font=F_CHICO,
+        self._etiqueta(izq, text="paso                                    HOY            MEDIDO AHORA", font=F_CHICO,
                        fg="#616161").pack(fill="x")
         self.filas_cancha = {}
         for clave, titulo, nombre, _ in PASOS_CANCHA:
@@ -6721,7 +7237,7 @@ class Ventana:
             fila.pack(fill="x", pady=1)
             luz = tk.Label(fila, text="●", font=F_GRANDE, bg=FONDO, fg=COLOR_SEMAFORO["gris"])
             luz.pack(side="left")
-            b = ttk.Button(fila, text=titulo, width=24, command=lambda c=clave: self._elegir_paso(c))
+            b = ttk.Button(fila, text=titulo, width=29, command=lambda c=clave: self._elegir_paso(c))
             b.pack(side="left")
             hoy = tk.Label(fila, text="", font=F_CHICO, bg=FONDO, width=16, anchor="w", justify="left")
             hoy.pack(side="left", padx=4)
@@ -6795,10 +7311,17 @@ class Ventana:
         fila.pack(fill="x", pady=4)
         self.w["sugerido"] = self._etiqueta(fila, font=F_GRANDE, fg=AZUL)
         self.w["sugerido"].pack(side="left")
-        self.w["usar"] = self._boton_cancha(fila, "USAR ESTE", self._usar_sugerido, clave, estilo="Usar.TButton",
-                                            side="left", padx=8)
-        self.w["copiar"] = self._boton_cancha(fila, "COPIAR AL PANEL", self._copiar_sugerido, clave, robot=False,
-                                              side="left", padx=4)
+        if clave == "7":
+            # (2026-11-09) El ancho del área va DIRECTO a la pestaña PARTIDO: el
+            # robot con el TABLERO no tiene MS_PUNTA_A_PUNTA_FIJO (no hay USAR
+            # ESTE) y la 0.1103 no tiene la patrulla por la línea (no hay panel).
+            self.w["usar"] = self._boton_cancha(fila, "PASAR A PARTIDO →", self._partido_pasar, clave, robot=False,
+                                                estilo="Usar.TButton", side="left", padx=8)
+        else:
+            self.w["usar"] = self._boton_cancha(fila, "USAR ESTE", self._usar_sugerido, clave, estilo="Usar.TButton",
+                                                side="left", padx=8)
+            self.w["copiar"] = self._boton_cancha(fila, "COPIAR AL PANEL", self._copiar_sugerido, clave, robot=False,
+                                                  side="left", padx=4)
         self._pintar_cancha()
         self._pintar_cuenta()
         self._actualizar_habilitados()
@@ -6848,9 +7371,17 @@ class Ventana:
         self._boton_cancha(f, "DER", lambda: self._en_el_medio("anchos", "DER"), "2", robot=False)
 
     def _armar_paso_2c(self, d):
-        self.w["que"].configure(text="Para comprobar MS_MEDIO_AL_MEDIO: el robot hace la rutina de ir al medio del "
-                                     "partido (lateral, fondo, adelante, lateral, al medio, atrás al área). Apoyalo "
-                                     "delante del área, con lugar, y apretá COMPROBAR.")
+        # (2026-11-09, revisión) El !I de tablero.ino es la rutina de la 0921g:
+        # vuelve al medio SOLO por tiempo. La 0921i, con buscarLineaDelAreaAlVolver
+        # SÍ, corta al ver la línea del área (MS_AVANCE_10CM y la mitad de
+        # MS_PUNTA_A_PUNTA_FIJO a VEL_LINEA): eso acá NO se prueba, y se dice.
+        self.w["que"].configure(text="Para comprobar MS_MEDIO_AL_MEDIO: el robot hace la rutina de ir al medio "
+                                     "(lateral, fondo, adelante, lateral, al medio, atrás al área), pero vuelve al "
+                                     "medio SOLO POR TIEMPO (MS_MEDIO_AL_MEDIO). ⚠ El partido 0921i, con "
+                                     "buscarLineaDelAreaAlVolver SÍ (así viene), si en esa vuelta ve la línea del "
+                                     "área corta ahí y va al medio con la mitad del ancho del área (paso 7): ESO acá "
+                                     "NO se prueba; se ve con el partido cargado (sin pelota, a los 20 s patrulla y "
+                                     "vuelve al medio). Apoyalo delante del área, con lugar, y apretá COMPROBAR.")
         b = self.w["botones"]
         self._boton_cancha(b, "COMPROBAR (ir al medio)", lambda: self._medir_cancha("!I", ("I",), True), "2c")
         self._fila_sin_cable(b)
@@ -6930,6 +7461,58 @@ class Ventana:
         self._boton_cancha(f, "6b: ANOTAR (la pelota está a la DERECHA)", self._signo_camara, "6", robot=False)
         self.w["yp"] = self._etiqueta(f, font=F_MEDIO_B)
         self.w["yp"].pack(side="left", padx=8)
+
+    def _armar_paso_7(self, d):
+        vel = self._vel_linea_de_partido()
+        self.w["que"].configure(text=(
+            "MEDIR EL ANCHO DEL ÁREA (MS_PUNTA_A_PUNTA_FIJO). Lo usan la vuelta al medio con la línea del área "
+            "(buscarLineaDelAreaAlVolver, prendida) y la patrulla por la línea (apagada): las dos van la MITAD. "
+            "Es lo mismo que pruebas\\medir-ancho-area, desde el tablero.\n"
+            "CÓMO APOYARLO: ADENTRO DEL ÁREA, mirando derecho a la cancha (el arco a la espalda), más o menos en el "
+            "medio, con el sensor de ADELANTE sobre el VERDE (no arriba de una línea).\n"
+            "Qué hace: de costado a la IZQUIERDA hasta que el sensor de adelante ve la línea del costado del área, "
+            "frena, y va a la DERECHA hasta la línea del OTRO costado, CONTANDO EL TIEMPO. Mide a VEL_LINEA = %s "
+            "(la de la pestaña PARTIDO). Hacé 2 o 3 corridas y después PASAR A PARTIDO →." % (
+                vel if vel is not None else "?")))
+        b = self.w["botones"]
+        self._boton_cancha(b, "MEDIR EL ANCHO DEL ÁREA", self._medir_area, "7")
+        self._fila_sin_cable(b)
+        self._boton_cancha(b, "Borrar lo medido", self._borrar_areas, "7", robot=False)
+
+    def _vel_linea_de_partido(self):
+        """(2026-11-09) La VEL_LINEA a la que se mide el área: la de la pestaña
+        PARTIDO (el archivo con el editor encima). None si no se sabe o no es
+        un número del rango (75 a 150)."""
+        try:
+            v = valor_de_texto("VEL_LINEA", self._valores_partido()["VEL_LINEA"])
+        except (KeyError, ValueError, AttributeError):
+            return None
+        fila = FILA_PARTIDO["VEL_LINEA"]
+        return v if fila[5] <= v <= fila[6] else None
+
+    def _medir_area(self):
+        """MEDIR EL ANCHO DEL ÁREA (paso 7): !P <VEL_LINEA de PARTIDO> [c]."""
+        vel = self._vel_linea_de_partido()
+        if vel is None:
+            self._aviso("No sé la VEL_LINEA de la pestaña PARTIDO (¿se pudo leer el programa de partido?): así no "
+                        "mido el área.", ROJO)
+            return False
+        h = self.estado.hola
+        if h is not None and h[0] == PROGRAMA and (h[1] or "") < FECHA_TABLERO_CON_AREA:
+            self._aviso("El TABLERO que tiene el robot es de antes del 09/11 (%s) y no sabe medir el área: pestaña "
+                        "PARTIDO → Cargar el TABLERO, y medí de nuevo." % (h[1] or "?"), NARANJA)
+            return False
+        if not self._medir_cancha("!P %d" % vel, ("P", vel), True):
+            return False
+        if not self.sin_cable:
+            # (el de SIN CABLE ya dice DESENCHUFÁ: ese no se pisa)
+            self._aviso("Mandé !P %d: cuenta 3 s y sale de costado a la IZQUIERDA. Tiene que estar ADENTRO DEL ÁREA, "
+                        "derecho, con el sensor de ADELANTE en el VERDE. PARAR lo frena." % vel, GRIS)
+        return True
+
+    def _borrar_areas(self):
+        self.cancha["areas"] = []
+        self._pintar_cancha()
 
     def _armar_paso_r(self, d):
         self.w["que"].configure(text="Lo que NO se mide con el tablero: mirarlo a ojo en la cancha. Los tildes se "
@@ -7238,6 +7821,11 @@ class Ventana:
                     self.cancha["fondos"].append(m)
                     hoja_agregar(h, "FONDO", "corrida", "ms=%d como=%s desvio=%s" % (
                         m["ms"], m["como"], _g1(m["desvio"] or 0)), hora)
+            elif tipo == "AREA":
+                self.cancha["areas"].append({"datos": m})
+                hoja_agregar(h, "AREA", "corrida", "ok=%d error=%d ms=%d izq=%d vel=%d umbral=%d desvio=%s rampa=%d" % (
+                    m["ok"], m["error"], m["ms"], m["izq"], m["vel"], m["umbral"], _g1(m["desvio"] or 0), m["rampa"]),
+                    hora)
             elif tipo == "CAM":
                 cual = pedido[1:] if pedido and len(pedido) >= 3 else ("4a", 30)
                 if cual[0] == "4a":
@@ -7339,6 +7927,31 @@ class Ventana:
         if fuera:
             avisos.append(fuera)
         salida["msAdelante"] = (sugerido_ida, avisos, idas)
+        # (2026-11-09) paso 7: el ancho del área, SOLO las corridas a la VEL_LINEA de PARTIDO
+        avisos = []
+        vel = self._vel_linea_de_partido()
+        buenas = [a["datos"] for a in c["areas"] if a["datos"]["ok"]]
+        validas = [m for m in buenas if vel is not None and m["vel"] == vel]
+        otras = sorted({m["vel"] for m in buenas if m not in validas})
+        if otras:
+            avisos.append(("Hay corridas a fuerza %s y la VEL_LINEA de PARTIDO es %s: esas NO cuentan (el tiempo vale "
+                           "solo a la fuerza con que se midió)." % (", ".join(str(x) for x in otras),
+                                                                     "?" if vel is None else vel), "amarillo"))
+        sug, _, aviso = sugerido_area(validas)
+        if aviso:
+            avisos.append((aviso, "amarillo"))
+        try:
+            u_partido = int(_numero_del_panel(self._valor_de_hoy("umbralBlanco")[0]))
+        except (TypeError, ValueError):
+            u_partido = None
+        distintos = sorted({m["umbral"] for m in validas if u_partido is not None and m["umbral"] != u_partido})
+        if distintos:
+            avisos.append(("Se midió con umbralBlanco %s y el partido tiene %s: si la cancha es otra, primero el paso 1 "
+                           "y PASAR A PARTIDO." % (", ".join(str(x) for x in distintos), u_partido), "amarillo"))
+        fuera = self._aviso_numeros(NUMEROS_DEL_MOVIMIENTO)
+        if fuera:
+            avisos.append(fuera)
+        salida["MS_PUNTA_A_PUNTA_FIJO"] = (sug, avisos, validas)
         salida["lateralInvertido"] = (None if c["lateral"] is None else str(c["lateral"]), [], None)
         salida["camaraYInvertida"] = (None if c["yp"] is None else ("1" if c["yp"] < 0 else "0"), [], None)
         return salida
@@ -7352,9 +7965,14 @@ class Ventana:
             hoja_poner(self.hoja, "LINEA", "umbral", str(r["umbral"]), "peorVerde %s, peorBlanco %s, margen %s/%s" % (
                 r["peor_verde"], r["peor_blanco"], r["margen_verde"], r["margen_blanco"]))
         for nombre, seccion in (("MS_MEDIO_AL_MEDIO", "ANCHO"), ("MS_MEDIO_FONDO_POR_TIEMPO", "FONDO"),
-                                ("CAMARA_POR_CM", "CAMARA"), ("msAdelante", "DESPEJE")):
+                                ("CAMARA_POR_CM", "CAMARA"), ("msAdelante", "DESPEJE"),
+                                ("MS_PUNTA_A_PUNTA_FIJO", "AREA")):
             if s[nombre][0] is not None:
                 hoja_poner(self.hoja, seccion, "sugerido", s[nombre][0])
+        if s["MS_PUNTA_A_PUNTA_FIJO"][0] is not None:
+            # (2026-11-09) a qué fuerza: sin esto, el número de la hoja no sirve para otra VEL_LINEA
+            hoja_poner(self.hoja, "AREA", "vel", str(self._vel_linea_de_partido()),
+                       "la VEL_LINEA con que se midio: MS_PUNTA_A_PUNTA_FIJO vale SOLO a esta fuerza")
 
     def _aviso_numeros(self, nombres):
         """(aviso, 'amarillo') si el robot tiene AHORA alguno de esos números
@@ -7404,13 +8022,15 @@ class Ventana:
         valor, avisos, _ = sugeridos[nombre]
         hay_datos = {"1": c["lineas"], "2": c["anchos"], "3": c["fondos"] + c["comprobar"],
                      "4": list(c["cam_4a"].values()) + list(c["cam_4b"].values()), "5": c["idas"],
-                     "6": [x for x in (c["lateral"], c["yp"]) if x is not None]}[clave]
+                     "6": [x for x in (c["lateral"], c["yp"]) if x is not None], "7": c["areas"]}[clave]
         if not hay_datos:
             return "gris"
         niveles = {a[1] for a in avisos}
         if "rojo" in niveles or "malo" in niveles:
             return "rojo" if valor is None else "amarillo"
         if clave == "2" and c["anchos"] and not c["anchos"][-1]["datos"]["ok"]:
+            return "rojo"
+        if clave == "7" and c["areas"] and not c["areas"][-1]["datos"]["ok"]:
             return "rojo"
         if valor is None and clave != "4":
             return "amarillo"
@@ -7563,6 +8183,22 @@ class Ventana:
             if self.cancha["yp"] is not None:
                 t.insert("end", "6b: pelota a la derecha, Yp = %d → camaraYInvertida = %s\n" % (
                     self.cancha["yp"], "1" if self.cancha["yp"] < 0 else "0"), "bueno")
+        elif clave == "7":
+            vel = self._vel_linea_de_partido()
+            t.insert("end", "Mide a VEL_LINEA = %s (la de la pestaña PARTIDO). Va en MS_PUNTA_A_PUNTA_FIJO: la vuelta "
+                            "al medio con la línea del área (y la patrulla por la línea) va la MITAD.\n" % (
+                                "?" if vel is None else vel), "titulo")
+            for k, a in enumerate(self.cancha["areas"], 1):
+                m = a["datos"]
+                if not m["ok"]:
+                    t.insert("end", "Corrida %d: NO SIRVE (error %d: %s)\n" % (
+                        k, m["error"], TEXTO_ERROR_AREA.get(m["error"], "?")), "malo")
+                    continue
+                t.insert("end", "Corrida %d: %d ms de costado a costado (hasta la línea izquierda: %d ms) a fuerza %d → "
+                                "al medio %d ms. Peor desvío %s°%s\n" % (
+                                    k, m["ms"], m["izq"], m["vel"], m["ms"] // 2, _g1(m["desvio"] or 0),
+                                    "" if m["vel"] == vel else "  (OTRA FUERZA: no cuenta)"),
+                         "bueno" if m["vel"] == vel else "amarillo")
         if nombre:
             _, avisos, _ = sugeridos[nombre]
             for texto, nivel in avisos:
@@ -7887,10 +8523,10 @@ class Ventana:
                 self.ent_consola.delete(0, "end")
             if texto.startswith("!"):
                 self.t_pedido = time.monotonic()
-                if texto[1:2].upper() in ("L", "A", "F", "C", "I"):
+                if texto[1:2].upper() in ("L", "A", "F", "C", "I", "P"):
                     self.pedido_cancha = (texto[1:2].upper(),)   # lo pidieron acá: cuando llegue, se suma
                 if texto.rstrip().endswith("c") and len(texto) > 2:
-                    self.estado.que_sin_cable = "cancha" if texto[1:2].upper() in "LAFCI" else "mov"
+                    self.estado.que_sin_cable = "cancha" if texto[1:2].upper() in "LAFCIP" else "mov"
             if texto in ("r", "rc"):
                 self.t_pedido_repetir = time.monotonic()
                 self.rc_a_mano = (texto == "rc")
@@ -8004,7 +8640,7 @@ class Ventana:
         return valores
 
     def _medido_de_cancha(self):
-        """Lo medido en CANCHA que usan las reglas (O5, O16)."""
+        """Lo medido en CANCHA que usan las reglas (O5, O16, O22)."""
         medido = {}
         try:
             r = calcular_umbral(self.cancha["lineas"])
@@ -8015,6 +8651,10 @@ class Ventana:
         cruces = [a["datos"].get("izqder") for a in self.cancha["anchos"] if a["datos"].get("izqder")]
         if cruces:
             medido["cruce"] = max(cruces)
+        # (2026-11-09) a qué fuerzas se midió el ancho del área (paso 7): O22
+        vels = {a["datos"]["vel"] for a in self.cancha.get("areas", []) if a["datos"].get("ok")}
+        if vels:
+            medido["area_vel"] = vels
         return medido
 
     def _reglas_de_ahora(self):
@@ -8300,7 +8940,7 @@ class Ventana:
                 self._ruta_para_mostrar(), self.error_lectura or "?"), fg=ROJO)
         else:
             self.lbl_partido_programa.configure(fg="#212121", text="Programa: %s · versión %s · sello %s" % (
-                self._ruta_para_mostrar(), lec["version"] or "(no dice: 0921f o anterior)", lec["sello"] or "-"))
+                self._ruta_para_mostrar(), nombre_de_version(lec["version"]), lec["sello"] or "-"))
         texto, fondo, color = self._texto_estado_partido()
         self.lbl_partido_estado.configure(text=texto, bg=fondo, fg=color)
         # los avisos
@@ -8309,15 +8949,7 @@ class Ventana:
             avisos.append(("error", "No pude leer el programa de partido (%s): %s" % (self.partido_ruta,
                                                                                      self.error_lectura or "?")))
         else:
-            for p in lec["problemas"]:
-                avisos.append(("error", p))
-            if lec["faltan"]:
-                avisos.append(("error", "Faltan en el programa: %s. No los adivino: ¿es otra versión? Avisale al "
-                                        "profe." % ", ".join(lec["faltan"])))
-            if lec["repetidos"]:
-                avisos.append(("error", "Están repetidos (no los toco): %s." % ", ".join(lec["repetidos"])))
-            for nombre, motivo in lec["raros"]:
-                avisos.append(("error", "%s: %s (no lo toco)." % (nombre, motivo)))
+            avisos += avisos_de_la_lectura(lec)
         if self.aviso_afuera:
             avisos.append(("ojo", self.aviso_afuera))
         for nivel, texto, _, _ in reglas:
@@ -8414,10 +9046,7 @@ class Ventana:
         self.estado_archivo = "cargado" if estado == "IGUAL" else "no_coincide"
 
     def _fila_no_aplica(self, nombre, valores):
-        llaves = GRIS_SI_PARTIDO.get(nombre)
-        if not llaves:
-            return False
-        return all(valores.get(k) == "false" for k in llaves)
+        return fila_no_aplica(nombre, valores)
 
     def _texto_robot_partido(self):
         """El recuadro EL ROBOT TIENE: (texto, color)."""
@@ -8430,8 +9059,9 @@ class Ventana:
             if estado == "IGUAL":
                 return cabeza + "\n✔ coincide con el archivo", VERDE
             if estado == "OTRA_VERSION":
-                return cabeza + "\n✖ Es otra versión: el archivo es la %s. Cargalo de nuevo." % (
-                    self.lectura["version"] or "0921f"), ROJO
+                # (2026-11-09) una 0921g con el archivo en la 0921i: "la VERSIÓN ANTERIOR".
+                return cabeza + "\n✖ Es otra versión: %s. Para jugar con la del archivo: CARGAR EL PARTIDO." % (
+                    texto_otra_version(m["version"], self.lectura["version"])), ROJO
             return cabeza + "\n✖ NO coincide: " + self._texto_difs(difs), ROJO
         if not self.conectado:
             return "Sin robot conectado (enchufá el arquero por USB).", GRIS
@@ -8697,7 +9327,7 @@ class Ventana:
     def _partido_volver_copia(self):
         if not self._partido_editable():
             return False
-        elegida = elegir_copia_para_volver(self.copias_partido, self.lectura["valores"])
+        elegida = elegir_copia_para_volver(self.copias_partido, self.lectura["valores"], self.lectura["version"])
         if elegida is None:
             if self.pendientes_partido and copias_del_partido(self.copias_partido):
                 # El archivo ya está como la copia más nueva: lo que hay que volver es el EDITOR.
@@ -8712,11 +9342,18 @@ class Ventana:
     def _partido_volver_fabrica(self):
         if not self._partido_editable():
             return False
-        difs = [(n, self.lectura["valores"][n], VALORES_DE_FABRICA[n]) for n in ORDEN_PARTIDO
-                if n in self.lectura["valores"] and TIPO_PARTIDO[n] != "v"
-                and not mismo_valor(n, self.lectura["valores"][n], VALORES_DE_FABRICA[n])]
+        # (2026-11-09) los de fábrica de la versión DEL ARCHIVO (la 0921i: VALORES_DE_FABRICA).
+        version = self.lectura["version"]
+        fab = fabrica_de(version)
+        difs = [(n, self.lectura["valores"][n], fab[n]) for n in ORDEN_PARTIDO
+                if n in self.lectura["valores"] and n in fab and TIPO_PARTIDO[n] != "v"
+                and not mismo_valor(n, self.lectura["valores"][n], fab[n])]
+        if _version_conocida(version):
+            de_quien = "los de la %s tal como salió del taller" % (version or "0921f")
+        else:
+            de_quien = "los de la %s: este tablero no conoce la %s" % (VERSION_PARTIDO_HOY, version)
         return self._poner_varios(difs, "fábrica", "Volver a los de fábrica",
-                                  "Vuelven los valores de fábrica (la 0921f del 03/11):")
+                                  "Vuelven los valores de fábrica (%s):" % de_quien)
 
     # ---- CANCHA -> PARTIDO ----
 
@@ -8734,16 +9371,18 @@ class Ventana:
             hoja = self.hoja
             fuente = "hoja %s" % (os.path.basename(self.ruta_hoja) if self.ruta_hoja else "abierta")
         fuente_hoja = fuente or "hoja"
+        hoja_cruda = hoja
         hoja = hoja_valores_panel(hoja) if hoja else {}
         filas = []
 
-        def agregar(nombre, medido, fuente, aviso="", tildado=True, rojo=False, solo_si_distinto=False):
+        def agregar(nombre, medido, fuente, aviso="", tildado=True, rojo=False, solo_si_distinto=False, no_va=None):
             hoy = self.lectura["valores"].get(nombre)
             if medido is None or hoy is None or nombre in self._no_usables():
                 return
             fila = {"nombre": nombre, "hoy": hoy, "medido": str(medido), "fuente": fuente, "aviso": aviso,
                     "tildado": tildado, "puede": True, "rojo": rojo}
             _, motivo = validar_valor_partido(nombre, medido)
+            motivo = motivo or no_va
             if motivo:
                 fila.update(puede=False, tildado=False, rojo=True, aviso=motivo)
             elif mismo_valor(nombre, str(medido), hoy):
@@ -8793,6 +9432,29 @@ class Ventana:
             if v is not None:
                 agregar(nombre, "true" if str(v) == "1" else "false", "medido ahora", aviso="¡CAMBIA UN SIGNO!",
                         tildado=False, rojo=True, solo_si_distinto=True)
+        # (2026-11-09) el ancho del área (paso 7) -> MS_PUNTA_A_PUNTA_FIJO, ATADO a VEL_LINEA
+        v, f = de("MS_PUNTA_A_PUNTA_FIJO")
+        if v is not None:
+            vel = self._vel_linea_de_partido()
+            if f == "medido ahora":
+                vel_medido = vel                      # (_sugeridos usa solo las corridas a esa fuerza)
+            else:
+                try:
+                    vel_medido = int(str(hoja_valor(hoja_cruda, "AREA", "vel")).split()[0])
+                except (TypeError, ValueError, IndexError):
+                    vel_medido = None
+            mitad = int(float(v)) // 2
+            if vel_medido is None:
+                agregar("MS_PUNTA_A_PUNTA_FIJO", v, f, tildado=False,
+                        aviso="la hoja no dice a qué fuerza se midió: vale SOLO si fue a VEL_LINEA %s" % vel)
+            elif vel is not None and vel_medido != vel:
+                agregar("MS_PUNTA_A_PUNTA_FIJO", v, f,
+                        no_va="se midió a fuerza %d y la VEL_LINEA de PARTIDO es %d: medilo de nuevo (CANCHA paso 7)"
+                              % (vel_medido, vel))
+            else:
+                agregar("MS_PUNTA_A_PUNTA_FIJO", v, f,
+                        aviso="de costado a costado del área a VEL_LINEA %s: la vuelta con la línea (y la patrulla "
+                              "por la línea) va la mitad (%d ms)" % (vel_medido, mitad))
         return filas
 
     def _pasar_a_partido(self, pares, origen="CANCHA"):
@@ -9060,8 +9722,8 @@ class Ventana:
                             self._texto_difs(difs), ROJO)
             self.estado_archivo = "no_coincide"
         else:
-            texto, color = ("Cargó, pero el robot dice que tiene la %s y el archivo es la %s. Cargalo de nuevo." % (
-                m["version"], self.lectura["version"] or "0921f"), ROJO)
+            texto, color = ("Cargó, pero %s. Cargalo de nuevo." % texto_otra_version(m["version"],
+                                                                                   self.lectura["version"]), ROJO)
             self.estado_archivo = "no_coincide"
         if not m["giro"]:
             texto += (" No encontró el giroscopio (es normal si la batería está apagada; en la cancha, prendé la "
@@ -9216,7 +9878,10 @@ S_BUENA = ("#S t=12345 l=88,92,61 u=425 r=93.4 g=5 cal=3,3,0,0 p=86,-12,40 d=30.
 S_SIN_GIRO = ("#S t=500 l=90,85,60 u=425 r=-1 g=-1 cal=-1,-1,-1,-1 p=0,0,-1 d=-1.0 y=0.0 vy=0.0 va=0.0 ve=0 n=0 "
               "dg=1,0,200,0,383 am=0,0,-1 az=0,0,-1 q=0 e=ESPERA")
 S_DELANTERO = "#S t=12345 l=310,322,705 u=424,434,440 r=93.4 g=5 p=55,24,40 am=150,-20,120 az=0,0,-1 q=18 e=ESPERA"
-HOLA_BUENO = "#HOLA tablero-arquero 2026-11-03 serie=13348550 partido=0.1103"
+# (2026-11-09) con la fecha del contrato de hoy (la del tablero.ino que sabe la P)
+HOLA_BUENO = "#HOLA tablero-arquero %s serie=13348550 partido=0.1103" % FECHA_CONTRATO
+# Un tablero.ino de ANTES de la P (no sabe medir el área)
+HOLA_VIEJO = "#HOLA tablero-arquero 2026-11-03 serie=13348550 partido=0.1103"
 R_9 = ("#R n=9 mov=ATAJAR nota=PROLIJO como=NORMAL pico=3.4 picoms=4120 fin=0.9 medio=0.4 cruces=0 fuera3=4 "
        "corr=-2 tope=0 mudas=0 racha=0 hueco=11 huecoms=3990 duro=7930 lineams=1010 idams=4342 atrasms=4742 "
        "acomodo=0 laterales=0 idas=2 arranques=3 conpelota=88 zonamuerta=40 velmedia=9.8 intentos=2 sale=1")
@@ -9272,6 +9937,13 @@ EJEMPLOS_CONTRATO = (
     ("#FRENO no es el arquero", "FRENO"), ("#FRENO tope de tiempo", "FRENO"), ("#FRENO recien parado", "FRENO"),
     ("#FRENO sin giroscopio", "FRENO"), ("#FRENO sin camara", "FRENO"),
     ("(la camara no mando nada, o la frenaron: no hay medicion)", "TEXTO"), ("#FIN C", "FIN"),
+    # (2026-11-09) la P: el ancho del área (lo que imprime tablero.ino)
+    ("#INICIO P ANCHO_AREA tope=12000 sincable=0", "INICIO"), ("#INICIO P ANCHO_AREA tope=12000 sincable=1", "INICIO"),
+    ("#AREA ok=1 error=0 ms=2548 izq=1180 vel=90 umbral=425 desvio=1.4 rampa=10", "AREA"),
+    ("#AREA ok=0 error=3 ms=0 izq=0 vel=90 umbral=425 desvio=0.8 rampa=10", "AREA"),
+    ("RESULTADO: P ANCHO_AREA -> OK, midio bien. De costado a costado: 2548 ms a fuerza 90 (al medio: 1274 ms)", "TEXTO"),
+    ("#FIN P", "FIN"), ("#REPITE P ANCHO_AREA sincable=1 apagado=0", "REPITE"),
+    ("#GUARDADO que=cancha hay=1 n=P nombre=ANCHO_AREA nota=OK sincable=1 nuevo=1 mismo=1 hace=5210", "GUARDADO"),
 )
 
 
@@ -9443,6 +10115,24 @@ def _autoprueba_traductor(verificar):
     verificar(reconocer_programa("=== TABLERO DEL ARQUERO 2026-11-03 (copias del partido 0.1103) - NO ES EL DE "
                                  "PARTIDO ===") == "TABLERO_ARQUERO", "reconoce este tablero")
     verificar(reconocer_programa("hola") is None and reconocer_programa("=== OTRA COSA ===") is None, "no reconoce otros")
+    # --- (2026-11-09) #AREA: el ancho del área (la P) ---
+    bueno = "#AREA ok=1 error=0 ms=2548 izq=1180 vel=90 umbral=425 desvio=1.4 rampa=10"
+    m = interpretar(bueno)
+    verificar(m["ok"] is True and m["error"] == 0 and m["ms"] == 2548 and m["izq"] == 1180 and m["vel"] == 90
+              and m["umbral"] == 425 and m["desvio"] == 1.4 and m["rampa"] == 10, "AREA: los campos")
+    verificar(interpretar(linea_area(2548, 1180)) == m, "AREA: linea_area arma la misma")
+    for k in range(len(bueno)):
+        cortada = bueno[:k]
+        verificar(tipo(cortada) != "AREA" or cortada.endswith(" rampa=1"), "AREA cortada en %d se tomó como buena" % k)
+    for malo, que in ((bueno.replace("error=0", "error=9"), "error desconocido"),
+                      (bueno.replace("error=0", "error=2"), "ok=1 con error"),
+                      (bueno.replace("ms=2548", "ms=-5"), "ms negativo"),
+                      (bueno.replace("vel=90", "vel=noventa"), "vel no es número"),
+                      (bueno.replace(" vel=90", ""), "sin vel"), (bueno.replace("ok=1 ", "") + " ok=1", "ok no va primero"),
+                      (bueno + " x=1", "rampa no va última"), (bueno[:30] + bueno, "dos pegados"), ("#AREA", "vacío")):
+        verificar(tipo(malo) == "ROTA", "AREA ROTA: %s" % que)
+    verificar(interpretar("#INICIO P ANCHO_AREA tope=12000 sincable=1")["codigo"] == "P"
+              and interpretar("#FIN P")["codigo"] == "P" and "P" in CODIGOS_CANCHA, "AREA: la P es de cancha")
 
 
 def _autoprueba_memoria(verificar):
@@ -9524,6 +10214,15 @@ def _autoprueba_memoria(verificar):
         e.aplicar(interpretar("#LIN fase=%s n=1 izq=1,2,3 der=1,2,3 ade=1,2,3" % f))
     e.aplicar(interpretar("#FIN L"))
     verificar(set(e.cancha["L"]) == {"v", "i"} and len(e.cancha_lista[1]) == 2, "memoria: la línea queda por fase")
+    # (2026-11-09) la P: el ancho del área, como las otras de cancha
+    e.aplicar(interpretar("#CUENTA 3.0 cable"))
+    e.aplicar(interpretar("#INICIO P ANCHO_AREA tope=12000 sincable=0"))
+    verificar(e.modo == "MOVIENDO" and e.codigo == "P" and e.tope == 12000, "memoria: #INICIO P")
+    e.aplicar(interpretar(linea_area(2548, 1180)))
+    c = e.aplicar(interpretar("#FIN P"))
+    verificar("cancha_lista" in c and e.cancha_lista[0] == "P" and e.cancha["P"]["ms"] == 2548
+              and e.modo == "ESPERA" and ("cancha", "P") in [(q, k) for q, k, _ in e.vistos],
+              "memoria: la tanda de la P queda como de cancha (y vista)")
     # GUARDADO nuevo=1 deja el pedido de r
     e = Estado()
     e.aplicar(interpretar(HOLA_BUENO))
@@ -9741,10 +10440,22 @@ def _autoprueba_cuentas(verificar):
     escuela = texto_a_hoja(HOJA_ESCUELA)
     verificar(hoja_valores_panel(escuela) == {"umbralBlanco": "425", "MS_MEDIO_AL_MEDIO": "2228",
                                               "MS_MEDIO_FONDO_POR_TIEMPO": "2000", "CAMARA_POR_CM": "2.87",
-                                              "msAdelante": "383", "lateralInvertido": "0", "camaraYInvertida": "1"},
+                                              "msAdelante": "383", "lateralInvertido": "0", "camaraYInvertida": "1",
+                                              "MS_PUNTA_A_PUNTA_FIJO": "2548"},
               "la hoja de la escuela: %r" % hoja_valores_panel(escuela))
+    verificar(hoja_valor(escuela, "AREA", "vel") == "90", "la hoja de la escuela: el ancho del área, a VEL_LINEA 90")
     filas = comparar_hojas([("escuela", escuela), ("roboliga", hoja)])
-    verificar(filas[0] == ("umbralBlanco", ["425", "431"]) and filas[1] == ("MS_MEDIO_AL_MEDIO", ["2228", "-"]), "comparar_hojas")
+    verificar(filas[0] == ("umbralBlanco", ["425", "431"]) and filas[1] == ("MS_MEDIO_AL_MEDIO", ["2228", "-"])
+              and filas[-1] == ("MS_PUNTA_A_PUNTA_FIJO", ["2548", "-"]), "comparar_hojas")
+    # (2026-11-09) sugerido_area: el promedio de las buenas, con su aviso
+    a1, a2, a3 = (interpretar(linea_area(2548, 1180)), interpretar(linea_area(2600, 1190)),
+                  interpretar(linea_area(3000, 1300)))
+    verificar(sugerido_area([]) == (None, None, None) and sugerido_area([a1])[0] == "2548"
+              and "Una sola" in sugerido_area([a1])[2], "sugerido_area: una sola corrida")
+    s, dif, aviso = sugerido_area([a1, a2])
+    verificar(s == "2574" and dif < 3 and aviso is None, "sugerido_area: dos parecidas (%r %r %r)" % (s, dif, aviso))
+    s, dif, aviso = sugerido_area([a1, a3, interpretar(linea_area(0, 900, ok=0, error=3))])
+    verificar(s == "2774" and dif > 5 and "distinto" in aviso, "sugerido_area: dos distintas (y la mala no cuenta)")
     # nuevo_valor, normalizar_entrada
     for actual, paso, signo, esperado in (("0.8", 0.05, -1, "0.75"), ("0.80", 0.05, 1, "0.85"), ("1.5", 0.25, 1, "1.75"),
                                           ("2.87", 0.01, 1, "2.88"), ("1.4", 0.2, 1, "1.6"), ("500.0", 50, 1, "550.0"),
@@ -9868,8 +10579,8 @@ def _autoprueba_robot_de_mentira(verificar):
                          ("=msAdelante 3.5", "#ERROR msAdelante va sin decimales"),
                          ("=despejeEnDiagonal 2", "#ERROR despejeEnDiagonal es si o no: va 0 o 1"),
                          ("=umbralCm 50", "#ERROR umbralCm fuera de rango: va de 20.0 a 45.0"),
-                         ("!", "#ERROR falta el numero del movimiento: !1 a !10, o !L !A !F !C !I"),
-                         ("!11", "#ERROR no hay movimiento 11: son del !1 al !10, y los de cancha !L !A !F !C !I"),
+                         ("!", "#ERROR falta el numero del movimiento: !1 a !10, o !L !A !F !C !I !P"),
+                         ("!11", "#ERROR no hay movimiento 11: son del !1 al !10, y los de cancha !L !A !F !C !I !P"),
                          ("!L", "#ERROR !L necesita la fase: !L v (verde), !L i (blanco izq), !L d (blanco der) o !L c (sin cable)"),
                          ("zz", "#ERROR no entiendo 'zz'. ? = ayuda"), ("x" * 80, "#ERROR orden demasiado larga"),
                          ("rc", "#ERROR no hay nada guardado"), ("r", "#ERROR no hay nada guardado")):
@@ -9925,6 +10636,26 @@ def _autoprueba_robot_de_mentira(verificar):
     medio = [interpretar(x) for x in dijo("!I") if x.startswith(("#MEDIO", "#PASO"))]
     verificar(medio[-1]["ok"] and medio[-1]["pasos"][5] == 2228 and len(medio) == 9, "mentira: ir al medio")
     verificar(dijo("rc")[0] == "#REPITE I IR_AL_MEDIO sincable=0 apagado=0", "mentira: rc repite la última de cancha")
+    # (2026-11-09) la P: el ancho del área, a la fuerza que se pide
+    salida = dijo("!P 90")
+    tipos = [interpretar(x)["tipo"] for x in salida if isinstance(x, str)]
+    ar = [interpretar(x) for x in salida if isinstance(x, str) and x.startswith("#AREA")]
+    verificar(tipos[1] == "CUENTA" and "#INICIO P ANCHO_AREA tope=12000 sincable=0" in salida and tipos[-1] == "FIN"
+              and len(ar) == 1 and ar[0]["ok"] and ar[0]["ms"] == 2548 and ar[0]["vel"] == 90 and salida[-1] == "#FIN P",
+              "mentira: !P 90 da 2548 a fuerza 90 (%r)" % (salida[-3:],))
+    ar2 = [interpretar(x) for x in dijo("!P 100") if isinstance(x, str) and x.startswith("#AREA")]
+    verificar(ar2[0]["vel"] == 100 and ar2[0]["ms"] < 2571, "mentira: !P 100 mide a 100 (más rápido, menos ms)")
+    verificar(dijo("rc")[0] == "#REPITE P ANCHO_AREA sincable=0 apagado=0", "mentira: rc repite la P")
+    for orden, error in (("!P 70", "#ERROR !P: la fuerza va de 75 a 150"), ("!P 200", "#ERROR !P: la fuerza va de 75 a 150"),
+                         ("!P x", "#ERROR !P se pide asi: !P, !P 90, !P c o !P 90 c (la fuerza de costado)"),
+                         ("!P 90 c c", "#ERROR !P se pide asi: !P, !P 90, !P c o !P 90 c (la fuerza de costado)")):
+        verificar(dijo(orden)[:1] == [error], "mentira: %r -> %r" % (orden, dijo(orden)[:1]))
+    salida = dijo("!P 90 c")
+    eventos = [x[0] for x in salida if isinstance(x, tuple)]
+    textos = [x for x in salida if isinstance(x, str)]
+    g = [interpretar(x) for x in textos if x.startswith("#GUARDADO que=cancha")]
+    verificar(eventos == ["desconectado", "conectado"] and g and g[-1]["n"] == "P" and g[-1]["nuevo"]
+              and interpretar(dijo("rc")[1])["ms"] == 2530, "mentira: !P 90 c sin cable, y rc la trae")
     # SIN CABLE: desconectado -> conectado -> GUARDADO nuevo=1 -> r -> REPITE -> FIN
     salida = dijo("!6 c")
     textos = [x for x in salida if isinstance(x, str)]
@@ -10484,6 +11215,51 @@ def _autoprueba_ventana(verificar, carpeta):
         verificar(v._sugeridos()["MS_MEDIO_AL_MEDIO"][0] == "2228", "cancha: el paso 2 da 2228")
         v._usar_sugerido()
         verificar(cable.mandados[-1] == "=MS_MEDIO_AL_MEDIO 2228", "cancha: USAR ESTE del ancho")
+        # (2026-11-09) el paso 7: el ancho del ÁREA, a la VEL_LINEA de la pestaña PARTIDO
+        v._elegir_paso("7")
+        verificar(v._vel_linea_de_partido() == 90 and mostro("ADENTRO DEL ÁREA", 200)
+                  and mostro("sensor de ADELANTE sobre el VERDE", 200) and mostro("VEL_LINEA = 90", 200),
+                  "cancha 7: dice cómo apoyarlo y a qué fuerza mide")
+        verificar("copiar" not in v.w and v.w["usar"] is not None, "cancha 7: en vez de USAR/COPIAR, PASAR A PARTIDO")
+        for k, (ms, izq) in enumerate(((2548, 1180), (2600, 1200)), 1):
+            verificar(v._medir_area() and cable.mandados[-1] == "!P 90" and "ADENTRO DEL ÁREA" in v.ultimo_aviso[0]
+                      and "sensor de ADELANTE en el VERDE" in v.ultimo_aviso[0],
+                      "cancha 7: MEDIR manda !P 90 y recuerda cómo apoyarlo (%d)" % k)
+            llegan("#CUENTA 3.0 cable", "#INICIO P ANCHO_AREA tope=12000 sincable=0", linea_area(ms, izq),
+                   "RESULTADO: P ANCHO_AREA -> OK, midio bien", "#FIN P")
+        s = v._sugeridos()["MS_PUNTA_A_PUNTA_FIJO"]
+        verificar(len(v.cancha["areas"]) == 2 and s[0] == "2574" and not s[1], "cancha 7: dos corridas dan 2574 (%r)" % (s,))
+        texto = open(v.ruta_hoja, encoding="utf-8").read()
+        verificar("[AREA]" in texto and "corrida_1 = ok=1 error=0 ms=2548 izq=1180 vel=90" in texto
+                  and "sugerido = 2574" in texto and "vel = 90" in texto, "cancha 7: la hoja tiene el área (y la fuerza)")
+        verificar(v._estado_paso("7", v._sugeridos()) == "verde", "cancha 7: luz verde")
+        v._medir_area()
+        llegan("#CUENTA 3.0 cable", "#INICIO P ANCHO_AREA tope=12000 sincable=0", linea_area(2300, 1100, vel=100), "#FIN P")
+        s = v._sugeridos()["MS_PUNTA_A_PUNTA_FIJO"]
+        verificar(s[0] == "2574" and any("NO cuentan" in a[0] for a in s[1]),
+                  "cancha 7: una corrida a OTRA fuerza no cuenta (y lo dice)")
+        v._medir_area()
+        llegan("#CUENTA 3.0 cable", "#INICIO P ANCHO_AREA tope=12000 sincable=0",
+               linea_area(0, 0, ok=0, error=2), "#FIN P")
+        verificar(v._estado_paso("7", v._sugeridos()) == "rojo" and v._sugeridos()["MS_PUNTA_A_PUNTA_FIJO"][0] == "2574",
+                  "cancha 7: la última salió mal: luz roja (y lo bueno de antes sigue)")
+        v._pintar_cancha()
+        verificar(mostro("SUGERIDO: MS_PUNTA_A_PUNTA_FIJO = 2574", 200), "cancha 7: el SUGERIDO")
+        filas = {f["nombre"]: f for f in v._medido_para_partido()}
+        f7 = filas.get("MS_PUNTA_A_PUNTA_FIJO")
+        verificar(f7 is not None and f7["medido"] == "2574" and f7["tildado"] and f7["puede"] and "1287" in f7["aviso"],
+                  "cancha 7: PASAR A PARTIDO trae MS_PUNTA_A_PUNTA_FIJO, tildado (%r)" % (f7,))
+        v._poner_sin_cable(True)
+        verificar(v._medir_area() and cable.mandados[-1] == "!P 90 c", "cancha 7: SIN CABLE manda !P 90 c")
+        llegan("#CUENTA 10.0 sincable", "#FRENO tecla", "cancelado: no se movio")
+        v._poner_sin_cable(False)
+        llegan(HOLA_VIEJO)
+        antes = len(cable.mandados)
+        verificar(not v._medir_area() and len(cable.mandados) == antes and "Cargar el TABLERO" in v.ultimo_aviso[0],
+                  "cancha 7: con un TABLERO de antes del 09/11 no manda !P (y dice que hay que cargarlo)")
+        llegan(HOLA_BUENO)
+        v._borrar_areas()
+        verificar(v.cancha["areas"] == [] and v._sugeridos()["MS_PUNTA_A_PUNTA_FIJO"][0] is None, "cancha 7: borrar")
         # el paso 5: !10 recién después del #OK
         v._elegir_paso("5")
         v._ida(250)
@@ -10565,6 +11341,10 @@ def _autoprueba_ventana(verificar, carpeta):
         verificar(len(v.cancha["lineas"]) == antes_lineas + 1 and not v.rc_a_mano, "cancha: con rc a mano SÍ se suma")
         verificar(v._sugeridos()["umbralBlanco"][0] == "425", "cancha: el umbral sigue en 425")
         v._elegir_paso("2c")
+        # (2026-11-09, revisión) el 2c dice que vuelve SOLO por tiempo (sin la vuelta con la línea de la 0921i)
+        textos_2c = [c[1].get("text", "") for c in v.w["que"].configure.call_args_list]
+        verificar(any("SOLO POR TIEMPO" in t and "NO se prueba" in t for t in textos_2c),
+                  "cancha: el 2c avisa que no prueba la vuelta con la línea del área")
         v._medir_cancha("!I", ("I",), True)
         llegan("#CUENTA 3.0 cable", "#INICIO I IR_AL_MEDIO tope=40000 sincable=0", "#PASO I paso=1 ms=1830 como=L",
                "#MEDIO ok=1 pasos=1830,400,2000,943,610,2228,520,320 como=L,T,T,T,L,T,L,T desvio=3.1 acomodo=0", "#FIN I")
@@ -10712,9 +11492,13 @@ def _autoprueba_ventana(verificar, carpeta):
         g.update(guardados)
 
 
-def _ino_sintetico(sin=(), extra_arriba=(), extra_abajo=()):
+def _ino_sintetico(sin=(), extra_arriba=(), extra_abajo=(), version=None, valores=None):
     """Un .ino de mentira armado desde TABLA_PARTIDO, con LF, emojis y TODAS
-    las trampas del de verdad (2026-11-08, DISENO 16)."""
+    las trampas del de verdad (2026-11-08, DISENO 16). (2026-11-09) version y
+    valores: para armar una de antes (la 0921g: sin NUEVOS_EN_LA_0921I y con
+    fabrica_de("0921g"))."""
+    version = version or VERSION_PARTIDO_HOY
+    valores = valores or VALORES_DE_FABRICA
     l = ["/* =====================================================================",
          "   ARQUERO de mentira 🚨 (para la autoprueba)",
          "   umbralBlanco = 999 -> esto es un comentario, no se lee",
@@ -10727,13 +11511,14 @@ def _ino_sintetico(sin=(), extra_arriba=(), extra_abajo=()):
          "int Xp = 0, Yp = 0;",
          "enum Fase { APAGADO, ARMANDOSE,",
          "            ESPERANDO };",
-         'const char* VERSION_PARTIDO = "0921g";',
+         'const char* VERSION_PARTIDO = "%s";' % version,
          'const char* SELLO = "fabrica";']
     l += list(extra_arriba)
     for f in TABLA_PARTIDO:
         if f[0] in sin:
             continue
-        l.append("%s %s = %s;   // 🏷️ %s vale %s (el comentario repite el número) {" % (f[1], f[0], f[3], f[0], f[3]))
+        x = valores[f[0]]
+        l.append("%s %s = %s;   // 🏷️ %s vale %s (el comentario repite el número) {" % (f[1], f[0], x, f[0], x))
     l += ["void funcion() {",
           "  int msAdelante = 1;            // sangrado: es de la función",
           '  const char* x = "{ no cuenta";',
@@ -10794,7 +11579,7 @@ def _autoprueba_partido(verificar, carpeta):
     from unittest import mock
     # ---- A. La tabla ----
     nombres = [f[0] for f in TABLA_PARTIDO]
-    verificar(len(nombres) == len(set(nombres)) == 73, "partido: 73 nombres sin repetir (%d)" % len(nombres))
+    verificar(len(nombres) == len(set(nombres)) == 83, "partido: 83 nombres sin repetir (%d)" % len(nombres))
     for f in TABLA_PARTIDO:
         nombre, decl, tipo, fabrica, unidad, minimo, maximo, paso = f[:8]
         verificar(tipo in ("i", "u", "f", "b", "l", "v") and len(f) == 12, "partido: el tipo de %s" % nombre)
@@ -10806,8 +11591,174 @@ def _autoprueba_partido(verificar, carpeta):
         else:
             verificar(paso is None, "partido: %s no tiene paso" % nombre)
         if "fuerza" in unidad and tipo in ("i", "u"):
-            verificar(maximo <= 255, "partido: %s nunca pasa de 255" % nombre)
+            verificar(0 <= minimo and maximo <= 255, "partido: %s va entre 0 y 255" % nombre)
     verificar(not set(ESTADO_DEL_PARTIDO) & set(nombres), "partido: ninguna variable de estado en la tabla")
+    # ---- A2. (2026-11-09) la 0921i: la patrulla y la vuelta con la línea del área ----
+    verificar(all(n in FILA_PARTIDO and FILA_PARTIDO[n][8] == "patrulla" for n in NUEVOS_EN_LA_0921I)
+              and len(NUEVOS_EN_LA_0921I) == 10, "0921i: las 10 filas nuevas están en el grupo de la patrulla")
+    verificar(all(TIPO_PARTIDO[n] == "b" and n not in ORDEN_INTERRUPTORES
+                  for n in ("patrullaPorLaLinea", "alternarLadoPatrulla", "buscarLineaDelAreaAlVolver")),
+              "0921i: las 3 llaves nuevas son SÍ/NO y NO van en interruptores= (la 0921i manda la línea igual)")
+    verificar(FILA_PARTIDO["VEL_LINEA"][5] >= 75 and FILA_PARTIDO["VEL_ATRAS_A_LA_LINEA"][5] >= 75,
+              "0921i: VEL_LINEA y VEL_ATRAS_A_LA_LINEA no bajan de 75 (parado no arranca)")
+    verificar(300 + FILA_PARTIDO["MS_PUNTA_SOSTENIDA"][6] < FILA_PARTIDO["MS_TOPE_PUNTA"][5],
+              "0921i: con los rangos, la punta (300 ms sin mirar + MS_PUNTA_SOSTENIDA) siempre antes del tope")
+    verificar(FILA_PARTIDO["MS_PUNTA_A_PUNTA_FIJO"][5] == 0 and FILA_PARTIDO["MS_PUNTA_A_PUNTA_FIJO"][6] <= 4000
+              and FILA_PARTIDO["MS_QUIETO_PARA_MIRAR"][5] == 0,
+              "0921i: MS_PUNTA_A_PUNTA_FIJO va de 0 (lo medido por el robot) a 4000, MS_QUIETO_PARA_MIRAR desde 0")
+    verificar(FILA_PARTIDO["MS_AVANCE_10CM"][5] >= 100 and FILA_PARTIDO["MS_AVANCE_10CM"][6] <= 800
+              and FILA_PARTIDO["MS_AVANCE_10CM"][6] < FILA_PARTIDO["MS_MAX_RETROCESO"][5] + 100
+              and FILA_PARTIDO["MS_AVISO_ARMADO"][5] >= 3000,
+              "0921i: MS_AVANCE_10CM de 100 a 800 (la vuelta a la línea lo alcanza) y MS_AVISO_ARMADO desde 3000")
+    # (2026-11-09, revisión) con 2000 la cuenta ya estaba cumplida al empezar loop() (~2,2-2,6 s): sin parpadeo
+    verificar(validar_valor_partido("MS_AVISO_ARMADO", "2500")[1] is not None
+              and validar_valor_partido("MS_AVISO_ARMADO", "3000") == (3000, None),
+              "0921i: MS_AVISO_ARMADO 2500 no se acepta (se movería sin parpadear) y 3000 sí")
+    # lo que tiene HOY funciona/partido-0921 (ebb5518): son los de fábrica del tablero
+    verificar({n: VALORES_DE_FABRICA[n] for n in NUEVOS_EN_LA_0921I} == {
+        "patrullaPorLaLinea": "false", "alternarLadoPatrulla": "true", "buscarLineaDelAreaAlVolver": "true",
+        "MS_AVANCE_10CM": "450", "MS_PUNTA_A_PUNTA_FIJO": "2548", "VEL_LINEA": "90", "VEL_ATRAS_A_LA_LINEA": "80",
+        "MS_QUIETO_PARA_MIRAR": "3000", "MS_PUNTA_SOSTENIDA": "80", "MS_TOPE_PUNTA": "5000"}
+        and VALORES_DE_FABRICA["MS_QUIETO_PARA_PATRULLAR"] == "20000" and VALORES_DE_FABRICA["patrullarSinPelota"]
+        == "true" and VALORES_DE_FABRICA["msEmpujonFinal"] == "450" and VALORES_DE_FABRICA["MS_AVISO_ARMADO"] == "3000"
+        and VALORES_DE_FABRICA["patrullaPorElLateral"] == "true",
+        "0921i: los de fábrica son los de la 0921i de ebb5518 (la patrulla por la línea APAGADA)")
+    # el pedido del equipo: el grupo PATRULLA con sus números, en el orden en que lo pidieron
+    del_grupo = [f[0] for f in TABLA_PARTIDO if f[8] == "patrulla"]
+    pedidos = ("patrullarSinPelota", "MS_QUIETO_PARA_PATRULLAR", "patrullaPorLaLinea", "alternarLadoPatrulla",
+               "buscarLineaDelAreaAlVolver", "MS_AVANCE_10CM", "MS_PUNTA_A_PUNTA_FIJO", "VEL_LINEA",
+               "MS_QUIETO_PARA_MIRAR", "VEL_ATRAS_A_LA_LINEA", "MS_PUNTA_SOSTENIDA", "MS_TOPE_PUNTA")
+    verificar(set(pedidos) <= set(del_grupo) and [n for n in del_grupo if n in pedidos] == list(pedidos)
+              and del_grupo[:2] == ["patrullarSinPelota", "MS_QUIETO_PARA_PATRULLAR"],
+              "0921i: el grupo PATRULLA tiene lo pedido, en ese orden (%r)" % del_grupo[:5])
+    verificar(all(FILA_PARTIDO[n][9] and FILA_PARTIDO[n][10] and FILA_PARTIDO[n][11] for n in NUEVOS_EN_LA_0921I),
+              "0921i: cada fila nueva tiene qué es, para qué lado y atado")
+    verificar("PARA EL PARTIDO" in FILA_PARTIDO["MS_QUIETO_PARA_MIRAR"][10]
+              and "DE PRUEBA" in FILA_PARTIDO["MS_QUIETO_PARA_MIRAR"][9]
+              and "ATADO a VEL_LINEA" in FILA_PARTIDO["MS_PUNTA_A_PUNTA_FIJO"][11]
+              and "ATADO a MS_PUNTA_A_PUNTA_FIJO" in FILA_PARTIDO["VEL_LINEA"][11]
+              and "MS_PUNTA_A_PUNTA_FIJO" in FILA_PARTIDO["buscarLineaDelAreaAlVolver"][11]
+              and "potenciaEmpujon" in FILA_PARTIDO["MS_AVANCE_10CM"][11]
+              and "CANCHA paso 7" in FILA_PARTIDO["MS_PUNTA_A_PUNTA_FIJO"][9]
+              and "15 cm" in FILA_PARTIDO["MS_AVANCE_10CM"][9] and "15 cm" in FILA_PARTIDO["msEmpujonFinal"][9]
+              and "DESDE QUE SE PRENDE" in FILA_PARTIDO["MS_AVISO_ARMADO"][9],
+              "0921i: los textos dicen lo de bajarlo para el partido, lo ATADO, los 15 cm y los 3 s")
+    # (2026-11-09, revisión) lo que estaba mal dicho: el giroscopio NO arranca en paralelo (LED apagado), y
+    # MS_AVANCE_10CM NO decide dónde queda al final (eso es msEmpujonFinal)
+    verificar("APAGADO" in FILA_PARTIDO["MS_AVISO_ARMADO"][9]
+              and not any(x in FILA_PARTIDO["MS_AVISO_ARMADO"][9] for x in ("mientras tanto", "en paralelo"))
+              and "No baja de 3000" in FILA_PARTIDO["MS_AVISO_ARMADO"][10]
+              and "NO cambia dónde queda al final" in FILA_PARTIDO["MS_AVANCE_10CM"][9]
+              and "msEmpujonFinal" in FILA_PARTIDO["MS_AVANCE_10CM"][10]
+              and "Queda muy pegado a la línea → SUBIR" not in FILA_PARTIDO["MS_AVANCE_10CM"][10]
+              and "AL FINAL" in FILA_PARTIDO["msEmpujonFinal"][10]
+              and "MS_PUNTA_A_PUNTA_FIJO" in FILA_PARTIDO["MS_MEDIO_AL_MEDIO"][10]
+              and "por tiempo" in dict((p[0], p[1]) for p in PASOS_CANCHA)["2c"],
+              "0921i (revisión): MS_AVISO_ARMADO (LED apagado, no baja de 3000), MS_AVANCE_10CM / msEmpujonFinal "
+              "(cuál decide dónde queda) y el 2c (por tiempo)")
+    verificar(set(SUBTITULOS_PARTIDO) <= set(FILA_PARTIDO)
+              and {"patrullarSinPelota", "patrullaPorLaLinea", "buscarLineaDelAreaAlVolver", "MS_PUNTA_A_PUNTA_FIJO",
+                   "MS_QUIETO_PARA_MIRAR"} <= set(SUBTITULOS_PARTIDO)
+              and all(FILA_PARTIDO[n][8] == "patrulla" for n in ("patrullarSinPelota", "patrullaPorElLateral")),
+              "0921i: los subtítulos son de filas que existen (y las llaves pasaron al grupo 5)")
+    verificar(CONFIRMAR_PARTIDO["patrullaPorLaLinea"][0] == "true" and "MEDIO PROBAR" in
+              CONFIRMAR_PARTIDO["patrullaPorLaLinea"][1], "0921i: prender la patrulla por la línea pide confirmar")
+    # las reglas nuevas de la patrulla
+    fab0 = dict(VALORES_DE_FABRICA)
+    linea0 = dict(fab0, patrullaPorLaLinea="true")
+
+    def cods(cambios, base=fab0, medido=None):
+        return {c for _, _, _, c in _reglas_con_codigo(dict(base, **cambios), base, medido)}
+    verificar("O18" not in cods({}) and "O18" in cods({}, linea0) and "O18" not in cods({"MS_QUIETO_PARA_MIRAR": "500"},
+                                                                                         linea0)
+              and "O18" not in cods({"patrullarSinPelota": "false"}, linea0),
+              "0921i: O18 (MS_QUIETO_PARA_MIRAR alto: bajarlo para el partido), solo si patrulla por la línea")
+    verificar("O19" in cods({"VEL_LINEA": "100"}) and "O19" not in cods({"VEL_LINEA": "100",
+                                                                          "MS_PUNTA_A_PUNTA_FIJO": "2300"})
+              and "O19" in cods({"VEL_LINEA": "100"}, linea0),
+              "0921i: O19 (cambiar VEL_LINEA sin medir de nuevo el ancho del área)")
+    sin_vuelta = dict(fab0, buscarLineaDelAreaAlVolver="false")
+    verificar("E7" in cods({"MS_PUNTA_A_PUNTA_FIJO": "300"}) and "E7" not in cods({"MS_PUNTA_A_PUNTA_FIJO": "0"})
+              and "E8" in cods({"MS_PUNTA_A_PUNTA_FIJO": "0"}) and "E8" in cods({"MS_PUNTA_A_PUNTA_FIJO": "0"}, linea0)
+              and "E8" not in cods({"MS_PUNTA_A_PUNTA_FIJO": "0"}, sin_vuelta)
+              and "O20" not in cods({"MS_PUNTA_A_PUNTA_FIJO": "0"}, sin_vuelta)
+              and "O20" in cods({"MS_PUNTA_A_PUNTA_FIJO": "0"}, dict(sin_vuelta, patrullaPorLaLinea="true"))
+              and "O21" in cods({"MS_TOPE_PUNTA": "2000", "MS_PUNTA_A_PUNTA_FIJO": "2600"}, linea0)
+              and "O21" not in cods({"MS_TOPE_PUNTA": "2000", "MS_PUNTA_A_PUNTA_FIJO": "2600"}),
+              "0921i: E7 (1..499), E8 (0 con la vuelta con la línea), O20 (0 = lo que midió el robot) y O21")
+    verificar([n for n, _, _, c in _reglas_con_codigo(dict(fab0, MS_PUNTA_A_PUNTA_FIJO="0"), fab0) if c == "E8"]
+              == ["error"], "0921i: E8 es un ERROR (no deja guardar)")
+    verificar("O22" in cods({}, fab0, {"area_vel": {100}}) and "O22" not in cods({}, fab0, {"area_vel": {90}})
+              and "O22" not in cods({}, sin_vuelta, {"area_vel": {100}})
+              and "O22" not in cods({"VEL_LINEA": "100"}, fab0, {"area_vel": {90}})
+              and "O19" in cods({"VEL_LINEA": "100"}, fab0, {"area_vel": {90}}),
+              "0921i: O22 (lo medido en CANCHA a otra fuerza que VEL_LINEA), sin repetir la O19")
+    verificar("O6" in cods({"LADO_TRASERA": "91"}) and any(
+        "MS_PUNTA_A_PUNTA_FIJO" in r[2] for r in _reglas_con_codigo(dict(fab0, LADO_TRASERA="91"), fab0)
+        if r[3] == "O6"), "0921i: O6 también nombra MS_PUNTA_A_PUNTA_FIJO")
+    verificar(VERSION_PARTIDO_HOY not in VERSIONES_PARTIDO_ANTERIORES and VERSION_PARTIDO_HOY not in FABRICA_DE_ANTES
+              and set(VERSIONES_PARTIDO_ANTERIORES) <= set(FABRICA_DE_ANTES), "0921i: las versiones conocidas")
+    viejos = fabrica_de("0921g")
+    cambio_version = {"MS_QUIETO_PARA_PATRULLAR", "msEmpujonFinal", "MS_AVISO_ARMADO"}
+    verificar(not set(NUEVOS_EN_LA_0921I) & set(viejos) and fabrica_de(None) == viejos
+              and {n for n in viejos if viejos[n] != VALORES_DE_FABRICA[n]} == cambio_version
+              and viejos["MS_QUIETO_PARA_PATRULLAR"] == "10000" and viejos["msEmpujonFinal"] == "320"
+              and viejos["MS_AVISO_ARMADO"] == "2000"
+              and fabrica_de(VERSION_PARTIDO_HOY) == VALORES_DE_FABRICA and fabrica_de("0921h") == VALORES_DE_FABRICA,
+              "0921i: la fábrica de la 0921g = la de hoy sin lo nuevo y con 10000 / 320 / 2000")
+    verificar(cambiados_por_la_version("0921g", VERSION_PARTIDO_HOY) == cambio_version
+              and cambiados_por_la_version(None, VERSION_PARTIDO_HOY) == cambio_version
+              and cambiados_por_la_version(VERSION_PARTIDO_HOY, VERSION_PARTIDO_HOY) == set()
+              and cambiados_por_la_version("0921h", VERSION_PARTIDO_HOY) == set(),
+              "0921i: lo que cambió la versión (y nada con una que no conozco)")
+    # las filas grises: lo que hace el .ino en arrancarPatrulla() y en la vuelta al medio
+    fab = dict(VALORES_DE_FABRICA)
+    de_la_linea = ("MS_QUIETO_PARA_MIRAR", "VEL_ATRAS_A_LA_LINEA", "MS_PUNTA_SOSTENIDA", "MS_TOPE_PUNTA")
+    verificar(all(fila_no_aplica(n, fab) for n in de_la_linea)
+              and not any(fila_no_aplica(n, fab) for n in ("patrullaPorLaLinea", "patrullaPorElLateral",
+                                                             "alternarLadoPatrulla", "buscarLineaDelAreaAlVolver",
+                                                             "MS_AVANCE_10CM", "MS_PUNTA_A_PUNTA_FIJO", "VEL_LINEA",
+                                                             "potenciaEmpujon")),
+              "0921i: de fábrica, la patrulla por la línea gris y la del lateral y la vuelta con la línea NO")
+    con_linea = dict(fab, patrullaPorLaLinea="true")
+    verificar(not any(fila_no_aplica(n, con_linea) for n in de_la_linea + ("VEL_LINEA", "MS_PUNTA_A_PUNTA_FIJO",
+                                                                            "buscarLineaDelAreaAlVolver"))
+              and fila_no_aplica("patrullaPorElLateral", con_linea) and fila_no_aplica("alternarLadoPatrulla", con_linea),
+              "0921i: con patrullaPorLaLinea SÍ, la del lateral gris (y la vuelta sigue: ir al medio y el límite)")
+    verificar(all(fila_no_aplica(n, dict(fab, buscarLineaDelAreaAlVolver="false"))
+                  for n in ("MS_AVANCE_10CM", "MS_PUNTA_A_PUNTA_FIJO", "VEL_LINEA"))
+              and not fila_no_aplica("VEL_LINEA", dict(con_linea, buscarLineaDelAreaAlVolver="false"))
+              and fila_no_aplica("MS_AVANCE_10CM", dict(con_linea, buscarLineaDelAreaAlVolver="false")),
+              "0921i: sin la vuelta con la línea, el ancho del área solo lo usa la patrulla por la línea")
+    nunca_lateral = dict(fab, volverAlMedioEnElLateral="false", irAlMedioSiNoHayLinea="false",
+                         patrullaPorElLateral="false")
+    verificar(all(fila_no_aplica(n, nunca_lateral) for n in ("buscarLineaDelAreaAlVolver", "MS_AVANCE_10CM",
+                                                              "alternarLadoPatrulla", "VEL_LINEA"))
+              and not fila_no_aplica("buscarLineaDelAreaAlVolver", dict(nunca_lateral, irAlMedioSiNoHayLinea="true"))
+              and not fila_no_aplica("buscarLineaDelAreaAlVolver", dict(nunca_lateral, patrullaPorElLateral="true")),
+              "0921i: si nunca vuelve de un lateral, la vuelta con la línea gris")
+    sin_patrulla = dict(fab, patrullarSinPelota="false")
+    verificar(all(fila_no_aplica(n, sin_patrulla) for n in de_la_linea + ("patrullaPorLaLinea", "patrullaPorElLateral",
+                                                                           "alternarLadoPatrulla",
+                                                                           "MS_QUIETO_PARA_PATRULLAR"))
+              and not fila_no_aplica("buscarLineaDelAreaAlVolver", sin_patrulla)
+              and not fila_no_aplica("VEL_LINEA", sin_patrulla),
+              "0921i: con patrullarSinPelota NO, la patrulla gris (la vuelta del límite lateral sigue)")
+    sin_empujon = dict(fab, empujonFinal="false", avanzarAlUbicarse="false")
+    verificar(not fila_no_aplica("potenciaEmpujon", sin_empujon) and fila_no_aplica("msEmpujonFinal", sin_empujon)
+              and fila_no_aplica("potenciaEmpujon", dict(sin_empujon, buscarLineaDelAreaAlVolver="false")),
+              "0921i: potenciaEmpujon también la usa el avance de la vuelta con la línea")
+    verificar(fila_no_aplica("VEL_LINEA", fabrica_de("0921g")) and not fila_no_aplica("patrullaPorElLateral",
+                                                                                     fabrica_de("0921g")),
+              "0921i: un archivo 0921g (sin las filas nuevas) no usa el ancho del área y patrulla al lateral")
+    verificar(patrulla_al_lateral({"patrullarSinPelota": True, "patrullaPorLaLinea": False})
+              and not patrulla_por_la_linea({"patrullarSinPelota": True, "patrullaPorLaLinea": False})
+              and vuelta_con_la_linea({"buscarLineaDelAreaAlVolver": True})
+              and not vuelta_con_la_linea({"buscarLineaDelAreaAlVolver": False}),
+              "0921i: las cuentas de qué usa andan también con True/False (las reglas)")
+    verificar(fila_no_aplica("kpPersecucion", dict(fab, perseguirEnElDespeje="false"))
+              and not fila_no_aplica("kpPersecucion", fab) and not fila_no_aplica("umbralBlanco", fab),
+              "0921i: los grises de antes siguen igual")
     verificar(all(TIPO_PARTIDO.get(n) == "b" for n in ORDEN_INTERRUPTORES) and len(ORDEN_INTERRUPTORES) == 13,
               "partido: los 13 interruptores son bool de la tabla")
     verificar(all(n in FILA_PARTIDO for n in NUMEROS_LINEA_PARTIDO) and CAMPOS_PARTIDO[0] == "version"
@@ -10817,16 +11768,46 @@ def _autoprueba_partido(verificar, carpeta):
     if os.path.exists(respaldo):
         with open(respaldo, "rb") as fr:           # solo LEERLO
             r0 = leer_partido(fr.read().decode("utf-8"))
-        verificar(r0["valores"] == VALORES_DE_FABRICA and not r0["faltan"] and r0["version"] is None,
-                  "partido: la fábrica es la 0921f congelada en respaldos (%r)" % r0["faltan"][:3])
+        # (2026-11-09) la 0921i = la 0921f + lo de FABRICA_DE_ANTES: la 0921f no tiene lo nuevo.
+        verificar(r0["valores"] == fabrica_de(None) and sorted(r0["faltan"]) == sorted(NUEVOS_EN_LA_0921I)
+                  and r0["version"] is None,
+                  "partido: la fábrica es la 0921f congelada en respaldos + lo de la 0921i (%r)" % r0["faltan"][:3])
+        verificar(avisos_de_la_lectura(r0) and all(n == "ojo" for n, _ in avisos_de_la_lectura(r0)),
+                  "0921i: un archivo 0921f no da ERROR por lo que no tenía (solo ojo)")
     # ---- B. Leer ----
     sint = _ino_sintetico()
     r = leer_partido(sint)
     verificar(not r["faltan"] and not r["repetidos"] and not r["raros"] and not r["problemas"],
               "partido: el sintético se lee entero (%r %r %r %r)" % (r["faltan"][:3], r["repetidos"], r["raros"][:2],
                                                                    r["problemas"]))
-    verificar(r["valores"] == VALORES_DE_FABRICA and r["version"] == "0921g" and r["sello"] == "fabrica",
+    verificar(r["valores"] == VALORES_DE_FABRICA and r["version"] == VERSION_PARTIDO_HOY and r["sello"] == "fabrica",
               "partido: el sintético da los de fábrica")
+    verificar(avisos_de_la_lectura(r) == [], "partido: el sintético no da avisos de lectura")
+    # (2026-11-09) uno de la 0921g (la ANTERIOR): se lee, lo nuevo "falta" sin ser error, y se escribe lo demás
+    sint_g = _ino_sintetico(sin=NUEVOS_EN_LA_0921I, version="0921g", valores=fabrica_de("0921g"))
+    rg = leer_partido(sint_g)
+    verificar(rg["version"] == "0921g" and rg["valores"] == fabrica_de("0921g") and sorted(rg["faltan"]) ==
+              sorted(NUEVOS_EN_LA_0921I) and not rg["raros"] and not rg["problemas"], "0921g: se lee entera")
+    av = avisos_de_la_lectura(rg)
+    verificar(len(av) == 1 and av[0][0] == "ojo" and "ANTERIOR" in av[0][1] and "VEL_LINEA" in av[0][1],
+              "0921g: lo que no tiene es un OJO, no un ERROR (%r)" % (av,))
+    # (2026-11-09, revisión) su MS_AVISO_ARMADO 2000 queda debajo del mínimo de la 0921i: el OJO lo explica
+    verificar("MS_AVISO_ARMADO (2000)" in av[0][1] and "subirlo" in av[0][1]
+              and [c for _, _, _, c in _reglas_con_codigo(fabrica_de("0921g"), fabrica_de("0921g")) if c == "E6"]
+              == ["E6"], "0921g: MS_AVISO_ARMADO 2000 da E6 (mínimo de la 0921i) y el OJO de la versión lo explica")
+    verificar("MS_AVISO_ARMADO" not in avisos_de_la_lectura(leer_partido(_ino_sintetico(
+        sin=NUEVOS_EN_LA_0921I, version="0921g", valores=dict(fabrica_de("0921g"), MS_AVISO_ARMADO="3000"))))[0][1],
+              "0921g: con MS_AVISO_ARMADO 3000 el OJO no lo nombra")
+    verificar(escribir_partido(sint_g, rg, {"kpLateral": "12"})[1] == [("kpLateral", "11.5", "12.0")],
+              "0921g: lo demás se escribe igual")
+    try:
+        escribir_partido(sint_g, rg, {"VEL_LINEA": "95"})
+        verificar(False, "0921g: VEL_LINEA no está: no se escribe")
+    except NoSeEscribe:
+        pass
+    av = avisos_de_la_lectura(leer_partido(_ino_sintetico(sin=("VEL_LINEA",))))
+    verificar(len(av) == 1 and av[0][0] == "error" and "VEL_LINEA" in av[0][1],
+              "0921i: si a la 0921i le falta VEL_LINEA, ESO sí es error")
     verificar(r["tipos"]["MS_MEDIO_AL_MEDIO"] == "const unsigned long", "partido: el tipo tal cual")
     mapa, problema = mapa_de_lineas(sint)
     verificar(problema is None and len(mapa) == len(sint.split("\n")), "partido: el mapa de las llaves")
@@ -10840,7 +11821,46 @@ def _autoprueba_partido(verificar, carpeta):
         verificar(not rr["faltan"] and not rr["repetidos"] and not rr["raros"] and not rr["problemas"],
                   "el partido cambió: revisar TABLA_PARTIDO (faltan %r, repetidos %r, raros %r, problemas %r)" % (
                       rr["faltan"][:5], rr["repetidos"][:5], rr["raros"][:3], rr["problemas"]))
+        verificar(rr["version"] == VERSION_PARTIDO_HOY,
+                  "el partido es la %r y el tablero es para la %s: revisar VERSION_PARTIDO_HOY y la tabla" % (
+                      rr["version"], VERSION_PARTIDO_HOY))
         verificar(b"\r" not in datos_real and datos_real.endswith(b"\n"), "partido: el de verdad es LF")
+        # (2026-11-09) SELLO "fabrica" = los valores tal como salieron del taller: tienen que ser los de la tabla
+        # (el 09/11 la 0921i tenía el sello de un guardado de la 0921g y otros valores que la tabla).
+        if rr["sello"] == "fabrica":
+            distintos = [(n, rr["valores"][n], VALORES_DE_FABRICA[n]) for n in ORDEN_PARTIDO
+                         if not mismo_valor(n, rr["valores"][n], VALORES_DE_FABRICA[n])]
+            verificar(not distintos, "partido: el de verdad dice sello=fabrica y NO tiene los de fábrica de la tabla "
+                                     "(nombre, archivo, tabla): %r" % distintos[:5])
+        # lo que los textos del grupo 5 dan por hecho de cómo lo usa la 0921i
+        cod = _sin_comentarios(datos_real.decode("utf-8"))
+        for que, como in (("la vuelta con la línea va la mitad del ancho, a VEL_LINEA",
+                           r"moverDeCostado\(dirVueltaLinea \* VEL_LINEA\);\s*if \(ahora - t_fase >= "
+                           r"MS_PUNTA_A_PUNTA_FIJO / 2\)"),
+                          ("el avance es a potenciaEmpujon por MS_AVANCE_10CM",
+                           r"adelanteControlado\(potenciaEmpujon\);\s*if \(ahora - t_fase >= MS_AVANCE_10CM\)"),
+                          ("la vuelta con la línea se apaga con buscarLineaDelAreaAlVolver",
+                           r"if \(!buscarLineaDelAreaAlVolver\) return false;"),
+                          ("patrullaPorLaLinea manda sobre la del lateral", r"if \(patrullaPorLaLinea\) \{"),
+                          ("la patrulla al lateral alterna con alternarLadoPatrulla",
+                           r"ladoMedio = alternarLadoPatrulla \? ladoProximaPatrulla : LADO_MEDIO;"),
+                          ("la punta no se mira los primeros 300 ms",
+                           r"const unsigned long MS_MIN_ANTES_DE_PUNTA = 300;"),
+                          ("la cuenta del arranque es desde que se prende", r"fase = ARMANDOSE; t_fase = 0;"),
+                          # (2026-11-09, revisión) por eso MS_AVISO_ARMADO no baja de 3000
+                          ("setup() espera al giroscopio ANTES de la cuenta (LED apagado)",
+                           r"if \(hayGiroscopo\) \{\s*delay\(1000\);"),
+                          # (2026-11-09, revisión) por eso MS_AVANCE_10CM no decide dónde queda al final
+                          ("después de ir al medio con la línea va atrás HASTA la línea",
+                           r"MS_PUNTA_A_PUNTA_FIJO / 2\) pausaMedio\(MEDIO_AL_AREA\);"),
+                          ("MEDIO_AL_AREA va atrás hasta ver la línea",
+                           r"case MEDIO_AL_AREA:\s*digitalWrite\([^;]*;\s*atrasControlado\(VEL_MEDIO_RECTO\);\s*"
+                           r"if \(algunoDeAtrasVeBlanco\(\)\)"),
+                          ("el empujoncito del final es msEmpujonFinal",
+                           r"adelanteControlado\(potenciaEmpujon\);\s*if \(ahora - t_fase >= \(unsigned long\)"
+                           r"msEmpujonFinal\)")):
+            verificar(re.search(como, cod), "partido: la 0921i ya no hace lo que dice el grupo 5 (%s): revisar "
+                                            "TABLA_PARTIDO" % que)
     # ---- C. Ida y vuelta ----
     verificar(escribir_partido(sint, r, {})[0] == sint, "partido: sin cambios da el mismo texto")
     mismos = dict(VALORES_DE_FABRICA, CAMARA_POR_CM="2.870", umbralCm="30", msAdelante="533.0")
@@ -10880,9 +11900,10 @@ def _autoprueba_partido(verificar, carpeta):
     for nombre, pedido, esperado in (("kpLateral", "12", "12.0"), ("CAMARA_POR_CM", "2.9", "2.90"),
                                      ("rendimientoCostado", "0.75", "0.75"), ("despejeEnDiagonal", "true", "true"),
                                      ("perseguirEnElDespeje", "false", "false"), ("LADO_MEDIO", "1", "1"),
-                                     ("MS_QUIETO_PARA_PATRULLAR", "15000", "15000"), ("umbralCm", "31", "31.0"),
+                                     ("MS_QUIETO_PARA_PATRULLAR", "20000", "20000"), ("umbralCm", "31", "31.0"),
                                      ("kpPersecucion", "0", "0.0"), ("CAMARA_POR_CM", "2,95", "2.95"),
-                                     ("MS_MEDIO_AL_MEDIO", "2228.0", "2228")):
+                                     ("MS_MEDIO_AL_MEDIO", "2228.0", "2228"), ("VEL_LINEA", "95", "95"),
+                                     ("patrullaPorLaLinea", "false", "false"), ("MS_TOPE_PUNTA", "5000.0", "5000")):
         verificar(texto_para_ino(nombre, pedido, VALORES_DE_FABRICA[nombre]) == esperado,
                   "partido: %s %s -> %s (%r)" % (nombre, pedido, esperado,
                                                  texto_para_ino(nombre, pedido, VALORES_DE_FABRICA[nombre])))
@@ -10900,10 +11921,19 @@ def _autoprueba_partido(verificar, carpeta):
     verificar(validar_valor_partido("umbralBlanco", "2000")[1] == "umbralBlanco va de 100 a 1000",
               "partido: el texto del rango")
     for nombre, malo in (("pwmMaxLateral", "300"), ("LADO_MEDIO", "0"), ("VEL_MEDIO_MEDIR", "100"),
-                         ("noExiste", "1"), ("despejeEnDiagonal", "2"), ("kpLateral", "40")):
+                         ("noExiste", "1"), ("despejeEnDiagonal", "2"), ("kpLateral", "40"),
+                         ("VEL_LINEA", "70"), ("VEL_LINEA", "300"), ("VEL_ATRAS_A_LA_LINEA", "60"),
+                         ("VEL_ATRAS_A_LA_LINEA", "256"), ("MS_TOPE_PUNTA", "60000"), ("MS_PUNTA_SOSTENIDA", "0"),
+                         ("MS_PUNTA_A_PUNTA_FIJO", "-1"), ("MS_PUNTA_A_PUNTA_FIJO", "9000"),
+                         ("MS_QUIETO_PARA_MIRAR", "60000"), ("patrullaPorLaLinea", "2"), ("VEL_LINEA", "90.5")):
         verificar(validar_valor_partido(nombre, malo)[1] is not None, "partido: rechaza %s = %s" % (nombre, malo))
     verificar(validar_valor_partido("umbralBlanco", "430") == (430, None) and
               validar_valor_partido("kpLateral", "12,5") == (12.5, None), "partido: acepta lo bueno")
+    verificar(validar_valor_partido("VEL_LINEA", "75") == (75, None) and
+              validar_valor_partido("patrullaPorLaLinea", "false") == (False, None) and
+              validar_valor_partido("MS_QUIETO_PARA_MIRAR", "0") == (0, None) and
+              validar_valor_partido("MS_PUNTA_A_PUNTA_FIJO", "0") == (0, None) and
+              validar_valor_partido("MS_PUNTA_A_PUNTA_FIJO", "2600") == (2600, None), "0921i: acepta lo bueno de la línea")
     if hay_real:
         lec = leer_partido_archivo(real)
         for cambios in ({"umbralBlanco": "abc"}, {"umbralBlanco": "2000"}, {"VEL_MEDIO_MEDIR": "90"},
@@ -10929,6 +11959,7 @@ def _autoprueba_partido(verificar, carpeta):
     verificar("E5" in codigos({"umbralCm": "45.0", "msAdelante": "400"}), "partido: E5")
     verificar("E4" in codigos({"MS_MAX_ESPERA_PLANO": "300", "MS_PAUSA_MEDIO": "400"}), "partido: E4")
     reglas = _reglas_con_codigo(fab, fab)
+    # (2026-11-09) la 0921i viene con la patrulla por la línea APAGADA: sin la O18
     verificar([(n, c) for n, _, _, c in reglas] == [("nota", "N1")], "partido: con fábrica solo la N1 (%r)" % reglas)
     verificar("O2" in codigos({"msAdelante": "700"}) and "O6" in codigos({"LADO_TRASERA": "90"}),
               "partido: O2 con msAdelante 700 y O6 al tocar LADO_TRASERA")
@@ -11076,29 +12107,50 @@ def _autoprueba_partido(verificar, carpeta):
     if hay_real:
         with open(real, "wb") as fw:          # la COPIA de la temporal vuelve a como era (para las que siguen)
             fw.write(datos_real)
+    # ---- G2. (2026-11-09) "Volver a como estaba" con una copia de la 0921g y el archivo en la 0921i ----
+    # (Lo que pasó el 09/11: se guardó patrullarSinPelota NO sobre la 0921g, y después vino la 0921i.)
+    copias_g = os.path.join(carpeta, "copias-0921g")
+    os.makedirs(copias_g, exist_ok=True)
+    with open(os.path.join(copias_g, "partido-0921_2026-11-09_09-26-11.txt"), "wb") as fw:
+        fw.write(sint_g.encode("utf-8"))
+    archivo_i = dict(VALORES_DE_FABRICA, patrullarSinPelota="false")
+    elegida = elegir_copia_para_volver(copias_g, archivo_i, VERSION_PARTIDO_HOY)
+    verificar(elegida is not None and elegida[1] == [("patrullarSinPelota", "false", "true")],
+              "0921i: volver desde una copia 0921g vuelve lo del tablero, NO MS_QUIETO_PARA_PATRULLAR (%r)" % (
+                  elegida,))
+    sin_version = elegir_copia_para_volver(copias_g, archivo_i)
+    verificar(sin_version is not None and ("MS_QUIETO_PARA_PATRULLAR", "20000", "10000") in sin_version[1],
+              "0921i: sin decir la versión, como antes")
+    verificar(elegir_copia_para_volver(copias_g, dict(VALORES_DE_FABRICA), VERSION_PARTIDO_HOY) is None,
+              "0921i: una copia 0921g de fábrica no tiene nada para volver sobre la 0921i de fábrica")
 
 
 def _autoprueba_linea_version(verificar):
     """I del DISENO 16: la #PARTIDO (la manda el programa de PARTIDO, no tablero.ino)."""
     m = interpretar(LINEA_PARTIDO_FABRICA)
-    verificar(m["tipo"] == "PARTIDO" and m["version"] == "0921g" and m["sello"] == "fabrica" and m["giro"] is True,
-              "versión: la línea de fábrica se entiende (%r)" % m.get("motivo"))
+    verificar(m["tipo"] == "PARTIDO" and m["version"] == VERSION_PARTIDO_HOY and m["sello"] == "fabrica"
+              and m["giro"] is True, "versión: la línea de fábrica se entiende (%r)" % m.get("motivo"))
     verificar(all(mismo_valor(n, m["valores"][n], VALORES_DE_FABRICA[n]) for n in NUMEROS_LINEA_PARTIDO),
               "versión: los números son los de fábrica")
     verificar(m["interruptores"] == [VALORES_DE_FABRICA[n] == "true" for n in ORDEN_INTERRUPTORES],
               "versión: los 13 interruptores son los de fábrica")
     verificar(linea_partido_de(VALORES_DE_FABRICA) == LINEA_PARTIDO_FABRICA,
               "versión: la línea de fábrica es la que imprime avisarVersion()")
-    rotas = (LINEA_PARTIDO_FABRICA.replace("version=0921g ", ""),
-             LINEA_PARTIDO_FABRICA.replace("version=0921g sello=fabrica", "sello=fabrica version=0921g"),
+    hoy = "version=%s" % VERSION_PARTIDO_HOY
+    rotas = (LINEA_PARTIDO_FABRICA.replace(hoy + " ", ""),
+             LINEA_PARTIDO_FABRICA.replace(hoy + " sello=fabrica", "sello=fabrica " + hoy),
              LINEA_PARTIDO_FABRICA.replace(" interruptores=1111111110101", "") + " interruptores=1111111110101 x=1",
              LINEA_PARTIDO_FABRICA.replace("1111111110101", "111111111010"),
              LINEA_PARTIDO_FABRICA.replace("1111111110101", "1111111112101"),
+             LINEA_PARTIDO_FABRICA.replace("1111111110101", "11111111101011"),     # (un bit 14: hoy es ROTA)
              LINEA_PARTIDO_FABRICA.replace("umbralBlanco=425", "umbralBlanco=abc"),
              LINEA_PARTIDO_FABRICA.replace("umbralBlanco=425", "umbralBlanco=٤٢٥"),
              LINEA_PARTIDO_FABRICA.replace("giro=1", "giro=2"),
-             "#PARTIDO", "#PARTIDO version=0921g",
-             LINEA_PARTIDO_FABRICA[:60] + S_BUENA, LINEA_PARTIDO_FABRICA + S_BUENA)
+             "#PARTIDO", "#PARTIDO " + hoy, "#PARTIDO version=0921g",
+             LINEA_PARTIDO_FABRICA[:60] + S_BUENA, LINEA_PARTIDO_FABRICA + S_BUENA,
+             LINEA_PARTIDO_0921G[:70], LINEA_PARTIDO_0921G.replace("version=0921g ", ""))
+    verificar(LINEA_PARTIDO_FABRICA not in rotas and LINEA_PARTIDO_0921G not in rotas
+              and len(set(rotas)) == len(rotas), "versión: las rotas son todas distintas (y no son las buenas)")
     for r in rotas:
         verificar(interpretar(r)["tipo"] == "ROTA", "versión: ROTA %r" % r[:70])
     otra = interpretar(LINEA_PARTIDO_FABRICA.replace(" interruptores=", " campoNuevo=7 interruptores="))
@@ -11113,14 +12165,66 @@ def _autoprueba_linea_version(verificar):
     verificar(comparar_con_robot(m, lec430) == ("DISTINTO", [("umbralBlanco", 425, 430)]), "versión: 425 contra 430")
     otro_sello = leer_partido(lec["texto"].replace('SELLO = "fabrica"', 'SELLO = "20261108-154210"'))
     verificar(comparar_con_robot(m, otro_sello)[0] == "DISTINTO", "versión: sello distinto")
-    verificar(comparar_con_robot(interpretar(LINEA_PARTIDO_FABRICA.replace("0921g", "0921h")), lec)[0] == "OTRA_VERSION",
-              "versión: otra versión")
+    verificar(comparar_con_robot(interpretar(LINEA_PARTIDO_FABRICA.replace(hoy, "version=0921h")), lec)[0]
+              == "OTRA_VERSION", "versión: otra versión")
+    # (2026-11-09) la 0921g, la ANTERIOR: se entiende igual y se dice "versión ANTERIOR"
+    mg = interpretar(LINEA_PARTIDO_0921G)
+    verificar(mg["tipo"] == "PARTIDO" and mg["version"] == "0921g" and mg["sello"] == "fabrica"
+              and mg["llaves"] == m["llaves"], "0921g: su línea se sigue entendiendo (%r)" % mg.get("motivo"))
+    verificar(linea_partido_de(fabrica_de("0921g"), "0921g") == LINEA_PARTIDO_0921G,
+              "0921g: su línea es la que imprimía con sus valores de fábrica")
+    verificar(comparar_con_robot(mg, lec) == ("OTRA_VERSION", [("MS_QUIETO_PARA_PATRULLAR", 10000, 20000)]),
+              "0921g: contra el archivo 0921i es OTRA_VERSION (%r)" % (comparar_con_robot(mg, lec),))
+    lec_g = leer_partido(_ino_sintetico(sin=NUEVOS_EN_LA_0921I, version="0921g", valores=fabrica_de("0921g")))
+    verificar(comparar_con_robot(mg, lec_g) == ("IGUAL", []) and comparar_con_robot(m, lec_g)[0] == "OTRA_VERSION",
+              "0921g: contra un archivo 0921g es IGUAL (y la 0921i contra ese, OTRA_VERSION)")
+    verificar(que_version_es(VERSION_PARTIDO_HOY) == "HOY" and que_version_es("0921g") == "ANTERIOR"
+              and que_version_es("0921h") == "OTRA" and que_version_es(None) == "OTRA", "versión: que_version_es")
+    t_g = texto_otra_version("0921g", VERSION_PARTIDO_HOY)
+    verificar("VERSIÓN ANTERIOR" in t_g and "0921g" in t_g and VERSION_PARTIDO_HOY in t_g
+              and "ANTERIOR" not in texto_otra_version("0921h", VERSION_PARTIDO_HOY)
+              and "0921f" in texto_otra_version(VERSION_PARTIDO_HOY, None), "versión: cómo se dice otra versión")
+    verificar("la de este tablero" in nombre_de_version(VERSION_PARTIDO_HOY) and "ANTERIOR" in nombre_de_version("0921g")
+              and "0921f" in nombre_de_version(None) and "es para la" in nombre_de_version("0921h"),
+              "versión: cómo se muestra la del archivo")
     verificar(comparar_con_robot(interpretar(LINEA_PARTIDO_FABRICA.replace("interruptores=1", "interruptores=0")),
                                  lec)[1] == [("volverAlMedioEnElLateral", False, True)], "versión: un interruptor distinto")
     ino_tablero = os.path.join(CARPETA, "tablero.ino")
     if os.path.exists(ino_tablero):
         with open(ino_tablero, encoding="utf-8", errors="replace") as f:      # solo LEERLO
-            verificar("#PARTIDO" not in f.read(), "versión: tablero.ino NO imprime #PARTIDO")
+            ino = f.read()
+        verificar("#PARTIDO" not in ino, "versión: tablero.ino NO imprime #PARTIDO")
+        # (2026-11-09, revisión) el !I (CANCHA 2c) vuelve al medio SOLO por tiempo: si alguien le copia la vuelta
+        # con la línea de la 0921i, hay que cambiar el texto del 2c y DISENO 5.5
+        verificar("buscarLineaDelAreaAlVolver" not in _sin_comentarios(ino),
+                  "2c: tablero.ino ahora tiene la vuelta con la línea: cambiar el texto del 2c (dice 'solo por tiempo')")
+        # (2026-11-09) la P: el #AREA que imprime tablero.ino es el que entiende _i_area, en ese orden
+        cuerpo = _sin_comentarios(ino).split('Serial.print("#AREA ok=");', 1)[1].split("finDeLinea();", 1)[0]
+        campos = ["ok"] + re.findall(r'Serial\.print\(" ([a-z]+)="\)', cuerpo)
+        verificar(campos == ["ok", "error", "ms", "izq", "vel", "umbral", "desvio", "rampa"],
+                  "área: tablero.ino imprime #AREA con los campos de _i_area %r" % campos)
+        verificar('FECHA_CONTRATO  = "%s"' % FECHA_CONTRATO in ino, "área: la fecha del contrato es la misma en los dos lados")
+        verificar("if (letra == 'P') { pedirArea(r + 1); return; }" in ino and "case 'P': fase = P_AREA;" in ino
+                  and "case 'P':         return 12000;" in ino and 'case \'P\': return "ANCHO_AREA";' in ino,
+                  "área: tablero.ino entiende !P, la mide, con tope 12000 y se llama ANCHO_AREA")
+        verificar("const int VEL_AREA_MIN = %d, VEL_AREA_MAX = %d;" % (FILA_PARTIDO["VEL_LINEA"][5],
+                                                                     FILA_PARTIDO["VEL_LINEA"][6]) in ino
+                  and "const int VEL_LINEA_AREA = %s;" % VALORES_DE_FABRICA["VEL_LINEA"] in ino,
+                  "área: la fuerza de la P va en el rango de VEL_LINEA, y sin número es la de fábrica")
+        maa = os.path.normpath(os.path.join(CARPETA, "..", "medir-ancho-area", "medir-ancho-area.ino"))
+        if os.path.exists(maa):
+            with open(maa, encoding="utf-8", errors="replace") as f:          # solo LEERLO
+                fuente = f.read()
+            for de_alla, de_aca in (("MS_BLANCO_SOSTENIDO", "AR_MS_BLANCO_SOSTENIDO"),
+                                    ("MS_MIN_ANTES_DE_LA_LINEA", "AR_MS_MIN_ANTES_DE_LA_LINEA"),
+                                    ("MS_TOPE_TRAMO", "AR_MS_TOPE_TRAMO"), ("MS_QUIETO", "AR_MS_QUIETO"),
+                                    ("MS_FRENO", "AR_MS_FRENO"), ("MS_VERDE_SOSTENIDO", "AR_MS_VERDE_SOSTENIDO"),
+                                    ("VEL_LINEA", "VEL_LINEA_AREA")):
+                a = re.search(r"const (?:unsigned long|int)\s+%s\s*=\s*([0-9]+);" % de_alla, fuente)
+                b = re.search(r"const (?:unsigned long|int)\s+%s\s*=\s*([0-9]+);" % de_aca, ino)
+                verificar(a and b and a.group(1) == b.group(1),
+                          "área: la P es COPIA de medir-ancho-area: %s (%s) = %s (%s)" % (
+                              de_aca, b and b.group(1), de_alla, a and a.group(1)))
     real = os.path.join(PARTIDO_CARPETA, NOMBRE_PARTIDO_INO)
     if not os.path.exists(real):
         return
@@ -11152,7 +12256,7 @@ def _autoprueba_carga(verificar):
     """J del DISENO 16: la carga, SIN ejecutarla."""
     c = os.path.join("x", "partido-0921")
     o = orden_compilar(c)
-    verificar(o == [PIO, "run", "-e", "teensy41", "-d", c] and not {"-t", "upload", "monitor"} & set(o),
+    verificar(o == PIO + ["run", "-e", "teensy41", "-d", c] and not {"-t", "upload", "monitor"} & set(o),
               "carga: compilar sin -t")
     o = orden_cargar(c)
     verificar(o == [PY, CARGAR_PY, os.path.abspath(c)] and "--mirar" not in o, "carga: cargar.py sin --mirar")
@@ -11200,7 +12304,7 @@ def _autoprueba_carga(verificar):
               "o=10000 interruptores=1111111110101", LINEA_PARTIDO_FABRICA, LINEA_PARTIDO_FABRICA,
               "-" * 40]
     p = lineas_partido_de_la_salida(salida)
-    verificar(len(p) == 2 and p[0]["version"] == "0921g", "carga: las #PARTIDO de la salida de cargar.py")
+    verificar(len(p) == 2 and p[0]["version"] == VERSION_PARTIDO_HOY, "carga: las #PARTIDO de la salida de cargar.py")
     verificar(lineas_partido_de_la_salida(["--- lo que dijo el robot al arrancar ---",
                                            "(nada: el programa de partido solo lo dice una vez y a veces no llego)"]) == [],
               "carga: sin #PARTIDO")
@@ -11280,7 +12384,7 @@ def _autoprueba_pestana_partido(verificar, carpeta):
             return 0, ["=" * 60, " Cargando partido-0921 al arquero (COM11)",
                        " 🚨 Si es el programa de partido, el robot va a arrancar solo.",
                        "--- lo que dijo el robot al arrancar ---",
-                       linea_partido_de(lec["valores"], lec["version"] or "0921g", lec["sello"] or "fabrica"),
+                       linea_partido_de(lec["valores"], lec["version"] or VERSION_PARTIDO_HOY, lec["sello"] or "fabrica"),
                        "-" * 40]
         puertos = [types.SimpleNamespace(device="COM11", vid=VID_TEENSY, pid=PID_SERIE, serial_number=SERIE_ARQUERO)]
         en_carga = []
@@ -11343,6 +12447,69 @@ def _autoprueba_pestana_partido(verificar, carpeta):
                   any(c == "O9" for _, _, _, c in v._reglas_de_ahora()), "pestaña: LADO_MEDIO y su aviso")
         v._partido_paso("VEL_MEDIO_MEDIR", +1)
         verificar("VEL_MEDIO_MEDIR" not in v.pendientes_partido, "pestaña: VEL_MEDIO_MEDIR es solo para ver")
+        v._partido_descartar()
+        # (2026-11-09) la patrulla de la 0921i: en el grupo 5, se cambia y se ve gris como la usa el robot
+        verificar(all(n in v.filas_partido for n in NUEVOS_EN_LA_0921I)
+                  and all(n in v.lectura["valores"] for n in NUEVOS_EN_LA_0921I),
+                  "0921i: las filas de la patrulla están y se leen del archivo")
+        verificar(v.lectura["valores"]["patrullaPorLaLinea"] == "false"
+                  and v.lectura["valores"]["MS_QUIETO_PARA_PATRULLAR"] == "20000",
+                  "0921i: el archivo (copia del de verdad) trae la patrulla al lateral y 20 s")
+        vel = int(v.lectura["valores"]["VEL_LINEA"])
+        signo = +1 if vel + 5 <= FILA_PARTIDO["VEL_LINEA"][6] else -1
+        v._partido_paso("VEL_LINEA", signo)
+        verificar(v.pendientes_partido == {"VEL_LINEA": str(vel + 5 * signo)}, "0921i: [+] en VEL_LINEA (%r)" % (
+            v.pendientes_partido,))
+        v._partido_descartar()
+        v._partido_paso("MS_AVANCE_10CM", +1)
+        verificar(v.pendientes_partido == {"MS_AVANCE_10CM": str(int(v.lectura["valores"]["MS_AVANCE_10CM"]) + 10)},
+                  "0921i: [+] en MS_AVANCE_10CM va de a 10 (%r)" % (v.pendientes_partido,))
+        v._partido_descartar()
+        v.filas_partido["VEL_LINEA"]["entrada"].get.return_value = "70"
+        v._partido_poner("VEL_LINEA")
+        verificar("VEL_LINEA" not in v.pendientes_partido and v.ultimo_aviso[1] == ROJO,
+                  "0921i: VEL_LINEA 70 no entra (no menos de 75)")
+        # de fábrica: la patrulla al lateral (a los dos lados) y la vuelta con la línea; la de la línea, gris
+        valores = v._valores_partido()
+        verificar(v._fila_no_aplica("MS_TOPE_PUNTA", valores) and v._fila_no_aplica("MS_QUIETO_PARA_MIRAR", valores)
+                  and not v._fila_no_aplica("VEL_LINEA", valores) and not v._fila_no_aplica("alternarLadoPatrulla", valores)
+                  and not v._fila_no_aplica("patrullaPorElLateral", valores)
+                  and not any(c in ("O18", "E8") for _, _, _, c in v._reglas_de_ahora()),
+                  "0921i: de fábrica, lo de la línea gris y la del lateral y la vuelta no (y sin O18)")
+        # prender la patrulla por la línea pide confirmar
+        caja.askyesno.return_value = False
+        v._partido_elegir("patrullaPorLaLinea", "true")
+        verificar("patrullaPorLaLinea" not in v.pendientes_partido, "0921i: prender la de la línea pide confirmar (NO)")
+        caja.askyesno.return_value = True
+        v._partido_elegir("patrullaPorLaLinea", "true")
+        valores = v._valores_partido()
+        verificar(v.pendientes_partido == {"patrullaPorLaLinea": "true"} and not v._fila_no_aplica("MS_TOPE_PUNTA", valores)
+                  and v._fila_no_aplica("patrullaPorElLateral", valores) and v._fila_no_aplica("alternarLadoPatrulla",
+                                                                                               valores)
+                  and any(c == "O18" for _, _, _, c in v._reglas_de_ahora()),
+                  "0921i: con patrullaPorLaLinea SÍ, la del lateral gris y el OJO O18 (bajar MS_QUIETO_PARA_MIRAR)")
+        v._partido_elegir("patrullaPorLaLinea", "false")
+        verificar(v.pendientes_partido == {}, "0921i: volver a NO deja el editor vacío (es lo del archivo)")
+        v._partido_elegir("buscarLineaDelAreaAlVolver", "false")
+        valores = v._valores_partido()
+        verificar(all(v._fila_no_aplica(n, valores) for n in ("MS_AVANCE_10CM", "VEL_LINEA", "MS_PUNTA_A_PUNTA_FIJO")),
+                  "0921i: sin la vuelta con la línea (y sin la de la línea), el ancho del área gris")
+        v._partido_descartar()
+        # MS_PUNTA_A_PUNTA_FIJO en 0 con la vuelta con la línea: ERROR, no deja guardar
+        v._partido_poner_valor("MS_PUNTA_A_PUNTA_FIJO", "0")
+        verificar(any(c == "E8" for _, _, _, c in v._reglas_de_ahora()) and not v._partido_guardar()
+                  and "ERROR" in v._puede_cargar("partido")[1], "0921i: MS_PUNTA_A_PUNTA_FIJO 0 da E8 y no deja guardar")
+        v._partido_elegir("buscarLineaDelAreaAlVolver", "false")
+        verificar(not any(c == "E8" for _, _, _, c in v._reglas_de_ahora()),
+                  "0921i: con buscarLineaDelAreaAlVolver NO, el 0 ya no es error")
+        v._partido_descartar()
+        v._partido_elegir("patrullarSinPelota", "false")
+        valores = v._valores_partido()
+        verificar(v._fila_no_aplica("patrullaPorLaLinea", valores) and v._fila_no_aplica("alternarLadoPatrulla", valores)
+                  and not v._fila_no_aplica("buscarLineaDelAreaAlVolver", valores)
+                  and any(c == "O13" for _, _, _, c in v._reglas_de_ahora()),
+                  "0921i: sin patrulla, la patrulla gris (la vuelta del límite lateral no) y el OJO O13")
+        v._pintar_partido()
         v._partido_descartar()
         # un ERROR no deja guardar ni cargar
         v._partido_poner_valor("pwmMaxLateral", "80")
@@ -11440,7 +12607,7 @@ def _autoprueba_pestana_partido(verificar, carpeta):
                   "pestaña: mientras espera, arriba NO dice 'tiene lo de antes' (%r)" % (v._texto_estado_partido(),))
         lec = leer_partido_archivo(ruta)
         v._procesar_lote([("conectado", "COM11", SERIE_ARQUERO)])
-        llegan(linea_partido_de(lec["valores"], lec["version"] or "0921g", lec["sello"] or "fabrica"))
+        llegan(linea_partido_de(lec["valores"], lec["version"] or VERSION_PARTIDO_HOY, lec["sello"] or "fabrica"))
         verificar("LISTO" in v.ultimo_aviso[0] and v.esperando_version_hasta is None and cables[-1].mandados == [],
                   "pestaña: la #PARTIDO llegó por la conexión nueva")
         # otra vez (CON un cambio), y no llega a tiempo
@@ -11457,21 +12624,21 @@ def _autoprueba_pestana_partido(verificar, carpeta):
         # (revisión 08/11) llega TARDE (desenchufar y enchufar, como dice el aviso): confirma igual
         lec = leer_partido_archivo(ruta)
         v._procesar_lote([("desconectado", "COM11"), ("conectado", "COM11", SERIE_ARQUERO)])
-        llegan(linea_partido_de(lec["valores"], lec["version"] or "0921g", lec["sello"] or "fabrica"))
+        llegan(linea_partido_de(lec["valores"], lec["version"] or VERSION_PARTIDO_HOY, lec["sello"] or "fabrica"))
         verificar("LISTO" in v.ultimo_aviso[0] and v.resultado_carga[1] == VERDE and v.estado_archivo == "cargado"
                   and v._texto_estado_partido()[0] == "Cargado y confirmado por el robot",
                   "pestaña: la #PARTIDO que llega tarde confirma (%r)" % (v.resultado_carga,))
         # una #PARTIDO repetida (parpadeando) no cambia nada; una de OTROS valores, sí
-        llegan(linea_partido_de(lec["valores"], lec["version"] or "0921g", lec["sello"] or "fabrica"))
+        llegan(linea_partido_de(lec["valores"], lec["version"] or VERSION_PARTIDO_HOY, lec["sello"] or "fabrica"))
         verificar(v.estado_archivo == "cargado", "pestaña: la repetida sigue en cargado")
-        llegan(linea_partido_de(lec["valores"], lec["version"] or "0921g", "20200101-000000"))
+        llegan(linea_partido_de(lec["valores"], lec["version"] or VERSION_PARTIDO_HOY, "20200101-000000"))
         verificar(v.estado_archivo == "no_coincide" and v._texto_estado_partido()[2] == ROJO,
                   "pestaña: una #PARTIDO con otro sello: arriba en rojo")
-        llegan(linea_partido_de(lec["valores"], lec["version"] or "0921g", lec["sello"] or "fabrica"))
+        llegan(linea_partido_de(lec["valores"], lec["version"] or VERSION_PARTIDO_HOY, lec["sello"] or "fabrica"))
         # distinto
         v._procesar_lote([("conectado", "COM11", SERIE_ARQUERO)])
         respuestas["cargar"].append((0, ["--- lo que dijo el robot al arrancar ---",
-                                         linea_partido_de(dict(lec["valores"], umbralBlanco="425"), lec["version"] or "0921g",
+                                         linea_partido_de(dict(lec["valores"], umbralBlanco="425"), lec["version"] or VERSION_PARTIDO_HOY,
                                                           lec["sello"] or "fabrica")]))
         v._cargar_partido()
         girar()
@@ -11571,9 +12738,23 @@ def _autoprueba_pestana_partido(verificar, carpeta):
         c = cables[-1]
         del c.mandados[:]
         llegan(LINEA_PARTIDO_FABRICA, LINEA_PARTIDO_FABRICA)
-        verificar(v.programa_detectado == "PARTIDO 0921g" and c.mandados == [] and "PARTIDO" in v._texto_programa()[0]
+        verificar(v.programa_detectado == "PARTIDO " + VERSION_PARTIDO_HOY and c.mandados == []
+                  and "PARTIDO" in v._texto_programa()[0] and "(el de jugar)" in v._texto_programa()[0]
                   and "Cargar el TABLERO" in v._texto_programa()[0], "pestaña: la #PARTIDO: no le manda nada")
         verificar("NO coincide" in v._texto_robot_partido()[0], "pestaña: EL ROBOT TIENE (fábrica contra 430)")
+        # (2026-11-09) una 0921g (la ANTERIOR) por el cable: se entiende, no se le manda nada y se dice ANTERIOR
+        llegan(LINEA_PARTIDO_0921G, LINEA_PARTIDO_0921G)
+        verificar(v.programa_detectado == "PARTIDO 0921g" and c.mandados == [] and v.estado_archivo == "no_coincide"
+                  and "VERSIÓN ANTERIOR" in v._texto_programa()[0] and "Cargar el TABLERO" in v._texto_programa()[0]
+                  and "CARGAR EL PARTIDO" in v._texto_programa()[0],
+                  "0921g: por el cable dice VERSIÓN ANTERIOR (%r)" % (v._texto_programa()[0],))
+        verificar("VERSIÓN ANTERIOR" in v._texto_robot_partido()[0] and VERSION_PARTIDO_HOY in v._texto_robot_partido()[0]
+                  and v._texto_robot_partido()[1] == ROJO, "0921g: EL ROBOT TIENE dice la ANTERIOR, en rojo")
+        guardado_resultado = v.resultado_carga
+        v._confirmar_con(interpretar(LINEA_PARTIDO_0921G))
+        verificar("VERSIÓN ANTERIOR" in v.resultado_carga[0] and v.resultado_carga[1] == ROJO
+                  and v.estado_archivo == "no_coincide", "0921g: después de cargar, si dice la 0921g: ANTERIOR, en rojo")
+        v.resultado_carga = guardado_resultado
         llegan("=== ARQUERO  version 0.1103 EN PRUEBA (0.1027d + registro de despejes) ===")
         v.ultimo_partido = None
         verificar("NO la de jugar" in v._texto_robot_partido()[0], "pestaña: la 0.1103 en rojo")
@@ -11596,6 +12777,39 @@ def _autoprueba_pestana_partido(verificar, carpeta):
                   and v.pestana_elegida == "partido" and v.origen_partido == {"umbralBlanco": "CANCHA"},
                   "pestaña: pasar toca solo el editor y va a PARTIDO")
         v._partido_descartar()
+        # ---- (2026-11-09) el ancho del área (CANCHA paso 7) -> MS_PUNTA_A_PUNTA_FIJO, ATADO a VEL_LINEA ----
+        v.cancha["areas"] = [{"datos": interpretar(linea_area(2600, 1200))}, {"datos": interpretar(linea_area(2620, 1210))}]
+        f7 = {f["nombre"]: f for f in v._medido_para_partido()}.get("MS_PUNTA_A_PUNTA_FIJO")
+        verificar(f7 is not None and f7["medido"] == "2610" and f7["hoy"] == "2548" and f7["tildado"] and f7["puede"]
+                  and "1305" in f7["aviso"], "pestaña: pasar el ancho del área (%r)" % (f7,))
+        antes = bytes_de()
+        pasar = v._dialogo_pasar([f7])
+        verificar(pasar() == 1 and v.pendientes_partido == {"MS_PUNTA_A_PUNTA_FIJO": "2610"} and bytes_de() == antes
+                  and v.origen_partido == {"MS_PUNTA_A_PUNTA_FIJO": "CANCHA"} and v.pestana_elegida == "partido",
+                  "pestaña: PASAR pone MS_PUNTA_A_PUNTA_FIJO en el editor (sin escribir)")
+        verificar(not any(c in ("O19", "E7", "O22") for _, _, _, c in v._reglas_de_ahora()),
+                  "pestaña: medido y pasado, sin O19 ni O22")
+        v._partido_descartar()
+        # (2026-11-09) lo medido en CANCHA a OTRA fuerza que la VEL_LINEA de PARTIDO: O22 (lo ATADO con lo medido)
+        guardadas = v.cancha["areas"]
+        v.cancha["areas"] = [{"datos": interpretar(linea_area(2300, 1100, vel=100))}]
+        verificar(any(c == "O22" for _, _, _, c in v._reglas_de_ahora()), "pestaña: medido a 100 con VEL_LINEA 90: O22")
+        v.cancha["areas"] = guardadas
+        v._partido_poner_valor("VEL_LINEA", "95")
+        f7 = {f["nombre"]: f for f in v._medido_para_partido()}.get("MS_PUNTA_A_PUNTA_FIJO")
+        verificar((f7 is None or not f7["puede"]) and any(c == "O19" for _, _, _, c in v._reglas_de_ahora())
+                  and v._vel_linea_de_partido() == 95,
+                  "pestaña: con VEL_LINEA 95 en el editor, lo medido a 90 NO se pasa (y avisa O19) %r %r %r" % (
+                      f7, [c for _, _, _, c in v._reglas_de_ahora()], v._vel_linea_de_partido()))
+        v._partido_descartar()
+        hoja_otra = texto_a_hoja(HOJA_ESCUELA.replace("vel = 90", "vel = 100"))
+        f7 = {f["nombre"]: f for f in v._medido_para_partido(hoja=hoja_otra, fuente="otra")}.get("MS_PUNTA_A_PUNTA_FIJO")
+        verificar(f7 is not None and not f7["puede"] and f7["rojo"] and "fuerza 100" in f7["aviso"],
+                  "pestaña: de una hoja medida a OTRA fuerza, en rojo y no se pasa (%r)" % (f7,))
+        f7 = {f["nombre"]: f for f in v._medido_para_partido(hoja=texto_a_hoja(HOJA_ESCUELA), fuente="escuela")}.get(
+            "MS_PUNTA_A_PUNTA_FIJO")
+        verificar(f7 is not None and f7["aviso"] == "igual" and not f7["puede"], "pestaña: la de la escuela es la de hoy")
+        v.cancha["areas"] = []
         # ---- 44: --pestana y VOLVER AL PARTIDO ----
         caja.askyesno.return_value = False
         del llamadas[:]

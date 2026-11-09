@@ -1,9 +1,16 @@
 /* =====================================================================
    ARQUERO — sigue la pelota de costado y la despeja
    IITA Salta — taller de los martes — Roboliga 2026
-            V E R S I O N   0 9 2 1 f   -   E N   P R U E B A
-   Ultimo cambio: 2026-11-03
+            V E R S I O N   0 9 2 1 g   -   E N   P R U E B A
+   Ultimo cambio: 2026-11-08
    =====================================================================
+
+   📋 LA 0921g: la 0921f + una linea por el cable al arrancar con la
+   version y los valores que mas importan (pedido del equipo, 03/11:
+   "agrega tambien lo de la linea con la version"). Juega EXACTAMENTE
+   igual: la linea sale solo si hay una compu escuchando por el USB, y
+   solo ANTES de moverse. La lee el TABLERO (pestana PARTIDO) para
+   confirmar que quedo cargado lo que se queria. Ver avisarVersion().
 
    📋 LA 0921f: la 0921e (abajo) + IR AL MEDIO AL ARRANCAR otra vez
    (irAlMedioSiNoHayLinea = true), pedido del equipo: "el movimiento para
@@ -65,8 +72,9 @@
         ⚠️ Mientras vuelve del lateral al medio (~2,7 s) NO mira la pelota.
         Cada patrulla son ~8 s, unos 5 con el arco descubierto. Los tiempos
         de la rutina se midieron el 06/10, antes de mover los motores.
-   Todo lo demas, igual que el 21/09. Como el 21/09, no escribe nada por el
-   cable.
+   Todo lo demas, igual que el 21/09. Como el 21/09, no lee nada por el
+   cable; desde la 0921g escribe SOLO la linea de version al arrancar
+   (#PARTIDO ..., ver avisarVersion()).
    =====================================================================
 
    QUE HACE
@@ -157,7 +165,9 @@
    monitor en vivo y pruebas por tecla. En la cancha no hay cable y nunca
    se usaban. El robot arranca solo al prenderlo y se para con la llave
    de la bateria. Lo unico que avisa es el LED. Para cambiar un valor, se
-   cambia aca en el codigo y se vuelve a cargar.
+   cambia aca en el codigo y se vuelve a cargar (o con el TABLERO,
+   pestana PARTIDO). Desde la 0921g escribe SOLO la linea de version al
+   arrancar, y no lee nada.
 
    ---------------------------------------------------------------------
    MEDICIONES QUE USA (todas hechas en banco o en cancha)
@@ -198,6 +208,23 @@
 #define LINEA_ADELANTE  A12
 
 const unsigned long BAUDIOS = 19200;
+
+// ---- 🏷️ LA LINEA DE VERSION (2026-11-08, version 0921g) ----
+// Pedido del equipo: "agrega tambien lo de la linea con la version". Al
+// arrancar, si hay una compu escuchando por el USB, el robot dice UN renglon:
+//   #PARTIDO version=0921g sello=fabrica giro=1 umbralBlanco=425 ... interruptores=1111111110101
+// Con eso el TABLERO (pestana PARTIDO) confirma que quedo cargado lo que se
+// queria. Se repite cada medio segundo mientras parpadea antes de arrancar,
+// por si la primera no la escucho nadie (cargar.py abre el puerto un rato tarde).
+// 🚨 NO CAMBIA NADA DE COMO JUEGA: sin cable, if (Serial) da false y no se manda
+//    nada; con cable, se manda solo ANTES de moverse y no espera a nadie.
+// 🚨 NO ponerle begin() al Serial del USB: el USB del Teensy anda sin eso, y en
+//    algunas versiones begin() espera hasta 2,5 s a que abran el puerto (arrancaria tarde).
+const char* VERSION_PARTIDO = "0921g";
+// La escribe el TABLERO cada vez que guarda valores (fecha y hora, sin espacios).
+// "fabrica" = los valores tal como salieron del taller. A mano no hace falta tocarla.
+const char* SELLO = "fabrica";
+unsigned long t_ultimaVersion = 0;     // la ultima vez que se mando la linea
 
 
 // ---- los dos signos, YA DESCUBIERTOS (2026-08-11, en banco) ----
@@ -1556,6 +1583,41 @@ void terminarDespeje() {
 
 
 
+// ---------------------------------------------------------- la linea de version
+// 🚨 El orden de los campos es el CONTRATO con el tablero (tablero.py: CAMPOS_PARTIDO
+// y ORDEN_INTERRUPTORES): version primero, interruptores ultimo. Si se agrega uno,
+// va antes de interruptores y se agrega tambien alla.
+void avisarVersion() {
+  if (!Serial) return;                 // nadie escuchando (en la cancha): nada
+  Serial.print("#PARTIDO version=");            Serial.print(VERSION_PARTIDO);
+  Serial.print(" sello=");                      Serial.print(SELLO);
+  Serial.print(" giro=");                       Serial.print((hayGiroscopo && giroscopoRespondiendo) ? 1 : 0);
+  Serial.print(" umbralBlanco=");               Serial.print(umbralBlanco);
+  Serial.print(" CAMARA_POR_CM=");              Serial.print(CAMARA_POR_CM, 2);
+  Serial.print(" MS_MEDIO_AL_MEDIO=");          Serial.print(MS_MEDIO_AL_MEDIO);
+  Serial.print(" MS_MEDIO_FONDO_POR_TIEMPO=");  Serial.print(MS_MEDIO_FONDO_POR_TIEMPO);
+  Serial.print(" MS_MAX_RETROCESO=");           Serial.print(MS_MAX_RETROCESO);
+  Serial.print(" msAdelante=");                 Serial.print(msAdelante);
+  Serial.print(" umbralCm=");                   Serial.print(umbralCm, 1);
+  Serial.print(" umbralDesvio=");               Serial.print(umbralDesvio, 1);
+  Serial.print(" potenciaDespeje=");            Serial.print(potenciaDespeje);
+  Serial.print(" pwmMinLateral=");              Serial.print(pwmMinLateral);
+  Serial.print(" pwmMaxLateral=");              Serial.print(pwmMaxLateral);
+  Serial.print(" kpLateral=");                  Serial.print(kpLateral, 2);
+  Serial.print(" MS_QUIETO_PARA_PATRULLAR=");   Serial.print(MS_QUIETO_PARA_PATRULLAR);
+  // Los 13 interruptores (1 = SI), en ESTE orden:
+  const bool llaves[] = {
+    volverAlMedioEnElLateral, patrullarSinPelota, patrullaPorElLateral,
+    irAlMedioSiNoHayLinea, avanzarAlUbicarse, perseguirEnElDespeje,
+    esperarPlanoAntesDeVolver, rampaAlVolver, empujonFinal,
+    despejeEnDiagonal, enderezarActivado, lateralInvertido, camaraYInvertida };
+  Serial.print(" interruptores=");
+  for (unsigned int i = 0; i < sizeof(llaves) / sizeof(llaves[0]); i++) Serial.print(llaves[i] ? '1' : '0');
+  Serial.print('\n');
+}
+
+
+
 // ---------------------------------------------------------------- programa
 
 void setup() {
@@ -1609,6 +1671,7 @@ void setup() {
   // y avisa con el LED temblando (10 por segundo).
 
   // Arranca solo: la unica forma de pararlo es la llave de la bateria.
+  avisarVersion();   // 0921g: si hay alguien escuchando
   fase = ARMANDOSE; t_fase = millis();
 }
 
@@ -1634,6 +1697,7 @@ void loop() {
       break;
 
     case ARMANDOSE: {
+      if (ahora - t_ultimaVersion >= 500) { t_ultimaVersion = ahora; avisarVersion(); }   // 0921g: cada 1/2 s mientras parpadea (quieto)
       unsigned long falta = (ahora - t_fase >= MS_AVISO_ARMADO)
                             ? 0 : MS_AVISO_ARMADO - (ahora - t_fase);
       unsigned long periodo = (falta <= 3000) ? 100 : 500;

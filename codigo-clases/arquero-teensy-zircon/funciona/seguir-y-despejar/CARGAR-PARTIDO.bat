@@ -10,8 +10,20 @@ REM  Despues, para jugar: desenchufar el USB, apoyarlo quieto en la
 REM  cancha y recien ahi prender la bateria.
 REM ===================================================================
 
-title Cargar el programa de partido
+title Cargar la 0.1103 (seguir-y-despejar) - NO es la de jugar
 chcp 65001 >nul
+
+REM 2026-11-08: desde el 03/11 se juega con funciona/partido-0921. Para
+REM cargar ESA, doble clic en PARTIDO.bat (carpeta arquero-teensy-zircon).
+echo.
+echo  ============================================================
+echo   OJO: esto carga la 0.1103 (seguir-y-despejar).
+echo   Desde el 03/11 se JUEGA con funciona\partido-0921.
+echo   Para cargar la de jugar: PARTIDO.bat (arquero-teensy-zircon).
+echo  ============================================================
+echo   Si igual queres cargar la 0.1103, apreta una tecla.
+echo   Si no, cerra esta ventana.
+pause
 
 setlocal
 set "PY=%USERPROFILE%\.platformio\penv\Scripts\python.exe"

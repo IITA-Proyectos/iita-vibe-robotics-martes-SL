@@ -1,9 +1,38 @@
 /* =====================================================================
    ARQUERO — sigue la pelota de costado y la despeja
    IITA Salta — taller de los martes — Roboliga 2026
-            V E R S I O N   0 9 2 1 g   -   E N   P R U E B A
-   Ultimo cambio: 2026-11-08
+            V E R S I O N   0 9 2 1 i   -   E N   P R U E B A
+   Ultimo cambio: 2026-11-09
    =====================================================================
+
+   📋 LA 0921i (2026-11-09): la 0921g + LA PATRULLA POR LA LINEA DEL AREA.
+   Lo que paso en el partido: la patrulla iba al lateral de la cancha y
+   volvia, "el robot se iba del arco y regalaba el gol". Pedido del equipo:
+   "que el robot con los sensores de atras al pasar 15 segundos encuentre
+   la linea del area y con sus sensores de atras la recorra hasta que un
+   sensor no detecte la linea y de ahi se vuelve hacia el medio".
+   Como quedo (eligieron la "opcion 2", que se mide sola):
+     1. a los 15 s quieto y sin pelota, retrocede hasta la linea del area;
+     2. la recorre de costado hasta una PUNTA (el sensor de adelante en el
+        sentido de la marcha deja de ver blanco y el otro sigue en blanco);
+     3. la recorre para el otro lado hasta la otra punta, CONTANDO EL TIEMPO;
+     4. vuelve la MITAD de ese tiempo: queda en el medio del area, sin
+        ningun numero medido de la cancha;
+     5. se endereza y avanza el poquito, como despues de un despeje.
+   Si aparece la pelota, corta y la sigue. Nunca deja el area.
+        patrullaPorLaLinea = false -> la patrulla vieja (al lateral)
+   🧪 09/11, despues de probarla (ver "LA PATRULLA POR LA LINEA DEL AREA"):
+   va SOLO con el giroscopio (sin corregir adelante/atras: oscilaba), se
+   queda 3 s quieto al llegar a la linea y al llegar al medio (para mirar),
+   SIEMPRE arranca para la IZQUIERDA, y el largo de punta a punta lo mide
+   UNA vez y lo GUARDA EN LA EEPROM (3584..3595). Despues, desde la punta
+   izquierda va directo al medio por tiempo (la mitad de lo guardado), sin
+   buscar la punta derecha (ese sensor frenaba pasado).
+   09/11 (3): MS_PUNTA_A_PUNTA_FIJO = 2548, medido por el equipo con
+   pruebas/medir-ancho-area ("funciona bien").
+   09/11 (4): ARRANCA A MOVERSE A LOS 3 s DE PRENDERLO (pedido del equipo:
+   "el tiempo de preparacion sean 3 segundos"). La cuenta se mide desde que
+   se prende, con el giroscopio arrancando en paralelo (antes ~3,5 s).
 
    📋 LA 0921g: la 0921f + una linea por el cable al arrancar con la
    version y los valores que mas importan (pedido del equipo, 03/11:
@@ -186,6 +215,7 @@
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BNO055.h>
+#include <EEPROM.h>     // 0921i: solo para guardar el largo de la linea del area
 
 
 // ---- ARQUERO (ROBOT1) ----
@@ -220,10 +250,10 @@ const unsigned long BAUDIOS = 19200;
 //    nada; con cable, se manda solo ANTES de moverse y no espera a nadie.
 // 🚨 NO ponerle begin() al Serial del USB: el USB del Teensy anda sin eso, y en
 //    algunas versiones begin() espera hasta 2,5 s a que abran el puerto (arrancaria tarde).
-const char* VERSION_PARTIDO = "0921g";
+const char* VERSION_PARTIDO = "0921i";
 // La escribe el TABLERO cada vez que guarda valores (fecha y hora, sin espacios).
 // "fabrica" = los valores tal como salieron del taller. A mano no hace falta tocarla.
-const char* SELLO = "fabrica";
+const char* SELLO = "20261109-092611";
 unsigned long t_ultimaVersion = 0;     // la ultima vez que se mando la linea
 
 
@@ -521,11 +551,21 @@ int potenciaEmpujon = 100;
 // mecanico de arranque (~33 ms, medido el 04/08):
 //     velocidad = 13 cm / (400 - 50 - 33) ms = 0.041 cm/ms
 //     para 10 cm  ->  10/0.041 + 50 + 33  =  ~320 ms
-int msEmpujonFinal = 320;
+//     para 15 cm  ->  15/0.041 + 50 + 33  =  ~450 ms
+// 2026-11-09: 320 -> 450 (~15 cm), pedido del equipo: "el avance despues de
+// encontrar la linea del area cambiala a 15". Es una CUENTA (del 18/08, antes
+// de mover los motores): medir con regla si queda a 15 cm de la linea.
+int msEmpujonFinal = 450;
 const unsigned long MS_ENFRIAMIENTO  = 1500;
 // 2026-09-21: bajado de 10 s a 2 s a pedido del equipo. Con 2 s toda la
 // cuenta queda en parpadeo rapido (el lento era para los primeros 7 s).
-const unsigned long MS_AVISO_ARMADO  = 2000;
+// 🚨 2026-11-09, pedido del equipo: "necesitamos que en 3 segundos arranque a
+// moverse... que el tiempo de preparacion sean 3 segundos". Desde la 0921i la
+// cuenta se mide DESDE QUE SE PRENDE (millis() arranca en 0), no despues de
+// prender el giroscopio: el giroscopio arranca mientras corre la cuenta. Antes
+// eran ~1,5 s de giroscopio + 2 s de cuenta = ~3,5 s. Si a los 3 s el
+// giroscopio todavia no contesta, espera (LED temblando) como siempre.
+const unsigned long MS_AVISO_ARMADO  = 3000;   // desde que se PRENDE hasta que se mueve
 const int VECES_PARA_CREERLE = 3;
 
 
@@ -736,8 +776,82 @@ bool empujonDeArranque = false;
 //
 // ⚠️ COSTO: cada patrulla son unos 8 s, y 5 de esos el arco queda
 // descubierto. Si el juez aguanta mas de 10 s quieto, conviene subirlo.
-bool patrullarSinPelota = true;
-const unsigned long MS_QUIETO_PARA_PATRULLAR = 10000;   // era 15000, bajado el 2026-10-13
+bool patrullarSinPelota = true;   // 09/11: apagada para el primer partido y prendida otra vez despues ("activa la patrulla la ultima"). Cual patrulla: ver patrullaPorLaLinea (abajo)
+const unsigned long MS_QUIETO_PARA_PATRULLAR = 20000;   // 09/11: 15000 -> 20000, pedido del equipo ("que inicie a 20")
+
+// ---- 🎯 LA PATRULLA POR LA LINEA DEL AREA (0921i, 2026-11-09) ----
+// Ver el encabezado. En vez de irse al lateral de la cancha (y dejar el
+// arco solo ~5 s), recorre la linea del area con los sensores de atras:
+// punta, otra punta contando el tiempo, y vuelve la mitad. Nunca sale del
+// area.
+// 09/11: APAGADA, pedido del equipo: "la patrulla de antes, que iba hacia un
+// lateral y luego volvia al medio por tiempo", a los dos lados (ver
+// alternarLadoPatrulla). true = la patrulla por la linea del area.
+bool patrullaPorLaLinea = false;         // false = la patrulla vieja, al lateral de la cancha
+// 🧪 2026-11-09, VERSION DE PRUEBA, pedida asi por el equipo: "el robot
+// retrocede hasta ver la linea. cuando llegue, espera 3 segundos quieto (en
+// ese tiempo vemos en que parte de la linea quedo; la idea es que quede lo
+// mas centrado posible). Luego va de costado usando UNICAMENTE EL
+// GIROSCOPIO, para no oscilar, hasta dejar de detectar con un sensor el
+// blanco, que es el final de la linea. Despues va hacia el otro para
+// calcular el medio." (La primera 0921i ademas se corregia para adelante y
+// para atras para quedarse sobre la linea: oscilaba, se pasaba de las
+// puntas y se metio en el area. Eso se SACO.)
+//
+// Retroceso hasta la linea: mas despacio que el del despeje, para que frene
+// mas cerca de donde la vio. No bajar de ~75 (parado no arranca).
+const int VEL_ATRAS_A_LA_LINEA = 80;
+// Cuanto se queda quieto al llegar a la linea, y otra vez al llegar al
+// medio, para que el equipo vea donde quedo. Para el partido se puede bajar.
+const unsigned long MS_QUIETO_PARA_MIRAR = 3000;
+// De costado por la linea (moverDeCostado: solo la correccion de rumbo del
+// giroscopio). La ida a la segunda punta y la vuelta al medio van a ESTA
+// misma fuerza, asi que la mitad del tiempo es la mitad del camino.
+const int VEL_LINEA = 90;
+// El FINAL de la linea: el sensor de ADELANTE en el sentido de la marcha
+// (yendo a la izquierda, el de la izquierda) ve verde, todo este rato
+// seguido. Se mira solo ese: el de atras, al arrancar el tramo de vuelta,
+// todavia esta afuera de la punta anterior. Si frena antes del final (por
+// un temblor): subir. Si se pasa mucho: bajar.
+const unsigned long MS_PUNTA_SOSTENIDA = 80;
+// Al arrancar cada tramo no mira el final durante esto.
+const unsigned long MS_MIN_ANTES_DE_PUNTA = 300;
+// Tope de cada tramo. Si no encuentra el final, frena, se endereza y juega
+// desde donde quedo.
+const unsigned long MS_TOPE_PUNTA = 5000;
+// 🧪 2026-11-09 (2), lo que vio el equipo: "a la izquierda estuvo perfecto,
+// pero hacia la derecha llega hasta una punta y despues hace un pequeno
+// movimiento hacia la derecha... seria mejor medir por tiempo". Y: "b, pero
+// guardalo en la memoria". Entonces:
+//   - SIEMPRE arranca para la IZQUIERDA (ese final lo encuentra bien);
+//   - el tiempo de punta a punta lo MIDE una vez (izquierda -> derecha, con
+//     el sensor de la derecha) y lo GUARDA EN LA EEPROM: sobrevive a apagar;
+//   - las patrullas siguientes, desde la punta izquierda van a la DERECHA la
+//     MITAD de ese tiempo, directo al medio, sin buscar la otra punta.
+// Para LEERLO: con la bateria apagada, enchufar el USB y abrir MIRAR.bat:
+// al arrancar escribe "LINEA DEL AREA: ...".
+// Sospecha de por que la derecha se pasa: los dos sensores de atras no leen
+// igual el verde (el 11/08 habia 110 puntos de diferencia); si el de la
+// derecha lee el verde cerca de umbralBlanco, tarda mas en "ver verde".
+const int LADO_PATRULLA_LINEA = -1;      // -1 = siempre arranca para la izquierda
+// Si se pone un numero aca (ms de PUNTA A PUNTA), usa ESTE y no el medido.
+// 0 = usar el medido y guardado. Sirve si el medido sale mal por la derecha.
+// 2026-11-09 (3): 0 -> 2548, MEDIDO por el equipo con pruebas/medir-ancho-area
+// (el sensor de ADELANTE, de costado a costado del area, a VEL_LINEA 90).
+// Desde la punta izquierda va a la derecha la mitad: 1274 ms. Si queda
+// corrido del medio, ajustar: queda a la IZQUIERDA del medio -> subir; queda
+// a la DERECHA -> bajar.
+const unsigned long MS_PUNTA_A_PUNTA_FIJO = 2548;
+// true = mide de nuevo en CADA patrulla (y guarda lo ultimo). false = mide
+// una sola vez, la primera, y despues usa lo guardado.
+bool remedirLineaSiempre = false;
+const int DIR_LINEA = 3584;              // EEPROM: 3584..3595 (libre en el mapa de medir-ancho)
+const uint32_t MAGIA_LINEA = 0x4C494E31; // "LIN1": si no esta, no hay nada guardado
+unsigned long msLineaGuardado = 0;       // 0 = no hay nada guardado
+int ladoLinea = -1;                      // -1 izquierda, +1 derecha: para donde arranca ESTA patrulla
+int ladoAlMedio = +1;                    // para donde va el tramo al medio
+unsigned long t_puntaDesde = 0;
+unsigned long msLargoLinea = 0;          // cuanto tarda de punta a punta (medido o guardado)
 const int CUADROS_PARA_CORTAR_PATRULLA = 5;     // ~0,2 s viendo la pelota
 
 // Ademas de los 10 s sin moverse, tiene que llevar este rato SEGUIDO sin ver
@@ -779,6 +893,39 @@ const int VEL_MEDIO_BUSCAR = 110;     // de costado, hasta ver una linea
 const int VEL_MEDIO_MEDIR  = 100;     // 🚨 atada a MS_MEDIO_AL_MEDIO
 const int VEL_MEDIO_RECTO  = 110;     // atras y adelante. Atada a MS_MEDIO_ADELANTE
 const int LADO_MEDIO = -1;            // -1 = va a buscar el lateral IZQUIERDO
+
+// ---- 🎯 LA PATRULLA AL LATERAL, A LOS DOS LADOS (de la 0921h, 09/11) ----
+// Pedido del equipo: "la patrulla de antes, que iba hacia un lateral y luego
+// volvia al medio por tiempo", "que se vaya hacia ambos lados". El lado de la
+// rutina es una variable (ladoMedio):
+//   - ir al medio al ARRANCAR: siempre LADO_MEDIO (el izquierdo, el medido);
+//   - cada PATRULLA: una al izquierdo, la siguiente al derecho, y asi.
+// ⚠️ Desde el DERECHO vuelve al medio con los MISMOS 2228 ms (decision del
+// equipo del 13/10 para el limite lateral). La cuenta del 06/10 da 2331 ms
+// desde ese lado: si desde la derecha queda corto del medio, ese es el
+// numero. Los dos son de antes de mover los motores.
+bool alternarLadoPatrulla = true;     // false = siempre al izquierdo
+int  ladoMedio = LADO_MEDIO;          // -1 izquierdo, +1 derecho: el de la rutina en curso
+int  ladoProximaPatrulla = LADO_MEDIO;
+
+// ---- 🎯 VOLVIENDO AL MEDIO, SI VE LA LINEA DEL AREA (09/11) ----
+// Pedido del equipo: "despues de tocar el lateral, si al volver al medio por
+// tiempo ve la linea blanca, que avance 10 cm y que vaya con el otro tiempo
+// medido desde la linea del area hacia el medio del arco". O sea: volviendo
+// del lateral (patrulla, ir al medio y la vuelta del limite lateral), si un
+// sensor de atras ve blanco (despues de haber salido del lateral), FRENA,
+// avanza ~10 cm y va de costado hacia el medio la MITAD de
+// MS_PUNTA_A_PUNTA_FIJO (medido con medir-ancho-area: 2548 -> 1274 ms), a
+// VEL_LINEA (la velocidad a la que se midio). Despues, atras hasta la linea
+// del area como siempre.
+bool buscarLineaDelAreaAlVolver = true;    // false = como antes: el tiempo largo y listo
+const unsigned long MS_VERDE_PARA_ARMAR = 150;   // primero tiene que salir del blanco del lateral
+const unsigned long MS_BLANCO_LINEA_VUELTA = 20; // blanco seguido para creerle
+const unsigned long MS_AVANCE_10CM = 450;        // a potenciaEmpujon (100): ~15 cm (cuenta del 18/08). 09/11: 320 (10 cm) -> 450 (15 cm), pedido del equipo
+bool vioVerdeVuelta = false;
+unsigned long t_verdeVuelta = 0;
+unsigned long t_blancoVuelta = 0;
+int dirVueltaLinea = +1;              // para donde sigue hacia el medio
 
 const unsigned long MS_MEDIO_ALEJARSE = 400;    // despegarse del lateral
 const unsigned long MS_MEDIO_ADELANTE = 943;    // ~50 cm a 110 (regla de tres)
@@ -863,7 +1010,12 @@ enum Fase { APAGADO, ARMANDOSE, ESPERANDO, SIGUIENDO,
             MEDIO_PAUSA, MEDIO_AL_LATERAL, MEDIO_ALEJARSE, MEDIO_AL_FONDO,
             MEDIO_ADELANTE, MEDIO_AL_LATERAL_2, MEDIO_AL_MEDIO,
             MEDIO_AL_AREA, MEDIO_DESPEGARSE,
-            LATERAL_AL_MEDIO };
+            LATERAL_AL_MEDIO,
+            // 0921i: la patrulla por la linea del area.
+            LINEA_BUSCAR, LINEA_PUNTA_A, LINEA_PUNTA_B, LINEA_AL_MEDIO,
+            LINEA_MIRAR, LINEA_MIRAR_MEDIO,
+            // 09/11: volviendo al medio, vio la linea del area.
+            MEDIO_LINEA_AVANZAR, MEDIO_LINEA_AL_MEDIO };
 Fase fase = APAGADO;
 unsigned long t_fase = 0;
 
@@ -1225,6 +1377,42 @@ void moverDeCostado(int s) {
   aplicar(frente + c, frente + c, -trasera + c);
 }
 
+// 09/11: volviendo al medio, ¿vio la linea del area? Primero tiene que salir
+// del blanco del lateral (verde MS_VERDE_PARA_ARMAR seguido) y despues ver
+// blanco MS_BLANCO_LINEA_VUELTA seguido, con cualquiera de los de atras.
+void armarVueltaLinea() {
+  vioVerdeVuelta = false; t_verdeVuelta = 0; t_blancoVuelta = 0;
+}
+bool vueltaVioLaLineaDelArea(unsigned long ahora) {
+  if (!buscarLineaDelAreaAlVolver) return false;
+  bool blanco = algunoDeAtrasVeBlanco();
+  if (!vioVerdeVuelta) {
+    if (blanco) { t_verdeVuelta = 0; return false; }
+    if (t_verdeVuelta == 0) t_verdeVuelta = ahora;
+    if (ahora - t_verdeVuelta >= MS_VERDE_PARA_ARMAR) vioVerdeVuelta = true;
+    return false;
+  }
+  if (!blanco) { t_blancoVuelta = 0; return false; }
+  if (t_blancoVuelta == 0) t_blancoVuelta = ahora;
+  return ahora - t_blancoVuelta >= MS_BLANCO_LINEA_VUELTA;
+}
+
+// 0921i (version de prueba del 09/11): un paso de "ir por la linea del
+// area" hacia `lado` (-1 izquierda, +1 derecha). Va de costado SOLO con la
+// correccion de rumbo del giroscopio (moverDeCostado), sin corregir para
+// adelante ni para atras. Devuelve true cuando llego al FINAL de la linea:
+// el sensor de adelante en el sentido de la marcha ve verde durante
+// MS_PUNTA_SOSTENIDA seguidos (sin contar los primeros
+// MS_MIN_ANTES_DE_PUNTA del tramo, que empezo en `desde`).
+bool andarPorLaLinea(int lado, unsigned long desde) {
+  moverDeCostado(lado * VEL_LINEA);
+  bool adelanteVeBlanco = (lado < 0) ? veBlancoIzq() : veBlancoDer();
+  unsigned long ahora = millis();
+  if (adelanteVeBlanco || ahora - desde < MS_MIN_ANTES_DE_PUNTA) { t_puntaDesde = 0; return false; }
+  if (t_puntaDesde == 0) t_puntaDesde = ahora;
+  return ahora - t_puntaDesde >= MS_PUNTA_SOSTENIDA;
+}
+
 // Avanzar y retroceder SOSTENIENDO EL RUMBO, y con arranque suave.
 //
 // Antes el avance del despeje salia a ciegas: si patinaba al arrancar y se
@@ -1421,6 +1609,7 @@ void pasarAEsperar() {
 
 // Arranca la ubicacion inicial: atras hasta la linea y enderezarse.
 void arrancarUbicacion() {
+  ladoMedio = LADO_MEDIO;          // 09/11: al arrancar, siempre por el izquierdo
   ubicandose      = true;
   encontroLaLinea = false;
   reiniciarRampaMovimiento();
@@ -1454,6 +1643,10 @@ bool enFaseDeMedio() {
     case MEDIO_PAUSA:        case MEDIO_DESPEGARSE:  case MEDIO_AL_LATERAL:
     case MEDIO_ALEJARSE:     case MEDIO_AL_FONDO:    case MEDIO_ADELANTE:
     case MEDIO_AL_LATERAL_2: case MEDIO_AL_MEDIO:    case MEDIO_AL_AREA:
+    // 0921i: tambien la patrulla por la linea (asi la pelota la corta).
+    case LINEA_BUSCAR: case LINEA_PUNTA_A: case LINEA_PUNTA_B: case LINEA_AL_MEDIO:
+    case LINEA_MIRAR:  case LINEA_MIRAR_MEDIO:
+    case MEDIO_LINEA_AVANZAR: case MEDIO_LINEA_AL_MEDIO:
       return true;
     default:
       return false;
@@ -1469,6 +1662,17 @@ bool enFaseDeMedio() {
 // que ya llego al lateral, y "volveria al medio" desde cualquier lado.
 void arrancarPatrulla() {
   cuadrosConPelota = 0;         // los cuadros del corte se cuentan desde aca
+  // 0921i: la patrulla por la linea del area (ver el encabezado).
+  if (patrullaPorLaLinea) {
+    patrullando     = true;
+    ubicandose      = true;     // termina por el camino de la ubicacion
+    encontroLaLinea = false;
+    ladoLinea        = LADO_PATRULLA_LINEA;   // 09/11 (2): siempre para la izquierda
+    reiniciarRampaMovimiento();
+    reiniciarCorreccion();
+    fase = LINEA_BUSCAR; t_fase = millis();
+    return;
+  }
   if (!patrullaPorElLateral) {
     // Plan B: lo mismo que al arrancar el partido (atras hasta la linea,
     // enderezarse, avanzar el poquito).
@@ -1479,6 +1683,9 @@ void arrancarPatrulla() {
   patrullando     = true;
   ubicandose      = true;
   encontroLaLinea = false;
+  // 09/11: una patrulla a cada lado (ver "LA PATRULLA AL LATERAL, A LOS DOS LADOS").
+  ladoMedio = alternarLadoPatrulla ? ladoProximaPatrulla : LADO_MEDIO;
+  ladoProximaPatrulla = -ladoMedio;
   pausaMedio(algunoDeAtrasVeBlanco() ? MEDIO_DESPEGARSE : MEDIO_AL_LATERAL_2);
 }
 
@@ -1587,6 +1794,43 @@ void terminarDespeje() {
 // 🚨 El orden de los campos es el CONTRATO con el tablero (tablero.py: CAMPOS_PARTIDO
 // y ORDEN_INTERRUPTORES): version primero, interruptores ultimo. Si se agrega uno,
 // va antes de interruptores y se agrega tambien alla.
+// ---- 0921i: el largo de la linea del area, guardado en la EEPROM ----
+struct LargoLinea { uint32_t magia; uint32_t ms; uint32_t veces; };
+
+void cargarLargoLinea() {
+  LargoLinea g;
+  EEPROM.get(DIR_LINEA, g);
+  if (g.magia == MAGIA_LINEA && g.ms >= 300 && g.ms <= 10000) msLineaGuardado = g.ms;
+  else msLineaGuardado = 0;
+}
+
+// Se llama con el robot frenando en la punta (quieto a proposito): escribir
+// la EEPROM puede tardar unos milisegundos y ahi no importa.
+void guardarLargoLinea(unsigned long ms) {
+  LargoLinea g;
+  EEPROM.get(DIR_LINEA, g);
+  uint32_t veces = (g.magia == MAGIA_LINEA) ? g.veces + 1 : 1;
+  g.magia = MAGIA_LINEA; g.ms = ms; g.veces = veces;
+  EEPROM.put(DIR_LINEA, g);
+  msLineaGuardado = ms;
+}
+
+void avisarLargoLinea() {
+  if (!Serial) return;
+  Serial.print("LINEA DEL AREA: ");
+  if (MS_PUNTA_A_PUNTA_FIJO > 0) {
+    Serial.print("uso el FIJO, "); Serial.print(MS_PUNTA_A_PUNTA_FIJO);
+    Serial.print(" ms de punta a punta -> al medio "); Serial.print(MS_PUNTA_A_PUNTA_FIJO / 2);
+    Serial.print(" ms. (Guardado: "); Serial.print(msLineaGuardado); Serial.println(" ms)");
+  } else if (msLineaGuardado > 0) {
+    Serial.print("guardado en la memoria: "); Serial.print(msLineaGuardado);
+    Serial.print(" ms de punta a punta -> al medio "); Serial.print(msLineaGuardado / 2);
+    Serial.println(" ms");
+  } else {
+    Serial.println("todavia no hay nada guardado: la proxima patrulla lo mide");
+  }
+}
+
 void avisarVersion() {
   if (!Serial) return;                 // nadie escuchando (en la cancha): nada
   Serial.print("#PARTIDO version=");            Serial.print(VERSION_PARTIDO);
@@ -1671,8 +1915,10 @@ void setup() {
   // y avisa con el LED temblando (10 por segundo).
 
   // Arranca solo: la unica forma de pararlo es la llave de la bateria.
+  cargarLargoLinea();   // 0921i: el largo de la linea del area, si ya lo midio
   avisarVersion();   // 0921g: si hay alguien escuchando
-  fase = ARMANDOSE; t_fase = millis();
+  avisarLargoLinea();
+  fase = ARMANDOSE; t_fase = 0;   // 09/11: la cuenta cuenta DESDE QUE SE PRENDIO (ver MS_AVISO_ARMADO)
 }
 
 
@@ -1700,7 +1946,7 @@ void loop() {
       if (ahora - t_ultimaVersion >= 500) { t_ultimaVersion = ahora; avisarVersion(); }   // 0921g: cada 1/2 s mientras parpadea (quieto)
       unsigned long falta = (ahora - t_fase >= MS_AVISO_ARMADO)
                             ? 0 : MS_AVISO_ARMADO - (ahora - t_fase);
-      unsigned long periodo = (falta <= 3000) ? 100 : 500;
+      unsigned long periodo = (falta <= 1000) ? 100 : 500;   // rapido el ultimo segundo: manos afuera
       digitalWrite(LED, ((ahora / periodo) % 2) ? HIGH : LOW);
       if (ahora - t_fase >= MS_AVISO_ARMADO) {
         // 🚨 NO ARMARSE SIN RUMBO. Si el sensor todavia no da datos, se
@@ -1812,6 +2058,85 @@ void loop() {
         }
         fase = faseDespuesDePausa; t_fase = ahora;
         t_soltoLinea = ahora;     // el margen de despegarse cuenta desde ACA
+        armarVueltaLinea();       // 09/11: para ver la linea del area volviendo al medio
+      }
+      break;
+
+    // ---------- 0921i: la patrulla por la linea del area ----------
+    // Ver el encabezado. Las pausas entre tramos son las de la rutina
+    // (MEDIO_PAUSA), y si aparece la pelota se corta igual que antes.
+
+    case LINEA_BUSCAR:              // 1. atras hasta la linea del area
+      digitalWrite(LED, ((ahora / 200) % 2) ? HIGH : LOW);
+      atrasControlado(VEL_ATRAS_A_LA_LINEA);
+      if (algunoDeAtrasVeBlanco()) {
+        frenar();
+        fase = LINEA_MIRAR; t_fase = ahora;    // 3 s quieto, para mirar donde quedo
+        break;
+      }
+      // Sin linea a la vista: se endereza y juega desde donde quedo.
+      if (ahora - t_fase >= MS_MAX_RETROCESO) abandonarMedio();
+      break;
+
+    case LINEA_MIRAR:               // 1b. quieto sobre la linea (el equipo mira donde quedo)
+      digitalWrite(LED, HIGH);
+      if (ahora - t_fase < msFreno) { frenar(); break; }
+      parar();
+      if (ahora - t_fase >= MS_QUIETO_PARA_MIRAR) {
+        reiniciarRampaMovimiento();
+        reiniciarCorreccion();
+        fase = LINEA_PUNTA_A; t_fase = ahora;
+      }
+      break;
+
+    case LINEA_PUNTA_A:             // 2. por la linea hasta la punta IZQUIERDA
+      digitalWrite(LED, HIGH);
+      if (andarPorLaLinea(ladoLinea, t_fase)) {
+        // 09/11 (2): con un largo FIJO o GUARDADO va directo al medio desde
+        // aca; si no hay ninguno (o remedirLineaSiempre), primero lo mide.
+        unsigned long largo = (MS_PUNTA_A_PUNTA_FIJO > 0) ? MS_PUNTA_A_PUNTA_FIJO : msLineaGuardado;
+        if (largo > 0 && !(remedirLineaSiempre && MS_PUNTA_A_PUNTA_FIJO == 0)) {
+          msLargoLinea = largo;
+          ladoAlMedio  = -ladoLinea;       // desde la punta izquierda, a la derecha
+          pausaMedio(LINEA_AL_MEDIO);
+        } else {
+          pausaMedio(LINEA_PUNTA_B);
+        }
+        break;
+      }
+      if (ahora - t_fase >= MS_TOPE_PUNTA) abandonarMedio();
+      break;
+
+    case LINEA_PUNTA_B:             // 3. hasta la otra punta, CONTANDO el tiempo
+      digitalWrite(LED, HIGH);
+      if (andarPorLaLinea(-ladoLinea, t_fase)) {
+        msLargoLinea = ahora - t_fase;
+        frenar();                         // quieto: ahora se puede escribir la EEPROM
+        guardarLargoLinea(msLargoLinea);  // 09/11 (2): "guardalo en la memoria"
+        avisarLargoLinea();
+        ladoAlMedio = ladoLinea;          // desde la punta derecha, vuelve a la izquierda
+        pausaMedio(LINEA_AL_MEDIO);
+        break;
+      }
+      if (ahora - t_fase >= MS_TOPE_PUNTA) abandonarMedio();
+      break;
+
+    case LINEA_AL_MEDIO:            // 4. la MITAD del largo: queda en el medio
+      digitalWrite(LED, HIGH);
+      moverDeCostado(ladoAlMedio * VEL_LINEA);   // solo el giroscopio; aca el final no importa
+      if (ahora - t_fase >= msLargoLinea / 2) {
+        frenar();
+        fase = LINEA_MIRAR_MEDIO; t_fase = ahora;   // 3 s quieto, para mirar si quedo en el medio
+      }
+      break;
+
+    case LINEA_MIRAR_MEDIO:         // 4b. quieto en el medio, y termina con el poquito
+      digitalWrite(LED, HIGH);
+      if (ahora - t_fase < msFreno) { frenar(); break; }
+      parar();
+      if (ahora - t_fase >= MS_QUIETO_PARA_MIRAR) {
+        encontroLaLinea = true;     // esta sobre la linea: termina con el poquito
+        fase = UBIC_FRENANDO; t_fase = ahora;
       }
       break;
 
@@ -1820,7 +2145,7 @@ void loop() {
     // rato mas (MS_MEDIO_ALEJARSE) para no quedar justo en el borde.
     case MEDIO_DESPEGARSE:
       digitalWrite(LED, HIGH);
-      moverDeCostado(LADO_MEDIO * VEL_MEDIO_BUSCAR);
+      moverDeCostado(ladoMedio * VEL_MEDIO_BUSCAR);
       if (algunoDeAtrasVeBlanco()) {
         t_soltoLinea = ahora;                    // sigue encima del blanco
       } else if (ahora - t_soltoLinea >= MS_MEDIO_ALEJARSE) {
@@ -1835,7 +2160,7 @@ void loop() {
     case MEDIO_AL_LATERAL:            // paso 1
     case MEDIO_AL_LATERAL_2:          // paso 5
       digitalWrite(LED, HIGH);
-      moverDeCostado(LADO_MEDIO * VEL_MEDIO_BUSCAR);
+      moverDeCostado(ladoMedio * VEL_MEDIO_BUSCAR);
       // Termina al VER la linea o, si no aparece, POR TIEMPO: despues de
       // MS_MEDIO_TOPE_LATERAL empujando para ese lado el robot esta contra
       // el lateral aunque no haya visto el blanco. Antes aca abandonaba y
@@ -1849,7 +2174,7 @@ void loop() {
 
     case MEDIO_ALEJARSE:              // paso 2
       digitalWrite(LED, HIGH);
-      moverDeCostado(-LADO_MEDIO * VEL_MEDIO_BUSCAR);
+      moverDeCostado(-ladoMedio * VEL_MEDIO_BUSCAR);
       if (ahora - t_fase >= MS_MEDIO_ALEJARSE) pausaMedio(MEDIO_AL_FONDO);
       break;
 
@@ -1870,8 +2195,28 @@ void loop() {
 
     case MEDIO_AL_MEDIO:              // paso 6
       digitalWrite(LED, HIGH);
-      moverDeCostado(-LADO_MEDIO * VEL_MEDIO_MEDIR);   // 🚨 100, no 110
+      moverDeCostado(-ladoMedio * VEL_MEDIO_MEDIR);   // 🚨 100, no 110
+      // 09/11: si en la vuelta ve la linea del area, sigue desde ahi.
+      if (vueltaVioLaLineaDelArea(ahora)) {
+        dirVueltaLinea = -ladoMedio;
+        pausaMedio(MEDIO_LINEA_AVANZAR);
+        break;
+      }
       if (ahora - t_fase >= MS_MEDIO_AL_MEDIO) pausaMedio(MEDIO_AL_AREA);
+      break;
+
+    // 09/11: vio la linea del area volviendo al medio: avanza ~10 cm...
+    case MEDIO_LINEA_AVANZAR:
+      digitalWrite(LED, HIGH);
+      adelanteControlado(potenciaEmpujon);
+      if (ahora - t_fase >= MS_AVANCE_10CM) pausaMedio(MEDIO_LINEA_AL_MEDIO);
+      break;
+
+    // ...y va hacia el medio del arco la mitad del ancho del area medido.
+    case MEDIO_LINEA_AL_MEDIO:
+      digitalWrite(LED, HIGH);
+      moverDeCostado(dirVueltaLinea * VEL_LINEA);
+      if (ahora - t_fase >= MS_PUNTA_A_PUNTA_FIJO / 2) pausaMedio(MEDIO_AL_AREA);
       break;
 
     case MEDIO_AL_AREA:               // paso 7
@@ -1893,6 +2238,15 @@ void loop() {
     case LATERAL_AL_MEDIO:
       digitalWrite(LED, HIGH);
       moverDeCostado(-ladoDelLateral * VEL_MEDIO_MEDIR);   // 🚨 100, no 110
+      // 09/11: si en la vuelta ve la linea del area, sigue desde ahi (ver
+      // "VOLVIENDO AL MEDIO, SI VE LA LINEA DEL AREA").
+      if (vueltaVioLaLineaDelArea(ahora)) {
+        dirVueltaLinea = -ladoDelLateral;
+        lecturasDeLateral = 0;
+        patrullando = true;       // como el final de abajo: si ve la pelota, la sigue
+        pausaMedio(MEDIO_LINEA_AVANZAR);
+        break;
+      }
       // Si aparece el OTRO lateral, no salio de donde creia: frena ahi.
       if (pisaElLateral(-ladoDelLateral)) lecturasDeLateral++;
       else                                lecturasDeLateral = 0;

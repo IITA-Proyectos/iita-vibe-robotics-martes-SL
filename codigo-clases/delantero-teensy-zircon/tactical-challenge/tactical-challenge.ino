@@ -59,7 +59,7 @@ const int XP_FRENAR                    = 70;    // desde estos cm empieza a aflo
 const bool GIRO_INVERTIDO              = true;  // sentido al buscar y al enderezar. Cambiar SOLO si al enderezar se aleja
 
 const bool LINEA_ACTIVA                = true;  // escapar de la linea blanca. En false puede salirse de la cancha
-int UMBRAL_LINEA[3]                    = { 424, 434, 440 }; // [MEDIDO 20/10] desde que lectura cada sensor dice "esto es blanco"
+int UMBRAL_LINEA[3]                    = { 300, 300, 440 }; // [09/11: DER e IZQ bajados a 300 por el equipo; eran 424/434 del 20/10] desde que lectura cada sensor dice "esto es blanco"
 const unsigned long MS_RETROCESO_LINEA = 210;   // al verla, retrocede esto (ms)...
 const int VEL_ESCAPE_FUERTE            = 135;   // ...con esta fuerza
 const unsigned long MS_CIEGO_LINEA     = 300;   // despues de verla no la mira durante esto (ms). NUNCA menos que MS_RETROCESO_LINEA

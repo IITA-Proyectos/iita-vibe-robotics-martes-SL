@@ -56,7 +56,7 @@ const float TOL_ANG_LEJOS_ARCO         = 8.0;              // grados, punteria c
 const float VUELTAS_PARA_RUMBO0        = 1.0;              // vueltas alrededor de la pelota sin patear antes del plan B
 
 // ---- LINEA BLANCA (UMBRAL_LINEA se MIDE en cada cancha con grabar-linea: 1 DER, 2 IZQ, 3 DEL) ----
-int UMBRAL_LINEA[3]                    = { 424, 434, 440 }; // [MEDIDO 20/10, base nueva] desde que lectura cada sensor dice "esto es blanco"
+int UMBRAL_LINEA[3]                    = { 300, 300, 440 }; // [09/11: DER e IZQ bajados a 300 por el equipo; eran 424/434 del 20/10] desde que lectura cada sensor dice "esto es blanco". En el verde tienen que leer MENOS que esto
 const unsigned long MS_RETROCESO_LINEA = 210;              // al verla, retrocede esto (ms)...
 const int VEL_ESCAPE_FUERTE            = 135;              // ...con esta fuerza. Mas = se despega mas rapido, pero se levanta
 const unsigned long MS_CIEGO_LINEA     = 300;              // despues de verla no la mira durante esto (ms). NUNCA menos que MS_RETROCESO_LINEA

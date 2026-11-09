@@ -55,7 +55,7 @@ const unsigned long MS_DERIVADA_PATADA = 10;    // cada cuanto calcula el KD (ms
 const bool GIRO_SIN_BRUJULA            = true;  // giroscopio sin brujula (modo IMU)
 
 const bool LINEA_ACTIVA                = true;
-int UMBRAL_LINEA[3]                    = { 424, 434, 440 }; // [MEDIDO 20/10]
+int UMBRAL_LINEA[3]                    = { 300, 300, 440 }; // [09/11: DER e IZQ bajados a 300 por el equipo; eran 424/434 del 20/10]
 const unsigned long MS_RETROCESO_LINEA = 210;   // al verla, se escapa esto (ms)...
 const int VEL_ESCAPE_FUERTE            = 135;   // ...con esta fuerza
 const unsigned long MS_LINEA_CONFIRMA  = 5;     // tiene que verla seguida esto (ms) para creerle

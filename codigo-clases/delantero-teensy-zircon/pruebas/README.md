@@ -38,7 +38,7 @@ pregunta concreta.
 | Prueba | Responde / hace | cable |
 |---|---|---|
 | [`tabla-camara/`](tabla-camara/) | ⭐ ¿Cuántos cm es un `Xp`? Cierra lo de `XP_ORBITA` | sí |
-| ⭐ [`tablero/`](tablero/) | **Ventana con botones**: pelota y arcos vistos desde arriba, sensores, giroscopio, y los movimientos con nota, gráfico y `Copiar al panel`. `../TABLERO.bat` (o `../TABLERO-DEMO.bat` sin robot). 27/10 | sí |
+| ⭐ [`tablero/`](tablero/) | **Ventana con botones**: pelota y arcos vistos desde arriba, sensores, giroscopio, y los movimientos con nota, gráfico y `Copiar al panel`. `../TABLERO.bat` (o `../TABLERO-DEMO.bat` sin robot). 27/10. **10/11: el 8 · SAQUE** del partido con saque: rodea a ciegas hasta `GRADOS_SAQUE` y patea; mide cuánto giró de verdad y si el golpe salió derecho (sus números se copian al partido con saque) | sí |
 | [`patada-derecha/`](patada-derecha/) | ⭐ La patada **completa** (golpe + retroceso), medida y con gráfico. `p` patea; los números se cambian con teclas. Se abre con [`../PROBAR-PATADA.bat`](../PROBAR-PATADA.bat). Reescrita el 13/10 (150×500, copia del principal de ese día) | sí |
 | [`saque-rebote/`](saque-rebote/) | Al prenderse hace **un saque**: golpe derecho para donde mira (apuntado a mano a la pared, para que rebote al arco), retrocede y frena. Anda **sin cable**; `p` repite. Se abre con [`../PROBAR-SAQUE.bat`](../PROBAR-SAQUE.bat). 08/11 | **no** |
 | [`identificar-robot/`](identificar-robot/) | ¿Este robot es el arquero o el delantero? | sí |

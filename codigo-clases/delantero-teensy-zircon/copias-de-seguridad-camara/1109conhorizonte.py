@@ -54,7 +54,7 @@ r = 13.5/(2*math.pi)  # radio pelota (cm)
 # B (Canal de color azul–amarillo) : 20 a 70 → tonos amarillos moderados
 
 naranja_threshold = (21, 67, 18, 79, -32, 127)    # Pelota naranja
-amarillo_threshold = (65, 85, -10, 0, -32, 64) # Arco amarillo [09/11: el que tiene la camara hoy]
+amarillo_threshold = (60, 99, -25, -3, 50, 85) # Arco amarillo [09/11: el que tiene la camara hoy]
 azul_threshold = (4, 36, -13, 57, -64, -4)    # Arco azul
 
 # ----- Horizonte [09/11] -----
@@ -64,7 +64,7 @@ azul_threshold = (4, 36, -13, 57, -64, -4)    # Arco azul
 # seleccionar con el mouse la parte de arriba y leer el "al" (alto) del ROI.
 # OJO: desde la otra punta de la cancha los arcos tienen que quedar DEBAJO de la
 # linea amarilla que se dibuja. Si se cortan: bajar este numero.
-HORIZONTE = 46
+HORIZONTE = 0
 ROI_CANCHA = (0, HORIZONTE, 320, 240 - HORIZONTE)   # (x, y, ancho, alto)
 
 

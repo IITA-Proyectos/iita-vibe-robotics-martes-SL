@@ -10,9 +10,10 @@ QUÉ TIENE
   PELOTA       dibuja, visto desde arriba, dónde ve el robot la pelota y
                los dos arcos.
   SENSORES     los 3 sensores de línea, el giroscopio y la cámara.
-  MOVIMIENTOS  prueba los 7 movimientos del partido (patada, avance, los
-               3 escapes de la línea, órbita y giro), cambia sus números
-               SIN recargar el robot, y dice si salió derecho (con gráfico).
+  MOVIMIENTOS  prueba los 8 movimientos del partido (patada, avance, los
+               3 escapes de la línea, órbita, giro y, desde el 10/11, el
+               SAQUE del partido con saque), cambia sus números SIN
+               recargar el robot, y dice si salió derecho (con gráfico).
   CONSOLA      todo lo que dice el robot, y una caja para escribirle a mano.
 
 CÓMO SE ABRE
@@ -91,14 +92,15 @@ VID_TEENSY = 0x16C0              # el "fabricante" de las Teensy (PJRC): no camb
 PID_SERIE = 0x0483               # una Teensy corriendo un programa, con su puerto COM
 BAUDIOS = 19200
 PROGRAMA = "tablero-delantero"   # lo que dice "#HOLA" si el robot tiene el programa del tablero
-FECHA_CONTRATO = "2026-10-27"
+FECHA_CONTRATO = "2026-11-10"      # [10/11] con el 8 SAQUE
 
 ETIQUETAS = ("HOLA", "S", "V", "OK", "ERROR", "CUENTA", "INICIO", "FRENO",
              "M", "R", "CONSEJO", "PANEL", "FINPANEL")
 MODOS = ("ESPERA", "CUENTA", "MOVIENDO")
-FASES = {"g": "golpe", "r": "retroceso", "m": "movimiento"}
+FASES = {"g": "golpe", "r": "retroceso", "m": "movimiento", "o": "rodea", "f": "frena"}   # "o" y "f": [10/11] el saque
 CAMPOS_R = ("pico", "picoms", "pico200", "fin", "fin2", "cruces", "giro", "gps",
-            "duro", "hueco", "huecoms", "plantado")
+            "duro", "hueco", "huecoms", "plantado",
+            "obj", "llego", "vuelta")     # [10/11] estos tres, solo del SAQUE
 EDAD_VIEJA_MS = 300              # pelota/arco vistos hace más que esto: se dibujan en gris
 ANGULO_CAMARA = 34               # grados para cada lado que ve la cámara (más o menos)
 MAX_MUESTRAS = 1000              # el robot manda hasta 300; esto es por las dudas
@@ -121,6 +123,8 @@ NOTAS = {
                    "Giró menos de 20 grados en total: no arrancó."),
     "NO_VALE":    ("#757575", "white", "NO VALE",
                    "Esta prueba no vale: la frenaron, se pasó del tiempo, o no había giroscopio."),
+    "NO_LLEGA":   ("#c62828", "white", "NO LLEGA",
+                   "El saque rodeó 3 segundos y no llegó a los grados que tenía que girar."),
 }
 
 # Los números que se cambian desde la ventana.
@@ -152,7 +156,25 @@ NUMEROS = {
     "RAMPA_GIRO_PASO":    (2, "El giro arranca suave: sube esto de fuerza...", None),
     "RAMPA_GIRO_MS":      (2, "...cada esta cantidad de ms.", None),
     "MS_PRUEBA_GIRO":     (500, "Cuánto gira en esta prueba (ms). Solo de esta prueba.", None),
+    # [10/11] 8 SAQUE: los del PARTIDO CON SAQUE (con "Copiar al panel" van a partido-con-saque.ino)
+    "LADO_SAQUE":          (1, "Para qué lado: -1 = IZQUIERDA, 0 = CENTRO (patea derecho), 1 = DERECHA. En el partido se sortea. Solo de esta prueba.", None),
+    "GRADOS_SAQUE":        (5, "Cuántos grados se tuerce hacia la pared antes de patear. Si la pelota rebota antes del arco: subir. Si se pasa: bajar.", None),
+    "TOL_SAQUE":           (1, "A cuántos grados de lo que tenía que girar ya patea. Si patea antes de llegar: bajar.", None),
+    "VEL_ORB_SAQUE":       (5, "Fuerza de la vuelta del saque. Si se pasa de los grados: bajar. Si no llega o se planta: subir. En el partido con saque es VEL_ORB_TRASERA (80). Solo de esta prueba.", None),
+    "VEL_SAQUE":           (5, "Fuerza del golpe del saque (60 a 255). Más = la pelota sale más fuerte, pero puede volcar.", None),
+    "MS_SAQUE":            (50, "Cuánto dura el golpe del saque (ms). Más = sale más fuerte, y llega más cerca de la línea.", None),
+    "RAMPA_SAQUE_PASO":    (1, "El golpe del saque arranca subiendo de a esto. Menos = arranca más suave (vuelca menos).", None),
+    "TRIM_SAQUE":          (1, "Compensación fija del golpe del saque. Si se va a la DERECHA: subir. A la IZQUIERDA: bajar.", None),
+    "KP_SAQUE":            (0.5, "Corrige el golpe del saque por cada grado torcido. Más = corrige más fuerte (y puede zigzaguear).", None),
+    "KD_SAQUE":            (0.1, "Frena el giro del golpe del saque antes de que crezca: baja el pico.", None),
+    "VEL_RETROCESO_SAQUE": (5, "Fuerza de la marcha atrás después del saque.", None),
+    "MS_RETROCESO_SAQUE":  (50, "Cuánto dura la marcha atrás después del saque (ms).", None),
+    "MS_FRENO_SAQUE":      (50, "Al llegar a los grados FRENA esto (ms) y recién ahí patea: sin el envión de la vuelta, el golpe no se desvía. 0 = no frena.", None),
 }
+# [10/11] Los que se copian al PARTIDO CON SAQUE (no al principal)
+NUMEROS_DEL_SAQUE = ("GRADOS_SAQUE", "TOL_SAQUE", "VEL_SAQUE", "MS_SAQUE", "RAMPA_SAQUE_PASO",
+                     "TRIM_SAQUE", "KP_SAQUE", "KD_SAQUE", "VEL_RETROCESO_SAQUE", "MS_RETROCESO_SAQUE",
+                     "MS_FRENO_SAQUE")
 
 AVISO_LINEA = "En estas pruebas el robot NO mira la línea blanca."
 # Lo que hay que hacer si el robot no encuentra el giroscopio: el robot lo
@@ -161,8 +183,9 @@ AYUDA_SIN_GIRO = "prendé la batería (antes que el USB) y apretá PROBAR: lo bu
 # Si el robot NO tiene el programa del tablero, la "x" no lo frena.
 NO_OBEDECE_PARAR = "Este programa NO obedece PARAR: levantá el robot o apagá la batería."
 
-# Los 7 movimientos. tipo: "patada" y "derecho" se miden por cuánto se
-# tuercen; "giro" por cuántos grados por segundo gira y si se planta.
+# Los 8 movimientos. tipo: "patada" y "derecho" se miden por cuánto se
+# tuercen; "giro" por cuántos grados por segundo gira y si se planta;
+# "saque" [10/11] por cuánto giró antes de patear y si el golpe fue derecho.
 MOVIMIENTOS = [
     dict(n=1, nombre="PATADA", tipo="patada", boton="1   PATADA",
          titulo="1 · PATADA  (golpe + retroceso)",
@@ -208,6 +231,16 @@ MOVIMIENTOS = [
                   "Mide cuántos grados por segundo gira y si arranca.",
          lugar="Gira en el lugar: que no tenga nada pegado.",
          numeros=["VEL_GIRO_CONTINUO", "RAMPA_GIRO_PASO", "RAMPA_GIRO_MS", "MS_PRUEBA_GIRO"]),
+    dict(n=8, nombre="SAQUE", tipo="saque", boton="8   SAQUE",
+         titulo="8 · SAQUE  (rodear a ciegas + patear)",
+         que_hace="El saque del PARTIDO CON SAQUE: rodea la pelota sin mirar la cámara (solo el "
+                  "giroscopio) hasta quedar GRADOS_SAQUE torcido para el lado de LADO_SAQUE, patea "
+                  "con los números del saque y retrocede. Mide cuántos grados giró DE VERDAD antes "
+                  "de patear y si el golpe salió derecho. Ponelo mirando al frente, como en el partido.",
+         lugar="Dejale lugar ALREDEDOR y ADELANTE en diagonal (más de un metro).",
+         numeros=["LADO_SAQUE", "GRADOS_SAQUE", "TOL_SAQUE", "MS_FRENO_SAQUE", "VEL_ORB_SAQUE", "VEL_ORB_IMPULSO",
+                  "MS_ORB_IMPULSO", "VEL_SAQUE", "MS_SAQUE", "RAMPA_SAQUE_PASO", "TRIM_SAQUE",
+                  "KP_SAQUE", "KD_SAQUE", "VEL_RETROCESO_SAQUE", "MS_RETROCESO_SAQUE"]),
 ]
 MOV_POR_NUMERO = {m["n"]: m for m in MOVIMIENTOS}
 MOV_POR_NOMBRE = {m["nombre"]: m for m in MOVIMIENTOS}
@@ -727,7 +760,38 @@ def explicar_informe(inf):
         return 0 if v is None else v
 
     frases = []
-    if tipo in ("patada", "derecho"):
+    if tipo == "saque":                                       # [10/11]
+        obj, giro = num("obj"), num("giro")
+        if abs(obj) < 0.5:
+            frases.append(("CENTRO: pateó derecho, sin rodear.", ""))
+        elif inf.get("nota") == "NO_LLEGA":
+            frases.append(("Tenía que girar %s y en 3 s giró %s: NO LLEGÓ." % (lado(obj), lado(giro)), "malo"))
+        else:
+            pasado = abs(giro) - abs(obj)
+            frases.append(("Tenía que girar %s y pateó habiendo girado %s, a los %d ms." % (
+                lado(obj), lado(giro), num("llego")),
+                "malo" if abs(pasado) > 5 else "bueno"))
+            if pasado > 5:
+                frases.append(("Se PASÓ %.1f grados: el rebote sale más cerrado." % pasado, "malo"))
+            elif pasado < -5:
+                frases.append(("Pateó %.1f grados ANTES de llegar." % -pasado, "malo"))
+            if num("vuelta"):
+                frases.append(("Arrancó a rodear para el lado largo y se dio vuelta solo.", ""))
+            gps = abs(num("gps"))
+            if gps > 0:
+                frases.append(("Rodeó a %d grados por segundo." % round(gps), ""))
+        if inf.get("nota") != "NO_LLEGA":
+            frases.append(("EL GOLPE: lo más torcido %s, a los %d ms." % (lado(num("pico")), num("picoms")), ""))
+            frases.append(("En los primeros 200 ms (lo que ve la pelota): %s." % lado(num("pico200")), ""))
+            frases.append(("Al terminar el golpe: %s. Después del retroceso: %s." % (
+                lado(num("fin")), lado(num("fin2"))), ""))
+            cruces = int(num("cruces"))
+            frases.append(("Cruzó de un lado al otro %d %s (4 o más = zigzag)." % (
+                cruces, "vez" if cruces == 1 else "veces"), "malo" if cruces >= 4 else ""))
+        plantado = num("plantado")
+        if plantado > 400:
+            frases.append(("Rodeando, estuvo %d ms casi sin girar: se planta." % plantado, "malo"))
+    elif tipo in ("patada", "derecho"):
         que = "el golpe" if tipo == "patada" else "el movimiento"
         frases.append(("Lo más torcido durante %s: %s, a los %d ms." % (que, lado(num("pico")), num("picoms")), ""))
         if tipo == "patada":
@@ -752,7 +816,10 @@ def explicar_informe(inf):
         plantado = num("plantado")
         frases.append(("El rato más largo casi sin girar: %d ms (más de 400 = se planta)." % plantado,
                        "malo" if plantado > 400 else ""))
-    if tipo == "patada":
+    if tipo == "saque":
+        if inf.get("nota") != "NO_LLEGA":
+            frases.append(("El golpe duró %d ms (tendría que durar lo que dice MS_SAQUE)." % num("duro"), ""))
+    elif tipo == "patada":
         # En la PATADA el robot manda lo que duró solo el GOLPE (sin el
         # retroceso), para compararlo con MS_PATADA.
         frases.append(("El golpe duró %d ms. Tendría que durar lo que dice MS_PATADA: "
@@ -969,6 +1036,11 @@ VALORES_DE_MENTIRA = {
     "MS_ORB_IMPULSO": "300", "VEL_ORB_TRASERA": "67", "VEL_ORB_FRENTE": "30",
     "MS_PRUEBA_ORBITA": "3000", "SENTIDO_ORBITA": "0", "VEL_GIRO_CONTINUO": "40",
     "RAMPA_GIRO_PASO": "10", "RAMPA_GIRO_MS": "10", "MS_PRUEBA_GIRO": "2000",
+    # [10/11] 8 SAQUE: los del partido con saque
+    "LADO_SAQUE": "1", "GRADOS_SAQUE": "60.0", "TOL_SAQUE": "8.0", "VEL_ORB_SAQUE": "80",
+    "VEL_SAQUE": "255", "MS_SAQUE": "900", "RAMPA_SAQUE_PASO": "15", "TRIM_SAQUE": "10",
+    "KP_SAQUE": "2.5", "KD_SAQUE": "0.0", "VEL_RETROCESO_SAQUE": "155", "MS_RETROCESO_SAQUE": "300",
+    "MS_FRENO_SAQUE": "200",
 }
 # (mínimo, máximo, con decimales, cómo se declara en el principal; "" = solo de la prueba)
 RANGOS_DE_MENTIRA = {
@@ -987,6 +1059,14 @@ RANGOS_DE_MENTIRA = {
     "MS_PRUEBA_ORBITA": (500, 3000, False, ""), "SENTIDO_ORBITA": (0, 1, False, ""),
     "VEL_GIRO_CONTINUO": (0, 255, False, "const int"), "RAMPA_GIRO_PASO": (1, 255, False, "const int"),
     "RAMPA_GIRO_MS": (1, 200, False, "const unsigned long"), "MS_PRUEBA_GIRO": (300, 3000, False, ""),
+    # [10/11] 8 SAQUE
+    "LADO_SAQUE": (-1, 1, False, ""), "GRADOS_SAQUE": (0, 120, True, "const float"),
+    "TOL_SAQUE": (1, 30, True, "const float"), "VEL_ORB_SAQUE": (0, 255, False, ""),
+    "VEL_SAQUE": (60, 255, False, "const int"), "MS_SAQUE": (100, 1500, False, "const int"),
+    "RAMPA_SAQUE_PASO": (1, 255, False, "const int"), "TRIM_SAQUE": (-60, 60, False, "const int"),
+    "KP_SAQUE": (0, 20, True, "const float"), "KD_SAQUE": (0, 5, True, "const float"),
+    "VEL_RETROCESO_SAQUE": (0, 255, False, "const int"), "MS_RETROCESO_SAQUE": (0, 1500, False, "const int"),
+    "MS_FRENO_SAQUE": (0, 1000, False, "const int"),
 }
 
 
@@ -1001,7 +1081,8 @@ def duracion_de_mentira(n, valores):
     V = lambda nombre: _valor_de(valores, nombre)
     ms = {1: V("MS_PATADA") + V("MS_RETROCESO"), 2: V("MS_PRUEBA_AVANCE"),
           3: V("MS_RETROCESO_LINEA"), 4: V("MS_RETROCESO_LINEA"), 5: V("MS_RETROCESO_LINEA"),
-          6: V("MS_PRUEBA_ORBITA"), 7: V("MS_PRUEBA_GIRO")}[n]
+          6: V("MS_PRUEBA_ORBITA"), 7: V("MS_PRUEBA_GIRO"),
+          8: 3000 + V("MS_FRENO_SAQUE") + V("MS_SAQUE") + V("MS_RETROCESO_SAQUE")}[n]
     return max(10, int(ms))
 
 
@@ -1064,6 +1145,21 @@ def _consejos_de_mentira(n, inf, nota, valores):
             c.append("No arranco: subir VEL_GIRO_CONTINUO (esta en %s)." % V("VEL_GIRO_CONTINUO"))
         else:
             c.append("Gira bien, a %.0f grados por segundo." % inf["gps"])
+    elif n == 8:
+        if nota == "NO_LLEGA":
+            c.append("No llego a los %.0f grados: subir VEL_ORB_SAQUE (esta en %s)." % (abs(inf["obj"]), V("VEL_ORB_SAQUE")))
+        else:
+            pasado = abs(inf["giro"]) - abs(inf["obj"])
+            if abs(inf["obj"]) >= 0.5 and pasado > 5:
+                c.append("Se paso %.1f grados: bajar VEL_ORB_SAQUE (esta en %s)." % (pasado, V("VEL_ORB_SAQUE")))
+            elif abs(inf["obj"]) >= 0.5:
+                c.append("Llego bien a los grados del saque (en %d ms)." % inf["llego"])
+            if inf["pico"] <= -4:
+                c.append("El golpe se fue a la DERECHA: subir TRIM_SAQUE (esta en %s)." % V("TRIM_SAQUE"))
+            elif inf["pico"] >= 4:
+                c.append("El golpe se fue a la IZQUIERDA: bajar TRIM_SAQUE (esta en %s)." % V("TRIM_SAQUE"))
+            elif nota == "PROLIJO":
+                c.append("El golpe del saque salio derecho. Repetirlo con los dos lados: si da parecido, Copiar al panel.")
     if inf["hueco"] > 50:
         c.append("El programa se clavo %d ms: probar SIN_ESPERA = 1." % inf["hueco"])
     return c
@@ -1113,6 +1209,45 @@ def demo_resultado(n, valores, rng, cortado_ms=None):
                 vel = crucero
             acumulado += signo * vel * 0.01
             puntos.append((t, acumulado + rng.uniform(-0.05, 0.05), "m"))
+    elif n == 8:
+        # [10/11] SAQUE: rodea hasta el objetivo (se pasa mas cuanto mas rapido
+        # rodea), patea (se tuerce segun TRIM_SAQUE: con 10 va derecho) y retrocede.
+        lado_s = V("LADO_SAQUE")
+        objetivo = -lado_s * V("GRADOS_SAQUE")              # NEGATIVO = derecha, como el robot
+        vel_orb = max(0.0, (V("VEL_ORB_SAQUE") - 45) * 4.0)  # grados por segundo
+        pasa = (V("VEL_ORB_SAQUE") - 70) * 0.6                # cuanto se pasa (de mentira)
+        arranque = V("MS_ORB_IMPULSO")
+        acumulado, t = 0.0, 0
+        llego = 0
+        if abs(objetivo) >= 0.5:
+            signo = -1 if objetivo < 0 else 1
+            meta = abs(objetivo) - V("TOL_SAQUE") + max(0.0, pasa) + V("TOL_SAQUE") * 0.6
+            while t < 3000:
+                t += 10
+                vel = 140.0 if t <= arranque else vel_orb
+                acumulado += signo * vel * 0.01
+                puntos.append((t, acumulado + rng.uniform(-0.05, 0.05), "o"))
+                if abs(acumulado) >= meta:
+                    llego = t
+                    break
+        golpe, retro = V("MS_SAQUE"), V("MS_RETROCESO_SAQUE")
+        sesgo = (V("TRIM_SAQUE") - 10) * 1.5
+        if llego and V("MS_FRENO_SAQUE") > 0:
+            # frena: el envion lo hace pasar un poquito mas y se queda quieto
+            sigue = signo * min(4.0, vel_orb / 40.0)
+            for k in range(10, int(V("MS_FRENO_SAQUE")) + 1, 10):
+                t += 10
+                puntos.append((t, acumulado + sigue * (1 - math.exp(-k / 60.0)) + rng.uniform(-0.05, 0.05), "f"))
+            acumulado = puntos[-1][1]
+        elif llego:
+            sesgo += signo * 4.0                              # sin frenar, el envion desvia el golpe
+        if abs(objetivo) < 0.5 or llego:
+            t0 = t
+            for k in range(10, int(golpe + retro) + 1, 10):
+                fase = "g" if k <= golpe else "r"
+                g = sesgo * (1 - math.exp(-k / 150.0)) + 1.5 * math.sin(k / 40.0) * math.exp(-k / 300.0)
+                puntos.append((t0 + k, acumulado + g + rng.uniform(-0.3, 0.3), fase))
+        dur = int(puntos[-1][0]) if puntos else 0
     else:
         fuerza = V("VEL_GIRO_CONTINUO")
         crucero = 0.0 if fuerza < 38 else (fuerza - 30) * 14.0
@@ -1125,7 +1260,7 @@ def demo_resultado(n, valores, rng, cortado_ms=None):
     if cortado_ms is not None:
         puntos = [p for p in puntos if p[0] <= cortado_ms]
         dur = max(int(cortado_ms), 0)
-    puntos = puntos[:300]                 # el robot guarda hasta 300
+    puntos = puntos[:450]                 # el robot guarda hasta 450 [10/11: eran 300]
 
     inf = dict.fromkeys(CAMPOS_R, 0)
     # En la PATADA el robot manda lo que duró el GOLPE solo (no el retroceso).
@@ -1135,7 +1270,33 @@ def demo_resultado(n, valores, rng, cortado_ms=None):
         # El chequeo del giroscopio de la librería clava el programa 200 ms
         # (bitácora 13/10). Cae en un momento cualquiera del golpe.
         inf["hueco"], inf["huecoms"] = 201, rng.randint(50, max(51, min(dur, int(V("MS_PATADA")))))
-    if mov["tipo"] in ("patada", "derecho"):
+    if mov["tipo"] == "saque":                                     # [10/11]
+        orb = [p for p in puntos if p[2] == "o"]
+        golpe_p = [p for p in puntos if p[2] == "g"]
+        retro_p = [p for p in puntos if p[2] == "r"]
+        inf["obj"] = round(-V("LADO_SAQUE") * V("GRADOS_SAQUE"), 1)
+        frena_p = [p for p in puntos if p[2] == "f"]
+        al_patear = frena_p[-1][1] if frena_p else (orb[-1][1] if orb else 0.0)
+        inf["giro"] = round(al_patear, 1)
+        inf["llego"] = int(orb[-1][0]) if (orb and golpe_p) else 0
+        inf["gps"] = round(al_patear * 1000.0 / max(inf["llego"], 1), 1) if inf["llego"] else 0
+        if golpe_p:
+            desvio = [(t, g - al_patear) for t, g, _ in golpe_p]
+            t_g = golpe_p[0][0] - 10
+            pico = max(desvio, key=lambda p: abs(p[1]))
+            inf["pico"], inf["picoms"] = round(pico[1], 1), int(pico[0] - t_g)
+            primeros = [d for d in desvio if d[0] - t_g <= 200]
+            inf["pico200"] = round(max(primeros, key=lambda p: abs(p[1]))[1], 1) if primeros else 0
+            inf["fin"] = round(desvio[-1][1], 1)
+            inf["cruces"] = contar_cruces([d[1] for d in desvio])
+            inf["duro"] = min(int(V("MS_SAQUE")), len(golpe_p) * 10)
+        else:
+            inf["duro"] = 0
+        if retro_p:
+            inf["fin2"] = round(retro_p[-1][1] - al_patear, 1)
+        nota = "NO_LLEGA" if (abs(inf["obj"]) >= 0.5 and not golpe_p) else \
+            nota_derecho(inf["pico"], inf["cruces"], inf["fin"])
+    elif mov["tipo"] in ("patada", "derecho"):
         moviendo = [p for p in puntos if p[2] in ("g", "m")]
         if moviendo:
             pico = max(moviendo, key=lambda p: abs(p[1]))
@@ -1163,10 +1324,10 @@ def demo_resultado(n, valores, rng, cortado_ms=None):
                  for t, g, f in puntos]
     renglones.append(
         "#R n=%d mov=%s nota=%s pico=%.1f picoms=%d pico200=%.1f fin=%.1f fin2=%.1f cruces=%d "
-        "giro=%.1f gps=%.1f duro=%d hueco=%d huecoms=%d plantado=%d" % (
+        "giro=%.1f gps=%.1f duro=%d hueco=%d huecoms=%d plantado=%d obj=%.1f llego=%d vuelta=%d" % (
             n, mov["nombre"], nota, inf["pico"], inf["picoms"], inf["pico200"], inf["fin"],
             inf["fin2"], inf["cruces"], inf["giro"], inf["gps"], inf["duro"], inf["hueco"],
-            inf["huecoms"], inf["plantado"]))
+            inf["huecoms"], inf["plantado"], inf["obj"], inf["llego"], inf["vuelta"]))
     renglones += ["#CONSEJO " + c for c in _consejos_de_mentira(n, inf, nota, valores)]
     return renglones
 
@@ -1258,13 +1419,13 @@ class RobotDeMentira:
             if n in MOV_POR_NUMERO:
                 self._mover(n)
             else:
-                self._decir("#ERROR no hay movimiento %s: son del !1 al !7" % c[1:])
+                self._decir("#ERROR no hay movimiento %s: son del !1 al !8" % c[1:])
         elif c == "h":
             self._decir("#HOLA %s %s" % (PROGRAMA, FECHA_CONTRATO))
         elif c == "?":
             self._decir(self.linea_V())
             self._decir("------------------- TABLERO DEL DELANTERO (de mentira) -------------------")
-            self._decir("!1 a !7 = un movimiento   x = parar   =NOMBRE valor = cambiar un numero")
+            self._decir("!1 a !8 = un movimiento   x = parar   =NOMBRE valor = cambiar un numero")
             self._decir("v = copiar al principal   0 = volver a los del principal   h = saludo")
         elif c == "x":
             self._decir("PARADO (frena 0,4 s y suelta las ruedas)")
@@ -1272,7 +1433,8 @@ class RobotDeMentira:
             for nombre, valor in self.valores.items():
                 declarado = RANGOS_DE_MENTIRA[nombre][3]
                 if declarado and valor != VALORES_DE_MENTIRA[nombre]:
-                    self._decir("#PANEL %s %s = %s;" % (declarado, nombre, valor))
+                    donde = "   // en partido-con-saque" if nombre in NUMEROS_DEL_SAQUE else ""
+                    self._decir("#PANEL %s %s = %s;%s" % (declarado, nombre, valor, donde))
             self._decir("#FINPANEL")
         elif c == "0":
             self.valores = dict(VALORES_DE_MENTIRA)
@@ -1360,7 +1522,7 @@ ROJO = "#c62828"
 NARANJA = "#e65100"
 GRIS = "#757575"
 AZUL = "#1565c0"
-COLOR_FASE = {"g": "#e65100", "r": "#1565c0", "m": "#6a1b9a"}
+COLOR_FASE = {"g": "#e65100", "r": "#1565c0", "m": "#6a1b9a", "o": "#2e7d32", "f": "#9e9e9e"}   # "o" y "f": [10/11] el saque
 # Para rodear o soltar la pelota el robot NO usa la distancia: usa X, lo
 # que está para ADELANTE (XP_ORBITA = 32 y XP_SUELTA = 55 en el principal).
 # Por eso son RAYAS de lado a lado y no círculos: una pelota a 40 cm y 45
@@ -1384,6 +1546,8 @@ INSTRUCCIONES_PANEL = (
     "4. CERRÁ EL TABLERO (la ventana grande, no solo este cartel): si queda abierto, el "
     "cargador no puede hablar con el robot. Recién ahí cargá el de partido con "
     "CARGAR-ROBOT.bat y leé el cartel del robot.\n"
+    "SAQUE: las líneas que dicen 'en partido-con-saque' NO van en el principal: van en "
+    "partido-con-saque\\partido-con-saque.ino, y se carga con PARTIDO-CON-SAQUE.bat.\n"
     "(Si el robot dejó algún aviso más, está en la pestaña CONSOLA.)"
 )
 
@@ -1623,7 +1787,7 @@ class Ventana:
         t.columnconfigure(2, weight=1)
         t.rowconfigure(0, weight=1)
 
-        # --- izquierda: los 7 movimientos ---
+        # --- izquierda: los 8 movimientos ---
         # (todo bien juntito: tiene que entrar en una pantalla de 1366x768)
         izq = tk.Frame(t, bg=FONDO)
         izq.grid(row=0, column=0, sticky="ns", padx=(6, 4), pady=6)
@@ -1718,7 +1882,7 @@ class Ventana:
         abajo.pack(side="bottom", fill="x", padx=6, pady=(4, 6))
         self._etiqueta(
             t, font=F_CHICO, fg="#616161", wraplength=1200,
-            text="Comandos:  ?  ayuda    h  saludo   =NOMBRE valor  cambia un número    !1 a !7  "
+            text="Comandos:  ?  ayuda    h  saludo   =NOMBRE valor  cambia un número    !1 a !8  "
                  "un movimiento    x  parar    v  panel    0  números del partido.    "
                  "OJO: cualquier cosa que mandes mientras se mueve lo FRENA.    "
                  "Si el robot NO tiene el programa del tablero, solo se puede mandar ? y h."
@@ -2486,7 +2650,11 @@ class Ventana:
             return arr + (tope - g) / (2.0 * tope) * alto
 
         tipo = tipo_de(self.estado.mov_nombre or (self.estado.informe or {}).get("mov"))
-        if tipo != "giro":
+        obj = (self.estado.informe or {}).get("obj") if tipo == "saque" else None
+        if tipo == "saque" and obj:
+            # [10/11] la franja de llegada: los grados del saque, +-5
+            c.create_rectangle(izq, Y(obj + 5), izq + ancho, Y(obj - 5), fill="#e8f5e9", outline="")
+        elif tipo not in ("giro", "saque"):
             # la franja "prolija": hasta 4 grados para cada lado
             c.create_rectangle(izq, Y(4), izq + ancho, Y(-4), fill="#e8f5e9", outline="")
         paso = paso_grilla(tope)
@@ -2519,7 +2687,7 @@ class Ventana:
 
         # la leyenda, arriba a la derecha
         x = izq + ancho - 8
-        for f in ("m", "r", "g"):
+        for f in ("m", "r", "g", "f", "o"):
             if f not in fases:
                 continue
             c.create_text(x, arr + 8, anchor="e", text=FASES[f], font=F_NORMAL_B, fill=COLOR_FASE[f])
@@ -2959,7 +3127,7 @@ def _autoprueba_robot_de_mentira(verificar):
             tipos = [interpretar(r)["tipo"] for r in renglones]
             verificar("ROTA" not in tipos and set(tipos) <= {"M", "R", "CONSEJO"},
                       "mentira %d: renglones fuera del contrato %r" % (n, renglones[-3:]))
-            verificar(tipos.count("R") == 1 and tipos.count("M") <= 300, "mentira %d: un solo #R" % n)
+            verificar(tipos.count("R") == 1 and tipos.count("M") <= 450, "mentira %d: un solo #R" % n)
             r = interpretar([x for x in renglones if x.startswith("#R")][0])
             verificar(r["mov"] == MOV_POR_NUMERO[n]["nombre"], "mentira %d: nombre" % n)
             verificar((r["nota"] == "NO_VALE") == (cortado is not None), "mentira %d: NO_VALE si la frenan" % n)
@@ -2973,6 +3141,24 @@ def _autoprueba_robot_de_mentira(verificar):
     r = interpretar([x for x in demo_resultado(7, dict(VALORES_DE_MENTIRA, VEL_GIRO_CONTINUO="30"),
                                                random.Random(1)) if x.startswith("#R")][0])
     verificar(r["nota"] == "NO_ARRANCA", "mentira: giro sin fuerza")
+    # [10/11] el SAQUE de mentira: con los numeros del partido llega y patea derecho
+    renglones = demo_resultado(8, dict(VALORES_DE_MENTIRA), random.Random(8))
+    r = interpretar([x for x in renglones if x.startswith("#R")][0])
+    verificar(r["mov"] == "SAQUE" and r["obj"] == -60 and r["giro"] < -50 and r["llego"] > 0,
+              "mentira: saque a la derecha %r" % r)
+    verificar(r["nota"] in ("PROLIJO", "CASI") and any(x.startswith("#M") and x.endswith(" o") for x in renglones),
+              "mentira: saque con fase o %r" % r)
+    verificar(any(x.startswith("#M") and x.endswith(" f") for x in renglones), "mentira: el saque frena antes de patear")
+    sin_freno = demo_resultado(8, dict(VALORES_DE_MENTIRA, MS_FRENO_SAQUE="0"), random.Random(8))
+    verificar(not any(x.startswith("#M") and x.endswith(" f") for x in sin_freno), "mentira: MS_FRENO_SAQUE 0 no frena")
+    r = interpretar([x for x in demo_resultado(8, dict(VALORES_DE_MENTIRA, VEL_ORB_SAQUE="40"),
+                                               random.Random(8)) if x.startswith("#R")][0])
+    verificar(r["nota"] == "NO_LLEGA", "mentira: saque sin fuerza no llega %r" % r)
+    r = interpretar([x for x in demo_resultado(8, dict(VALORES_DE_MENTIRA, LADO_SAQUE="0"),
+                                               random.Random(8)) if x.startswith("#R")][0])
+    verificar(r["obj"] == 0 and r["llego"] == 0 and r["duro"] > 0, "mentira: saque al centro %r" % r)
+    todo = " ".join(f for f, _ in explicar_informe(r))
+    verificar("CENTRO" in todo and "golpe duró" in todo, "explicar el saque al centro: %s" % todo)
     r = interpretar([x for x in demo_resultado(6, dict(VALORES_DE_MENTIRA, VEL_ORB_TRASERA="50"),
                                                random.Random(1)) if x.startswith("#R")][0])
     verificar(r["nota"] == "SE_PLANTA", "mentira: órbita que se planta %r" % r)
@@ -2998,7 +3184,7 @@ def _autoprueba_robot_de_mentira(verificar):
             salida.append(cola.get()[1])
         return salida
 
-    verificar(dijo("h") == ["#HOLA tablero-delantero 2026-10-27"], "mentira: h")
+    verificar(dijo("h") == ["#HOLA tablero-delantero %s" % FECHA_CONTRATO], "mentira: h")
     salida = dijo("?")
     verificar(interpretar(salida[0])["valores"] == VALORES_DE_MENTIRA, "mentira: ? manda #V")
     salida = dijo("=TRIM_PATADA 7")

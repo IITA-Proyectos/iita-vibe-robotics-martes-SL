@@ -12,6 +12,10 @@
               NO se toco: lo que se cambie aca NO pasa alla (y al reves).
    SAQUE:     al arrancar, AL AZAR (SAQUE_AL_AZAR): 20% CENTRO, 40% IZQUIERDA,
               40% DERECHA. [09/11] Es A CIEGAS: no mira la camara.
+              [10/11] ANTES mira si ve la pelota (DECIDIR_SACA_O_DEFIENDE):
+              si la VE, esta lejos porque saca el rival -> DEFIENDE: patea
+              derecho al frente (como el CENTRO). Si NO la ve, esta pegada
+              (la camara no la alcanza) -> SACA, con el sorteo.
               CENTRO: patea derecho apenas arranca. IZQUIERDA/DERECHA: rodea
               la pelota (la orbita del partido, sin camara: solo el giroscopio
               dice cuando llego) hasta quedar GRADOS_SAQUE torcido, y patea.
@@ -42,6 +46,8 @@
 // ---- [saque] SAQUE AL ARRANCAR (lo nuevo de esta copia, 09/11) ----
 const bool SAQUE_AL_ARRANCAR           = true;             // false = juega igual que el de partido, sin saque
 const float GRADOS_SAQUE               = 60.0;             // [09/11: era 45] cuanto se tuerce del arco hacia la pared para patear (grados). Cuenta del rebote desde el centro: pared a ~91 cm, arco a ~110 -> ~59. Si rebota antes del arco: subir. Si se pasa: bajar
+const bool DECIDIR_SACA_O_DEFIENDE     = true;             // [10/11] al arrancar mira si ve la pelota: si la VE, esta lejos (saca el rival) -> DEFIENDE: patea derecho al frente. Si NO la ve, esta pegada -> SACA (el sorteo de abajo). false = siempre saca
+const unsigned long MS_MIRAR_PELOTA    = 300;              // [10/11] cuanto mira (ms), con la camara ya andando, para decidir si saca o defiende
 const bool SAQUE_AL_AZAR               = true;             // [09/11] cada vez que se prende SORTEA para donde va el saque (los % de abajo). false = siempre para el lado de SAQUE_A_LA_DERECHA
 const int  PROB_SAQUE_CENTRO           = 20;               // [09/11] % de las veces que patea DERECHO al arco (sin torcerse)
 const int  PROB_SAQUE_IZQUIERDA        = 40;               // [09/11] % de las veces a la IZQUIERDA. A la DERECHA va el resto: 100 - 20 - 40 = 40
@@ -57,6 +63,7 @@ const float KP_SAQUE                   = 2.5;              // corrige por GRADO 
 const float KD_SAQUE                   = 0.0;              // corrige por GRADO/SEGUNDO, en el saque (0 = no usa)
 const int VEL_RETROCESO_SAQUE          = 155;              // despues del saque, marcha atras con esta fuerza...
 const int MS_RETROCESO_SAQUE           = 300;              // ...durante esto (ms), y juega normal
+const int MS_FRENO_SAQUE               = 200;              // [10/11] al llegar a los grados del saque FRENA esto (ms) y recien ahi patea: sin el envion de la orbita, el golpe no se desvia. 0 = sin freno
 
 // ---- BUSCAR, CENTRAR Y AVANZAR ----
 const int VEL_GIRO_CONTINUO            = 42;                // [09/11: era 35, +20% pedido por el equipo, SOLO en esta copia] fuerza del giro buscando. Si zumba y no gira: subir a 45 o 50
@@ -73,10 +80,11 @@ const int VEL_ORB_TRASERA              = 80;                // [09/11: era 67, +
 const unsigned long MS_ORBITA_MAX      = 10000;            // cuanto orbita buscando el arco antes de pasar al plan B (ms)
 
 // ---- PATEAR ----
-const int VEL_PATADA                   = 235;               // [09/11: era 220, pedido por el equipo, SOLO en esta copia] fuerza del golpe. Mas = llega mas lejos, pero se levanta y vuelca mas facil
-const int MS_PATADA                    = 525;               // [09/11: era 600, pedido por el equipo, SOLO en esta copia] cuanto dura el golpe (ms). Mas = llega mas lejos y se pasa mas cerca de la linea
-const int TRIM_PATADA                  = 9;                 // [09/11: era 5, pedido por el equipo, SOLO en esta copia] compensacion fija. Si se va siempre a la DERECHA: subir. A la IZQUIERDA: bajar
-const float KP_PATADA                  = 6.5;               // [09/11: era 6.0, pedido por el equipo, SOLO en esta copia] corrige por GRADO torcido. Mas = corrige mas fuerte (y puede zigzaguear)
+const int MS_FRENO_PATADA              = 200;              // [10/11] antes de la patada normal (despues de rodear) FRENA esto (ms): sin el envion de la orbita no se desvia. Mas = mas derecha, pero le da tiempo al rival. 0 = sin freno
+const int VEL_PATADA                   = 190;                // [10/11: era 235, pedido por el equipo, SOLO en esta copia] fuerza del golpe. Mas = llega mas lejos, pero se levanta y vuelca mas facil
+const int MS_PATADA                    = 500;                // [10/11: era 525, pedido por el equipo, SOLO en esta copia] cuanto dura el golpe (ms). Mas = llega mas lejos y se pasa mas cerca de la linea
+const int TRIM_PATADA                  = 6;                  // [10/11: era 9, pedido por el equipo, SOLO en esta copia] compensacion fija. Si se va siempre a la DERECHA: subir. A la IZQUIERDA: bajar
+const float KP_PATADA                  = 5.0;                // [10/11: era 6.5, pedido por el equipo, SOLO en esta copia] corrige por GRADO torcido. Mas = corrige mas fuerte (y puede zigzaguear)
 const float KD_PATADA                  = 0.3;               // [09/11: era 0.6, pedido por el equipo, SOLO en esta copia] corrige por GRADO/SEGUNDO: frena el giro antes de que crezca (baja el pico)
 const int VEL_RETROCESO                = 100;               // [09/11: era 90, pedido por el equipo, SOLO en esta copia] despues del golpe, marcha atras con esta fuerza...
 const int MS_RETROCESO                 = 400;               // [09/11: era 700, pedido por el equipo, SOLO en esta copia] ...durante esto (ms), y vuelve a buscar
@@ -272,7 +280,7 @@ unsigned long t_sensorDesde[3] = { 0, 0, 0 };
 // Los estados del robot.
 enum Estado { BUSCANDO, CENTRANDO, AVANZANDO, ORBITANDO,
               APUNTA_RUMBO0, PATEA_ADEL, PATEA_ATRAS, ESCAPA_LINEA,
-              DESTRABANDO, SAQUE_GIRA };   // SAQUE_GIRA: [saque] rodea la pelota a ciegas
+              DESTRABANDO, SAQUE_GIRA, FRENA_PATADA };   // SAQUE_GIRA: [saque] rodea la pelota a ciegas. FRENA_PATADA: [10/11] frena antes de patear
 Estado estado = BUSCANDO;
 Estado estadoAnterior = PATEA_ATRAS;
 
@@ -593,6 +601,7 @@ const char* nombreEstado(Estado e) {
     case ESCAPA_LINEA: return "!LINEA!";
     case DESTRABANDO: return "destrabando";
     case SAQUE_GIRA:  return "SAQUE: rodeando a ciegas";
+    case FRENA_PATADA: return "frena para patear";
   }
   return "?";
 }
@@ -728,14 +737,14 @@ void cambiarA(Estado nuevo) {
     sentidoOrbita   = sentidoParaOrbitar();
     errSaqueInicial = fabs(diferencia(rumboSaque, rumboActual()));   // para ver si va para el lado largo
   }
-  if (saquePendiente && nuevo != SAQUE_GIRA && nuevo != PATEA_ADEL) {
+  if (saquePendiente && nuevo != SAQUE_GIRA && nuevo != PATEA_ADEL && nuevo != FRENA_PATADA) {
     saquePendiente = false;                      // [saque] lo corto algo (la linea, el tiempo): juega normal
     Serial.print("... [saque] cortado (paso a "); Serial.print(nombreEstado(nuevo));
     Serial.println(") -> juego normal");
   }
   if (nuevo == ESCAPA_LINEA) t_sinAcercarse = 0;
   if (nuevo == PATEA_ATRAS) retrocesoDeSaque = pateandoSaque;   // [saque] su marcha atras tiene numeros propios
-  if (nuevo != PATEA_ADEL) pateandoSaque = false;   // [saque] termino (o lo corto la linea)
+  if (nuevo != PATEA_ADEL && nuevo != FRENA_PATADA) pateandoSaque = false;   // [saque] termino (o lo corto la linea)
   estado = nuevo;
   t_entroEstado = millis();
   t_cicloPulso  = millis();
@@ -931,6 +940,7 @@ void setup() {
   if (SAQUE_AL_ARRANCAR && hayGiroscopo) {
     saquePendiente = true;
     if (SAQUE_AL_AZAR) {
+      if (DECIDIR_SACA_O_DEFIENDE) Serial.println("SAQUE o DEFENSA: si al arrancar VE la pelota defiende (patea derecho al frente); si no, saca");
       Serial.print("SAQUE: AL AZAR ("); Serial.print(PROB_SAQUE_CENTRO); Serial.print("% centro, ");
       Serial.print(PROB_SAQUE_IZQUIERDA); Serial.print("% izquierda, ");
       Serial.print(100 - PROB_SAQUE_CENTRO - PROB_SAQUE_IZQUIERDA); Serial.print("% derecha), a ");
@@ -964,14 +974,40 @@ void setup() {
   // [09/11] Sin saque: arranca apenas la camara manda datos (antes: 2 s fijos); sin datos
   // saldria girando a ciegas. CON saque no la espera: el saque es a ciegas, y cuando
   // termina (~1-2 s) la camara ya esta. MS_ESPERA_ARRANQUE es un extra.
-  Serial.println(saquePendiente ? "Arranca en seguida: el saque no necesita la camara."
-                                : "Arranca en cuanto la camara mande datos.");
+  // [10/11] Para decidir si saca o defiende SI hace falta la camara: la espera.
+  bool esperaCamara = (!saquePendiente || DECIDIR_SACA_O_DEFIENDE);
+  Serial.println(esperaCamara ? "Arranca en cuanto la camara mande datos."
+                              : "Arranca en seguida: el saque no necesita la camara.");
   unsigned long t_espera = millis();
   while (millis() - t_espera < MS_ESPERA_ARRANQUE
-         || (!saquePendiente && t_ultimoPaquete == 0 && millis() < MS_ESPERA_CAMARA_MAX)) {
+         || (esperaCamara && t_ultimoPaquete == 0 && millis() < MS_ESPERA_CAMARA_MAX)) {
     leerCamara();
   }
-  if (saquePendiente) elegirSaque();   // [saque] el sorteo
+  if (saquePendiente) {
+    // [10/11] SACA o DEFIENDE: mira un ratito con la camara ya andando. Si ve la
+    // pelota, esta lejos (en el centro: saca el rival) -> defiende. Si no la ve,
+    // esta pegada adelante (la camara no la alcanza) -> saca. Sin camara: saca.
+    bool defiende = false;
+    if (DECIDIR_SACA_O_DEFIENDE && t_ultimoPaquete != 0) {
+      unsigned long t_mira = millis();
+      while (millis() - t_mira < MS_MIRAR_PELOTA) leerCamara();
+      defiende = (t_ultimaPelota != 0);
+      if (defiende) {
+        Serial.print("INICIO: VEO la pelota (a "); Serial.print(XpBueno);
+        Serial.println(" cm) -> DEFIENDO: patada derecho al frente");
+      } else {
+        Serial.println("INICIO: NO veo la pelota (esta pegada) -> SACO");
+      }
+    } else if (DECIDIR_SACA_O_DEFIENDE) {
+      Serial.println("INICIO: la camara no manda datos -> SACO (el saque es a ciegas)");
+    }
+    if (defiende) {
+      saqueElegido = "DEFENSA";        // patea derecho al frente, como el CENTRO
+      rumboSaque   = rumboCero;
+    } else {
+      elegirSaque();                   // [saque] el sorteo
+    }
+  }
   msArranque = millis();
   Serial.print("ARRANCO a los "); Serial.print(msArranque);
   Serial.println(t_ultimoPaquete ? " ms de prenderlo (camara OK)" : " ms de prenderlo (la camara NO MANDA DATOS)");
@@ -984,7 +1020,8 @@ void setup() {
   if (!saquePendiente) {
     cambiarA(BUSCANDO);
   } else if (fabs(diferencia(rumboSaque, rumboCero)) < 1.0) {
-    Serial.println("*** SAQUE CENTRO: patea derecho, ya mira al arco  -> PATADA");
+    Serial.print("*** "); Serial.print(saqueElegido);   // CENTRO o DEFENSA
+    Serial.println(": patea derecho al frente, ya mira al arco  -> PATADA");
     saquePendiente = false;           // [saque] centro: no hay que girar
     pateandoSaque  = true;
     cambiarA(PATEA_ADEL);
@@ -1118,6 +1155,15 @@ void loop() {
     }
   }
 
+  // ---- [10/11] FRENA_PATADA: quieto un ratito y recien ahi patea ----
+  // Viniendo de rodear, el robot todavia gira por el envion de la orbita: si patea
+  // asi, el golpe sale desviado. El rumbo de la patada se toma AL TERMINAR de frenar.
+  else if (estado == FRENA_PATADA) {
+    frenar();
+    if (enEstado >= (unsigned long)(pateandoSaque ? MS_FRENO_SAQUE : MS_FRENO_PATADA))
+      cambiarA(PATEA_ADEL);
+  }
+
   // ---- PATEA_ADEL: el golpe (solo lo corta la linea) ----
   else if (estado == PATEA_ADEL) {
     int vel = rampaPatada(pateandoSaque ? VEL_SAQUE : VEL_PATADA);   // [saque] el saque va con MUCHA fuerza
@@ -1163,7 +1209,7 @@ void loop() {
       Serial.print(" (me faltaban "); Serial.print(falta, 1); Serial.println(" grados)  -> PATADA");
       saquePendiente = false;
       pateandoSaque  = true;         // este golpe va con VEL_SAQUE x MS_SAQUE
-      cambiarA(PATEA_ADEL);
+      cambiarA(FRENA_PATADA);        // [10/11] primero frena (MS_FRENO_SAQUE), despues patea
     }
     else if (!saqueVueltaDada && fabs(falta) > errSaqueInicial + 30.0) {
       Serial.println("... [saque] rodeaba para el lado largo -> doy vuelta la orbita");
@@ -1237,7 +1283,7 @@ void loop() {
       Serial.print(", tolerancia "); Serial.print(tolPelota, 0);
       if (arcoLejos) Serial.print(" por arco LEJOS");
       Serial.println(")  -> PATADA");
-      cambiarA(PATEA_ADEL);
+      cambiarA(FRENA_PATADA);        // [10/11] primero frena (MS_FRENO_PATADA), despues patea
     }
     else if (t_buscaRumbo0 != 0 && giroscopoSano()
              && fabs(angPelota) <= TOL_ANG_LEJOS_PELOTA
@@ -1247,7 +1293,7 @@ void loop() {
       Serial.print(rumboOrbPrevio, 0); Serial.print(", cero "); Serial.print(rumboCero, 0);
       Serial.print(", pelota a "); Serial.print(angPelota, 1);
       Serial.println(" grados)  -> PATADA");
-      cambiarA(PATEA_ADEL);
+      cambiarA(FRENA_PATADA);        // [10/11] primero frena, despues patea
     }
     else if (t_buscaRumbo0 != 0 && millis() - t_buscaRumbo0 > MS_RUMBO0_MAX) {
       Serial.println("... no llegue a quedar mirando al rumbo cero -> vuelvo a buscar");
@@ -1317,7 +1363,7 @@ void loop() {
       if (fabs(err) <= TOL_RUMBO) {
         Serial.print("*** mirando al rumbo de arranque (error ");
         Serial.print(err, 1); Serial.println(" grados) -> PATADA");
-        cambiarA(PATEA_ADEL);
+        cambiarA(FRENA_PATADA);      // [10/11] primero frena, despues patea
       }
       else if (enEstado > MS_APUNTAR_MAX) {
         Serial.println("... no llegue a apuntar al rumbo 0 -> vuelvo a buscar");

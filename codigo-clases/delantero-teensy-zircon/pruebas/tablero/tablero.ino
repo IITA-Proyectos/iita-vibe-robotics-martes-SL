@@ -16,7 +16,7 @@
    arquero (arquero-teensy-zircon/pruebas/ajustar-movimientos): una NOTA
    por movimiento y un CONSEJO de que numero tocar.
 
-   LOS 7 MOVIMIENTOS (el codigo de los motores es COPIA DEL PRINCIPAL)
+   LOS 8 MOVIMIENTOS (el codigo de los motores es COPIA DEL PRINCIPAL)
      1 PATADA      el golpe (rampa + trim + corrector KP/KD del giroscopio,
                    trasera trabada) y despues el retroceso, sin freno en el
                    medio. Igual que en el partido.
@@ -28,6 +28,12 @@
      6 ORBITA      la vuelta alrededor de la pelota (golpe de arranque y
                    despues crucero). Se prueba sin pelota.
      7 GIRO        el giro continuo de busqueda, con su rampa
+     8 SAQUE       [10/11] el saque del PARTIDO CON SAQUE: rodea a ciegas
+                   (orbita + giroscopio) hasta GRADOS_SAQUE para el lado de
+                   LADO_SAQUE, FRENA (MS_FRENO_SAQUE), patea con los numeros
+                   del saque y retrocede.
+                   Mide cuantos grados giro DE VERDAD antes de patear y si
+                   el golpe fue derecho. Es COPIA de partido-con-saque.ino.
 
    QUE MIDE
    El giroscopio anota cada 10 ms hacia donde mira el robot, contra el
@@ -68,7 +74,7 @@
       CARGAR-ROBOT.bat: con este cargado el robot NO juega.
 
    LAS ORDENES (cada una es una linea; la ventana las manda sola)
-     !1 .. !7          hacer un movimiento (arranca 1,5 s despues)
+     !1 .. !8          hacer un movimiento (arranca 1,5 s despues)
      x                 PARAR
      =NOMBRE valor     cambiar un numero      ej:  =TRIM_PATADA 7
      ?                 ayuda y todos los numeros
@@ -115,20 +121,33 @@
      #INICIO n NOMBRE                          arranca a moverse
      #FRENO motivo                             tecla / sin giroscopio / tope de tiempo
      #M t_ms grados fase                       las muestras (g golpe, r retroceso,
-                                               m movimiento), despues de moverse
+                                               m movimiento, o orbita del saque,
+                                               f frena antes del golpe del saque),
+                                               despues de moverse
      #R n= mov= nota= pico= picoms= pico200= fin= fin2= cruces= giro= gps=
-        duro= hueco= huecoms= plantado=        el informe, despues de las #M
+        duro= hueco= huecoms= plantado=
+        obj= llego= vuelta=                    el informe, despues de las #M
      #CONSEJO texto                            que numero tocar
      #PANEL linea de C++ ... #FINPANEL         con "v"
    Despues de cada #INICIO vienen las #M, un #R y los #CONSEJO, aunque lo
    frenen. Un #FRENO SIN #INICIO antes (en la cuenta, o sin giroscopio)
    no trae informe: el robot no se llego a mover.
-   En #INICIO y en #R, n es el NUMERO DEL MOVIMIENTO (1 a 7), el mismo de
+   En #INICIO y en #R, n es el NUMERO DEL MOVIMIENTO (1 a 8), el mismo de
    "!n". duro = cuanto duro el movimiento; en la PATADA, cuanto duro el
    GOLPE (para compararlo con MS_PATADA: si el programa se clava, se
    alarga). Los grados de la orbita y el giro son lo girado EN TOTAL desde
    el arranque (pasan de 180), con el mismo signo.
    La "v" manda SOLO los numeros que cambiaron y existen en el principal.
+   [10/11] EL SAQUE (8): las #M son hacia donde mira, contra el rumbo con el
+   que arranco (como los derechos): primero rodea ('o') hasta mas o menos
+   -GRADOS_SAQUE (derecha) o +GRADOS_SAQUE (izquierda), y despues el golpe
+   ('g') y el retroceso ('r'). En el #R: pico/pico200/fin/cruces son del
+   GOLPE (contra el rumbo con el que empezo a patear, como la patada),
+   fin2 despues del retroceso, giro = cuanto giro hasta patear, gps = a que
+   velocidad rodeo, duro = lo que duro el golpe, plantado = de la orbita,
+   obj = los grados que tenia que girar, llego = ms que tardo en llegar,
+   vuelta = 1 si arranco para el lado largo y se dio vuelta. Los numeros
+   del saque se copian con "v" al PARTIDO CON SAQUE, no al principal.
    ===================================================================== */
 
 #include <Arduino.h>
@@ -136,7 +155,7 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BNO055.h>
 
-const char* SALUDO = "#HOLA tablero-delantero 2026-10-27";
+const char* SALUDO = "#HOLA tablero-delantero 2026-11-10";   // [10/11] con el 8 SAQUE
 
 // Mapeo MEDIDO en banco 2026-07-28 (robot DELANTERO) — COPIA DEL PRINCIPAL
 #define IZQ_INA 8
@@ -203,6 +222,24 @@ int           RAMPA_GIRO_PASO   = 10;    // del PANEL DE CONTROL del principal (
 unsigned long RAMPA_GIRO_MS     = 10;    // del PANEL DE CONTROL del principal (27/10). ...cada esto (ms)
 int           MS_PRUEBA_GIRO    = 2000;  // solo de esta prueba. Cuanto gira (ms)
 
+// ---------- 8 SAQUE [10/11]: los del PARTIDO CON SAQUE (partido-con-saque.ino) ----------
+// En el partido el lado se sortea; aca se elige. La "v" los manda para el partido con saque.
+int   LADO_SAQUE          = 1;      // solo de esta prueba. -1 = IZQUIERDA, 0 = CENTRO (patea derecho), 1 = DERECHA
+float GRADOS_SAQUE        = 60.0;   // del partido con saque. Cuanto se tuerce hacia la pared antes de patear
+float TOL_SAQUE           = 8.0;    // del partido con saque. "Ya llegue": a menos de esto (grados)
+int   VEL_ORB_SAQUE       = 80;     // solo de esta prueba. En el partido con saque la vuelta del saque usa
+                                    //   VEL_ORB_TRASERA (80 alla). El golpe de arranque: VEL_ORB_IMPULSO y MS_ORB_IMPULSO
+int   VEL_SAQUE           = 255;    // del partido con saque. Fuerza del golpe del saque
+int   MS_SAQUE            = 900;    // del partido con saque. Cuanto dura el golpe del saque (ms)
+int   RAMPA_SAQUE_PASO    = 15;     // del partido con saque. El golpe sube de a esto cada RAMPA_PATADA_MS
+int   TRIM_SAQUE          = 10;     // del partido con saque. Se va a la DERECHA: subir
+float KP_SAQUE            = 2.5;    // del partido con saque. Corrige por GRADO torcido
+float KD_SAQUE            = 0.0;    // del partido con saque. Corrige por GRADO/SEGUNDO
+int   VEL_RETROCESO_SAQUE = 155;    // del partido con saque. Marcha atras despues del saque...
+int   MS_RETROCESO_SAQUE  = 300;    // del partido con saque. ...durante esto (ms)
+int   MS_FRENO_SAQUE      = 200;    // del partido con saque [10/11]. Al llegar FRENA esto (ms) y recien patea (0 = no frena)
+const unsigned long MS_SAQUE_ORBITA_MAX = 3000;   // tope para llegar rodeando (en el partido: 8 s)
+
 // ---------- FIJOS: del PANEL DE CONTROL del principal (27/10). Aca NO se cambian ----------
 const int           RAMPA_PATADA_PASO  = 15;
 const unsigned long RAMPA_PATADA_MS    = 5;
@@ -252,7 +289,7 @@ const unsigned long MS_ESTADO            = 100;   // cada cuanto manda #S en esp
 const unsigned long MS_MUESTRA           = 10;    // una muestra del giroscopio cada esto
 const unsigned long MS_TOPE_EXTRA        = 1000;  // tope: lo pedido + esto, y se corta
 
-#define MAX_MUESTRAS 300
+#define MAX_MUESTRAS 450      // [10/11] era 300: el saque rodea + patea + retrocede (hasta ~4,2 s)
 
 
 // =====================================================================
@@ -270,6 +307,7 @@ struct Ajuste {
   float       minimo, maximo;  // lo que acepta "=NOMBRE valor"
   const char* enElPrincipal;   // como se declara en el PANEL DE CONTROL ("" = no existe alla)
   float       defecto;         // se llena en setup() con el valor de arriba
+  const char* programa;        // [10/11] a que programa va con "v": vacio = el principal
 };
 
 // ⚠ NO MOVER. Es la primera funcion del archivo a proposito: PlatformIO
@@ -290,6 +328,7 @@ void paraQueCompile() {}
 //   MS_PRUEBA_ORBITA y MS_PRUEBA_GIRO hasta 3000: es lo que entra en el
 //     grafico (MAX_MUESTRAS 300 x una muestra cada 10 ms). Mas tiempo no
 //     mide nada nuevo y es mas rato girando sin mirar la linea.
+const char* EN_SAQUE = "partido-con-saque";    // [10/11] los del saque van al PARTIDO CON SAQUE
 Ajuste ajustes[] = {
   { "VEL_PATADA",         'i', &VEL_PATADA,          60,  255, "const int",           0 },
   { "MS_PATADA",          'i', &MS_PATADA,          100, 1000, "const int",           0 },
@@ -315,12 +354,26 @@ Ajuste ajustes[] = {
   { "RAMPA_GIRO_PASO",    'i', &RAMPA_GIRO_PASO,      1,  255, "const int",           0 },
   { "RAMPA_GIRO_MS",      'u', &RAMPA_GIRO_MS,        1,  200, "const unsigned long", 0 },
   { "MS_PRUEBA_GIRO",     'i', &MS_PRUEBA_GIRO,     300, 3000, "",                    0 },
+  // [10/11] 8 SAQUE
+  { "LADO_SAQUE",          'i', &LADO_SAQUE,           -1,    1, "",            0 },
+  { "GRADOS_SAQUE",        'f', &GRADOS_SAQUE,          0,  120, "const float", 0, EN_SAQUE },
+  { "TOL_SAQUE",           'f', &TOL_SAQUE,             1,   30, "const float", 0, EN_SAQUE },
+  { "VEL_ORB_SAQUE",       'i', &VEL_ORB_SAQUE,         0,  255, "",            0 },
+  { "VEL_SAQUE",           'i', &VEL_SAQUE,            60,  255, "const int",   0, EN_SAQUE },
+  { "MS_SAQUE",            'i', &MS_SAQUE,            100, 1500, "const int",   0, EN_SAQUE },
+  { "RAMPA_SAQUE_PASO",    'i', &RAMPA_SAQUE_PASO,      1,  255, "const int",   0, EN_SAQUE },
+  { "TRIM_SAQUE",          'i', &TRIM_SAQUE,          -60,   60, "const int",   0, EN_SAQUE },
+  { "KP_SAQUE",            'f', &KP_SAQUE,              0,   20, "const float", 0, EN_SAQUE },
+  { "KD_SAQUE",            'f', &KD_SAQUE,              0,    5, "const float", 0, EN_SAQUE },
+  { "VEL_RETROCESO_SAQUE", 'i', &VEL_RETROCESO_SAQUE,   0,  255, "const int",   0, EN_SAQUE },
+  { "MS_RETROCESO_SAQUE",  'i', &MS_RETROCESO_SAQUE,    0, 1500, "const int",   0, EN_SAQUE },
+  { "MS_FRENO_SAQUE",      'i', &MS_FRENO_SAQUE,        0, 1000, "const int",   0, EN_SAQUE },
 };
 const int N_AJUSTES = sizeof(ajustes) / sizeof(ajustes[0]);
 
-const int   N_MOVIMIENTOS = 7;
+const int   N_MOVIMIENTOS = 8;
 const char* NOMBRE_MOV[] = { "", "PATADA", "AVANCE", "ESCAPE_S1", "ESCAPE_S2",
-                             "ESCAPE_S3", "ORBITA", "GIRO" };
+                             "ESCAPE_S3", "ORBITA", "GIRO", "SAQUE" };
 
 // Como termino un movimiento
 const int TERMINO_BIEN     = 0;
@@ -337,8 +390,9 @@ const int NOTA_GIRA_BIEN  = 4;
 const int NOTA_SE_PLANTA  = 5;
 const int NOTA_NO_ARRANCA = 6;
 const int NOTA_NO_VALE    = 7;
+const int NOTA_NO_LLEGA   = 8;    // [10/11] el saque rodeo y no llego a los grados
 const char* NOMBRE_NOTA[] = { "PROLIJO", "CASI", "ZIGZAGUEA", "SE_TUERCE",
-                              "GIRA_BIEN", "SE_PLANTA", "NO_ARRANCA", "NO_VALE" };
+                              "GIRA_BIEN", "SE_PLANTA", "NO_ARRANCA", "NO_VALE", "NO_LLEGA" };
 
 
 // =====================================================================
@@ -410,6 +464,19 @@ float anclaGiro = 0;
 unsigned long t_ancla = 0, plantadoMax = 0;
 unsigned long duro = 0;            // lo que duro (en la patada: el golpe)
 unsigned long demoraEntrada = 0;   // patada: programa clavado ANTES del golpe
+
+// ---------- 8 SAQUE [10/11] ----------
+int   faseSaque      = 0;          // 0 = rodea, 3 = frena, 1 = golpe, 2 = retroceso
+bool  pateandoSaque  = false;      // el golpe en curso es el del saque (sus numeros)
+float rumboSaque     = 0;          // hacia donde tiene que quedar mirando
+bool  sentidoSaque   = false;      // para que lado rodea
+bool  vueltaSaque    = false;      // arranco para el lado largo y se dio vuelta
+float errSaqueInicial = 0;         // cuanto le faltaba al empezar a rodear
+float objetivoSaque  = 0;          // los grados que tiene que girar (NEGATIVO = derecha)
+float gradosAlPatear = 0;          // los que giro DE VERDAD hasta patear
+unsigned long msLlegar = 0;        // cuanto tardo en llegar rodeando
+unsigned long t_golpe  = 0;        // cuando empezo el golpe del saque
+bool  saqueNoLlego   = false;      // se acabo MS_SAQUE_ORBITA_MAX rodeando
 
 
 // =====================================================================
@@ -626,9 +693,11 @@ void reiniciarDerivadaPatada() {
 
 // COPIA DEL PRINCIPAL: trim fijo + proporcional + derivativo, repartido
 // entre las dos ruedas (a una le suma y a la otra le resta).
+// [10/11] Con pateandoSaque usa los numeros del saque, como partido-con-saque.
 void avanzarDerecho(int vel, float rumboObjetivo) {
-  int vi = vel - TRIM_PATADA;
-  int vd = vel + TRIM_PATADA;
+  int trim = pateandoSaque ? TRIM_SAQUE : TRIM_PATADA;
+  int vi = vel - trim;
+  int vd = vel + trim;
 
   float err = diferencia(rumboObjetivo, rumboActual());
   unsigned long ahora = millis();
@@ -640,7 +709,9 @@ void avanzarDerecho(int vel, float rumboObjetivo) {
     errPatadaPrevio = err;
     t_derivPatada   = ahora;
   }
-  float mando = KP_PATADA * err + KD_PATADA * derivPatada;
+  float kp = pateandoSaque ? KP_SAQUE : KP_PATADA;
+  float kd = pateandoSaque ? KD_SAQUE : KD_PATADA;
+  float mando = kp * err + kd * derivPatada;
 
   int mitad = (int)(fabs(mando) / 2.0);
   if (mitad > RESTA_MAX / 2) mitad = RESTA_MAX / 2;
@@ -665,7 +736,7 @@ int rampaPatada(int objetivo) {
     pwmRampaPatada = objetivo;
   } else if (ahora - t_rampaPatada >= RAMPA_PATADA_MS) {
     t_rampaPatada = ahora;
-    pwmRampaPatada += RAMPA_PATADA_PASO;
+    pwmRampaPatada += pateandoSaque ? RAMPA_SAQUE_PASO : RAMPA_PATADA_PASO;   // [10/11] saque
     if (pwmRampaPatada > objetivo) pwmRampaPatada = objetivo;
   }
   return pwmRampaPatada;
@@ -828,6 +899,7 @@ void mandarPanel() {
     decir("SIN_ESPERA = 1 no es un numero: en el principal es un cambio de CODIGO en rumboActual().");
     decir("Si sirvio, pedirlo (no se arregla pegando una linea).");
   }
+  bool haySaque = false;
   for (int i = 0; i < N_AJUSTES; i++) {
     if (!cambiado(i) || ajustes[i].enElPrincipal[0] == 0) continue;
     Serial.print("#PANEL ");
@@ -837,9 +909,15 @@ void mandarPanel() {
     Serial.print(" = ");
     imprimirNumero(valorDe(i), ajustes[i].tipo);
     Serial.print(';');
+    if (ajustes[i].programa) {               // [10/11] los del saque
+      Serial.print("   // en "); Serial.print(ajustes[i].programa);
+      haySaque = true;
+    }
     finDeLinea();
   }
   decir("#FINPANEL");
+  if (haySaque)
+    decir("Los que dicen 'en partido-con-saque' van en partido-con-saque/partido-con-saque.ino, NO en el principal.");
 }
 
 void ayuda() {
@@ -853,6 +931,7 @@ void ayuda() {
   decir("  !5 ESCAPE_S3  escape del sensor 3 (DELANTERO): sale derecho para atras");
   decir("  !6 ORBITA     la vuelta alrededor de la pelota (sin pelota)");
   decir("  !7 GIRO       el giro continuo de busqueda");
+  decir("  !8 SAQUE      el saque: rodea a ciegas hasta GRADOS_SAQUE (lado LADO_SAQUE) y patea");
   decir("PARAR: x   (y CUALQUIER tecla en la cuenta o mientras se mueve; Enter solo no)");
   decir("CAMBIAR UN NUMERO: =NOMBRE valor   por ejemplo  =TRIM_PATADA 7");
   decir("OTRAS: ? esta ayuda   v copiar al principal   0 volver a los del principal   h saludo");
@@ -876,11 +955,12 @@ void ayuda() {
     for (int k = strlen(ajustes[i].nombre); k < 20; k++) Serial.print(' ');
     imprimirNumero(valorDe(i), ajustes[i].tipo);
     if (cambiado(i)) {
-      Serial.print("   (principal: ");
+      Serial.print(ajustes[i].programa ? "   (partido con saque: " : "   (principal: ");
       imprimirNumero(ajustes[i].defecto, ajustes[i].tipo);
       Serial.print(')');
     }
     if (ajustes[i].enElPrincipal[0] == 0) Serial.print("   [solo de esta prueba]");
+    else if (ajustes[i].programa)         Serial.print("   [del partido con saque]");   // [10/11]
     finDeLinea();
   }
 }
@@ -941,10 +1021,12 @@ void reiniciarMedicion() {
   huecoMax = 0; huecoMs = 0;
   plantadoArmado = false; anclaGiro = 0; t_ancla = 0; plantadoMax = 0;
   duro = 0; demoraEntrada = 0;
+  faseSaque = 0; pateandoSaque = false; vueltaSaque = false;   // [10/11] saque
+  objetivoSaque = 0; gradosAlPatear = 0; msLlegar = 0; t_golpe = 0; saqueNoLlego = false;
 }
 
 void guardarMuestra(unsigned long t, float g, char fase) {
-  if (nMuestras >= MAX_MUESTRAS) return;       // la RAM alcanza para 3 s
+  if (nMuestras >= MAX_MUESTRAS) return;       // la RAM alcanza para 4,5 s
   muestraT[nMuestras] = (uint16_t)t;
   muestraG[nMuestras] = g;
   muestraF[nMuestras] = fase;
@@ -999,7 +1081,8 @@ void chequeoRapido(unsigned long ahora) {
 
 int calcularNota(int comoTermino) {
   if (comoTermino != TERMINO_BIEN) return NOTA_NO_VALE;
-  if (mov >= 6) {
+  if (mov == 8 && saqueNoLlego) return NOTA_NO_LLEGA;     // [10/11] el saque: si llego, la nota es la del golpe
+  if (mov == 6 || mov == 7) {
     if (fabs(girado) < GIRO_MINIMO) return NOTA_NO_ARRANCA;
     if (plantadoMax > MS_PLANTADO)  return NOTA_SE_PLANTA;
     return NOTA_GIRA_BIEN;
@@ -1112,6 +1195,58 @@ void consejoGiro(int nota) {
   }
 }
 
+// [10/11] 8 SAQUE: la orbita (llego? se paso?) y despues el golpe, con los nombres del saque.
+void consejoSaque(int nota) {
+  if (nota == NOTA_NO_LLEGA) {
+    Serial.print("#CONSEJO No llego a los "); imprimirGrados(fabs(objetivoSaque));
+    Serial.print(" grados en "); Serial.print(MS_SAQUE_ORBITA_MAX / 1000.0, 1);
+    Serial.print(" s (giro "); imprimirGrados(girado); Serial.print(")");
+    if (plantadoMax > MS_PLANTADO) { Serial.print(": se planto "); Serial.print(plantadoMax); Serial.print(" ms."); }
+    Serial.print(" Subir VEL_ORB_SAQUE de a 5 (ahora "); Serial.print(VEL_ORB_SAQUE); decir(").");
+    if (fabs(girado) < GIRO_MINIMO) {
+      Serial.print("#CONSEJO Casi no arranco: subir MS_ORB_IMPULSO de a 50 (ahora "); Serial.print(MS_ORB_IMPULSO); decir(").");
+    }
+    return;
+  }
+  if (LADO_SAQUE != 0) {
+    float pasado = fabs(gradosAlPatear) - fabs(objetivoSaque);   // + = se paso, - = pateo antes
+    Serial.print("#CONSEJO Tenia que girar "); imprimirGrados(fabs(objetivoSaque));
+    Serial.print(" y pateo a los "); imprimirGrados(fabs(gradosAlPatear));
+    Serial.print(" (llego en "); Serial.print(msLlegar); Serial.print(" ms)");
+    if (pasado > 5.0) {
+      Serial.print(": se PASO "); imprimirGrados(pasado);
+      Serial.print(". Bajar VEL_ORB_SAQUE de a 5 (ahora "); Serial.print(VEL_ORB_SAQUE); decir(").");
+    } else if (pasado < -5.0) {
+      Serial.print(": pateo "); imprimirGrados(-pasado);
+      Serial.print(" antes. Bajar TOL_SAQUE (ahora "); imprimirDecimal(TOL_SAQUE); decir(").");
+    } else {
+      decir(": bien.");
+    }
+    if (vueltaSaque) consejo("Arranco a rodear para el lado largo y se dio vuelta: en el partido pasa igual (se da vuelta solo).");
+  }
+  if (nota == NOTA_PROLIJO) {
+    consejo("El golpe del saque salio derecho. Repetirlo 3 veces (con los dos lados): si da parecido, copiar con v.");
+  } else if (nota == NOTA_ZIGZAGUEA) {
+    Serial.print("#CONSEJO El golpe zigzaguea ("); Serial.print(cruces);
+    Serial.print(" cruces): bajar KP_SAQUE de a 0.5 (ahora "); imprimirDecimal(KP_SAQUE);
+    Serial.print(") o subir KD_SAQUE de a 0.1 (ahora "); imprimirDecimal(KD_SAQUE); decir("). De a uno.");
+  } else {
+    bool quedoTorcida = (fabs(fin) > NOTA_FIN_PROLIJO && fin * pico > 0 && fabs(fin) * 2 >= fabs(pico));
+    if (quedoTorcida) {
+      Serial.print("#CONSEJO El golpe se fue a "); Serial.print(haciaDonde(pico));
+      Serial.print(" y no volvio (termino en "); imprimirGrados(fin);
+      Serial.print(pico < 0 ? "): subir" : "): bajar");
+      Serial.print(" TRIM_SAQUE de a 1 (ahora "); Serial.print(TRIM_SAQUE); decir(").");
+    } else if (fabs(pico) > NOTA_PICO_PROLIJO) {
+      Serial.print("#CONSEJO El golpe se torcio "); imprimirGrados(pico);
+      Serial.print(" grados a los "); Serial.print(picoMs);
+      Serial.print(" ms y despues se enderezo: subir KD_SAQUE de a 0.1 (ahora "); imprimirDecimal(KD_SAQUE); decir(").");
+    } else {
+      consejo("El golpe esta cerca de derecho. Repetirlo 2 o 3 veces.");
+    }
+  }
+}
+
 void mandarConsejos(int nota, int comoTermino) {
   if (comoTermino == FRENO_TECLA)
     consejo("Lo frenaron antes de terminar: los numeros son de lo que llego a hacer. Repetir sin tocar nada.");
@@ -1123,7 +1258,7 @@ void mandarConsejos(int nota, int comoTermino) {
   if (huecoMax > HUECO_AVISO) {
     Serial.print("#CONSEJO El programa se clavo "); Serial.print(huecoMax);
     Serial.print(" ms (a los "); Serial.print(huecoMs); Serial.print(" ms)");
-    if (mov == 1 || mov == 6) {
+    if (mov == 1 || mov == 6 || mov == 8) {
       if (SIN_ESPERA) decir(" aunque SIN_ESPERA = 1: es otra cosa. Avisar.");
       else            decir(": en ese rato no corrige nada. Probar SIN_ESPERA = 1.");
     } else {
@@ -1135,6 +1270,7 @@ void mandarConsejos(int nota, int comoTermino) {
   if (mov == 1)                   consejoPatada(nota);
   else if (mov == 2)              consejoAvance(nota);
   else if (mov >= 3 && mov <= 5)  consejoEscape(nota);
+  else if (mov == 8)              consejoSaque(nota);     // [10/11]
   else                            consejoGiro(nota);
 }
 
@@ -1142,7 +1278,17 @@ void mandarConsejos(int nota, int comoTermino) {
 void resumenParaPersonas(int nota) {
   Serial.print("RESULTADO: "); Serial.print(mov); Serial.print(' ');
   Serial.print(NOMBRE_MOV[mov]); Serial.print(" -> "); Serial.print(NOMBRE_NOTA[nota]);
-  if (mov <= 5) {
+  if (mov == 8) {                                        // [10/11] el saque
+    Serial.print("   lado "); Serial.print(LADO_SAQUE < 0 ? "IZQUIERDA" : (LADO_SAQUE > 0 ? "DERECHA" : "CENTRO"));
+    Serial.print("   tenia que girar "); imprimirGrados(objetivoSaque);
+    Serial.print(" y giro "); imprimirGrados(gradosAlPatear);
+    Serial.print(" en "); Serial.print(msLlegar); Serial.print(" ms");
+    if (vueltaSaque) Serial.print(" (se dio vuelta)");
+    Serial.print("   GOLPE: pico "); imprimirGrados(pico);
+    Serial.print("   final "); imprimirGrados(fin);
+    Serial.print("   despues del retroceso "); imprimirGrados(fin2);
+    Serial.print("   cruces "); Serial.print(cruces);
+  } else if (mov <= 5) {
     Serial.print("   pico "); imprimirGrados(pico);
     Serial.print(" a los "); Serial.print(picoMs); Serial.print(" ms (200 ms: ");
     imprimirGrados(pico200); Serial.print(")   final "); imprimirGrados(fin);
@@ -1154,7 +1300,7 @@ void resumenParaPersonas(int nota) {
     Serial.print(gradosPorSegundo(), 1); Serial.print(" por segundo)   plantado ");
     Serial.print(plantadoMax); Serial.print(" ms");
   }
-  Serial.print(mov == 1 ? "   el golpe duro " : "   duro ");
+  Serial.print((mov == 1 || mov == 8) ? "   el golpe duro " : "   duro ");
   Serial.print(duro); Serial.print(" ms   vuelta mas larga "); Serial.print(huecoMax); Serial.print(" ms");
   finDeLinea();
   if (mov == 1 && demoraEntrada > HUECO_AVISO) {
@@ -1166,8 +1312,9 @@ void resumenParaPersonas(int nota) {
 
 void mandarInforme(int comoTermino) {
   int nota = calcularNota(comoTermino);
-  bool derecho = (mov <= 5);
-  bool gira    = (mov >= 6);
+  bool derecho = (mov <= 5 || mov == 8);     // [10/11] en el saque: el golpe
+  bool gira    = (mov == 6 || mov == 7);
+  bool saque   = (mov == 8);
 
   for (int i = 0; i < nMuestras; i++) {
     Serial.print("#M "); Serial.print(muestraT[i]); Serial.print(' ');
@@ -1182,15 +1329,20 @@ void mandarInforme(int comoTermino) {
   campoEntero("picoms",  (long)picoMs, derecho);
   campoGrados("pico200", pico200, derecho);
   campoGrados("fin",     fin,     derecho);
-  campoGrados("fin2",    fin2,    mov == 1);
+  campoGrados("fin2",    fin2,    mov == 1 || saque);
   campoEntero("cruces",  cruces,  derecho);
-  campoGrados("giro",    girado,  gira);
+  campoGrados("giro",    saque ? (saqueNoLlego ? girado : gradosAlPatear) : girado, gira || saque);
   Serial.print(" gps=");
-  if (gira) Serial.print(gradosPorSegundo(), 1); else Serial.print('0');
+  if (gira) Serial.print(gradosPorSegundo(), 1);
+  else if (saque && msLlegar > 0) Serial.print(girado * 1000.0 / (float)msLlegar, 1);
+  else Serial.print('0');
   campoEntero("duro",     (long)duro,        true);
   campoEntero("hueco",    (long)huecoMax,    true);
   campoEntero("huecoms",  (long)huecoMs,     true);
-  campoEntero("plantado", (long)plantadoMax, gira);
+  campoEntero("plantado", (long)plantadoMax, gira || saque);
+  campoGrados("obj",      objetivoSaque,     saque);          // [10/11]
+  campoEntero("llego",    (long)msLlegar,    saque);
+  campoEntero("vuelta",   vueltaSaque ? 1 : 0, saque);
   finDeLinea();
 
   mandarConsejos(nota, comoTermino);
@@ -1229,6 +1381,8 @@ unsigned long duracionPedida() {
     case 3: case 4: case 5: return MS_RETROCESO_LINEA;
     case 6: return (unsigned long)MS_PRUEBA_ORBITA;
     case 7: return (unsigned long)MS_PRUEBA_GIRO;
+    case 8: return MS_SAQUE_ORBITA_MAX + (unsigned long)MS_FRENO_SAQUE + (unsigned long)MS_SAQUE
+                   + (unsigned long)MS_RETROCESO_SAQUE;
   }
   return 0;
 }
@@ -1239,7 +1393,11 @@ void terminarMovimiento(int comoTermino) {
   t_freno = ahora;                             // frena 400 ms y despues suelta
   modo = ESPERA;
   digitalWrite(LED, LOW);
-  if (mov != 1 || fasePatada == 1) duro = ahora - t_inicio;   // la patada: lo que duro el golpe
+  if (mov == 8) {                              // [10/11] el saque: lo que duro el golpe
+    if (faseSaque == 1) duro = ahora - t_golpe;
+    else if (faseSaque == 0 || faseSaque == 3) duro = 0;
+    pateandoSaque = false;
+  } else if (mov != 1 || fasePatada == 1) duro = ahora - t_inicio;   // la patada: lo que duro el golpe
   if (comoTermino == FRENO_TECLA) {
     decir("#FRENO tecla");
     tirarLoQueLlego();
@@ -1319,6 +1477,22 @@ void arrancarMovimiento() {
     if (!rumboPatadaValido) { noArranca("sin giroscopio"); return; }
     rumbo0 = rumboAlPatear;
     fasePatada = 1;
+  } else if (mov == 8) {
+    // [10/11] COPIA de partido-con-saque: el rumbo del saque sale del rumbo con
+    // el que arranca (+ = derecha: el rumbo SUBE girando a la derecha, 15/09).
+    giroCaido = (estadoGiroSinEspera() != 5);
+    if (!giroscopoSano()) { noArranca("sin giroscopio"); return; }
+    t_chequeoGiro = millis() - MS_CHEQUEO_GIRO - 1;   // el chequeo de 200 ms, ahora que esta QUIETO
+    rumbo0 = rumboActual();
+    if (!giroscopoSano()) { noArranca("sin giroscopio"); return; }
+    rumboSaque = rumbo0 + LADO_SAQUE * GRADOS_SAQUE;
+    while (rumboSaque >= 360.0) rumboSaque -= 360.0;
+    while (rumboSaque < 0.0)    rumboSaque += 360.0;
+    objetivoSaque = diferencia(rumbo0, rumboSaque);    // con el signo del tablero: NEGATIVO = derecha
+    // sentidoParaOrbitar() del partido con saque (SENTIDO_ORBITA_INVERTIDO = false alla)
+    sentidoSaque    = (diferencia(rumboSaque, rumbo0) > 0);
+    errSaqueInicial = fabs(diferencia(rumboSaque, rumbo0));
+    faseSaque = 0;
   } else if (mov == 6) {
     giroCaido = (estadoGiroSinEspera() != 5);
     if (!giroscopoSano()) { noArranca("sin giroscopio"); return; }
@@ -1353,6 +1527,7 @@ void arrancarMovimiento() {
   msLoopPrevio = t_inicio;
   t_chequeoRapido = t_inicio;
   digitalWrite(LED, HIGH);
+  if (mov == 8 && LADO_SAQUE == 0) empezarGolpeSaque();   // [10/11] CENTRO: patea derecho, sin rodear
 }
 
 // ---------- 1 PATADA: golpe + retroceso ----------
@@ -1445,12 +1620,112 @@ void pasoGiro(unsigned long ahora, unsigned long enMov) {
   if (enMov >= (unsigned long)MS_PRUEBA_GIRO) terminarMovimiento(TERMINO_BIEN);
 }
 
+// ---------- 8 SAQUE [10/11] ----------
+// Al llegar: lo que hace cambiarA(PATEA_ADEL) en el partido con saque.
+void empezarGolpeSaque() {
+  unsigned long ahora = millis();
+  pateandoSaque     = true;
+  rumboPatadaValido = giroscopoSano();
+  rumboAlPatear     = rumboActual();
+  reiniciarRampaPatada();
+  reiniciarDerivadaPatada();
+  gradosAlPatear = diferencia(rumbo0, rumboAlPatear);     // DESPUES de frenar: para donde patea
+  // la nota y los consejos del golpe se miden desde aca
+  pico = 0; pico200 = 0; fin = 0; picoMs = 0; cruces = 0; ladoDelError = 0;
+  faseSaque = 1;
+  t_golpe = ahora;
+  t_fase  = ahora;
+}
+
+void pasoSaque(unsigned long ahora, unsigned long enMov) {
+  unsigned long enFase = ahora - t_fase;
+
+  if (faseSaque == 0) {
+    // ---- COPIA de partido-con-saque: el estado SAQUE_GIRA (rodea a ciegas) ----
+    float r = rumboActual();                 // como el partido: con su chequeo
+    if (!giroscopoSano()) { terminarMovimiento(FRENO_SIN_GIRO); return; }
+    float falta = diferencia(rumboSaque, r);
+    if (fabs(falta) <= TOL_SAQUE) {
+      anotarGiro(r, ahora);
+      guardarMuestra(enMov, diferencia(rumbo0, r), 'o');
+      msLlegar = ahora - t_inicio;
+      if (MS_FRENO_SAQUE > 0) {              // [10/11] COPIA de partido-con-saque: FRENA_PATADA
+        frenar();
+        faseSaque = 3;
+        t_fase = ahora;
+      } else {
+        empezarGolpeSaque();
+      }
+      return;
+    }
+    if (!vueltaSaque && fabs(falta) > errSaqueInicial + 30.0) {
+      vueltaSaque     = true;                // iba para el lado largo: se da vuelta (una vez)
+      sentidoSaque    = !sentidoSaque;
+      errSaqueInicial = fabs(falta);
+      t_fase = ahora;                        // otra vez el golpe de arranque
+      enFase = 0;
+    }
+    if (enMov > MS_SAQUE_ORBITA_MAX) { saqueNoLlego = true; terminarMovimiento(TERMINO_BIEN); return; }
+    bool enImpulso = (enFase < (unsigned long)MS_ORB_IMPULSO);
+    orbitar(sentidoSaque, enImpulso ? VEL_ORB_IMPULSO : VEL_ORB_SAQUE);
+    // ---------------------------------------------------------------------------
+    if (!enImpulso && !plantadoArmado) armarPlantado(ahora);
+    if (ahora - t_muestra >= MS_MUESTRA) {
+      t_muestra = ahora;
+      anotarGiro(r, ahora);
+      guardarMuestra(enMov, diferencia(rumbo0, r), 'o');
+    }
+  } else if (faseSaque == 3) {
+    // ---- [10/11] COPIA de partido-con-saque: FRENA_PATADA (quieto y despues patea) ----
+    frenar();
+    chequeoRapido(ahora);
+    if (!giroscopoSano()) { terminarMovimiento(FRENO_SIN_GIRO); return; }
+    if (ahora - t_muestra >= MS_MUESTRA) {
+      t_muestra = ahora;
+      guardarMuestra(enMov, diferencia(rumbo0, rumboSinChequeo()), 'f');
+    }
+    if (enFase >= (unsigned long)MS_FRENO_SAQUE) empezarGolpeSaque();
+  } else if (faseSaque == 1) {
+    // ---- COPIA de partido-con-saque: PATEA_ADEL con los numeros del saque ----
+    int vel = rampaPatada(VEL_SAQUE);
+    bool conLazo = (giroscopoSano() && rumboPatadaValido);
+    if (conLazo && LAZO) avanzarDerecho(vel, rumboAlPatear);
+    else                 motoresPatada(vel - TRIM_SAQUE, vel + TRIM_SAQUE);
+    float errP = conLazo ? diferencia(rumboAlPatear, rumboActual()) : 0.0;
+    // ---------------------------------------------------------------------------
+    if (!conLazo) { terminarMovimiento(FRENO_SIN_GIRO); return; }
+    anotarDesvio(errP, enFase);
+    if (millis() - t_muestra >= MS_MUESTRA) {
+      t_muestra = millis();
+      guardarMuestra(enMov, gradosAlPatear + errP, 'g');
+    }
+    if (enFase >= (unsigned long)MS_SAQUE) {
+      faseSaque = 2;                         // en el partido: cambiarA(PATEA_ATRAS), sin freno
+      pateandoSaque = false;
+      t_fase = millis();
+      duro = t_fase - t_golpe;               // lo que duro DE VERDAD el golpe
+    }
+  } else {
+    retroceder(VEL_RETROCESO_SAQUE);         // COPIA de partido-con-saque: la marcha atras del saque
+    chequeoRapido(millis());
+    if (!giroscopoSano()) { terminarMovimiento(FRENO_SIN_GIRO); return; }
+    if (millis() - t_muestra >= MS_MUESTRA) {
+      t_muestra = millis();
+      float rr = rumboSinChequeo();
+      fin2 = diferencia(rumboAlPatear, rr);
+      guardarMuestra(enMov, diferencia(rumbo0, rr), 'r');
+    }
+    if (enFase >= (unsigned long)MS_RETROCESO_SAQUE) terminarMovimiento(TERMINO_BIEN);
+  }
+}
+
 // Una vuelta del loop mientras se mueve.
 void pasoDelMovimiento(unsigned long ahora) {
   unsigned long enMov = ahora - t_inicio;
   if (mov == 1)      pasoPatada();
   else if (mov <= 5) pasoDerecho(ahora, enMov);
   else if (mov == 6) pasoOrbita(ahora, enMov);
+  else if (mov == 8) pasoSaque(ahora, enMov);   // [10/11]
   else               pasoGiro(ahora, enMov);
 }
 
@@ -1551,12 +1826,12 @@ void procesarLinea(char* s) {
   if (s[0] == '=') { cambiarNumero(s + 1); return; }
 
   if (s[0] == '!') {
-    if (s[1] == 0) { mandarError("falta el numero del movimiento: !1 a !7", "", ""); return; }
+    if (s[1] == 0) { mandarError("falta el numero del movimiento: !1 a !8", "", ""); return; }
     char* resto;
     long k = strtol(s + 1, &resto, 10);
     while (*resto == ' ') resto++;
     if (resto == s + 1 || *resto != 0 || k < 1 || k > N_MOVIMIENTOS) {
-      mandarError("no hay movimiento ", s + 1, ": son del !1 al !7");
+      mandarError("no hay movimiento ", s + 1, ": son del !1 al !8");
       return;
     }
     empezarCuenta((int)k);
@@ -1630,7 +1905,7 @@ void setup() {
   decir("=============================================================");
   decir(" TABLERO DEL DELANTERO - probar y medir los movimientos");
   decir(" NO ES EL DE PARTIDO: no busca la pelota, espera ordenes.");
-  decir(" Se mueve SOLO al pedir un movimiento (!1 a !7), 1,5 s despues.");
+  decir(" Se mueve SOLO al pedir un movimiento (!1 a !8), 1,5 s despues.");
   decir(" NO MIRA LA LINEA BLANCA. En el piso, con lugar, cable flojo.");
   decir("=============================================================");
 

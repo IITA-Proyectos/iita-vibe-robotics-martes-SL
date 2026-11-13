@@ -31,12 +31,25 @@
      3 RAPIDO_IZQ    de costado a la IZQUIERDA a pwmMaxLateral
      4 RAPIDO_DER    de costado a la DERECHA a pwmMaxLateral
      5 IDA_Y_VUELTA  rapido a la izquierda y se da vuelta SIN frenar
-     6 DESPEJE       el despeje derecho completo del partido, sin pelota
+     6 DESPEJE       el despeje derecho completo, sin pelota.
+                     (2026-11-12) Es el despeje VIEJO, el de la 0.1103 (MAS
+                     viejo que la 0921i): ida con la rampa general, freno
+                     MS_ESPERA_ANTES_DE_VOLVER, y la vuelta a potenciaRetroceso
+                     sale de un tiron (sin rampa), sin esperar a quedar plano,
+                     y corta a los MS_MAX_RETROCESO 1200 (la 0921i: 1500). El
+                     de la 0921k (la de jugar: rampa en cada motor, se
+                     endereza ANTES de volver, vuelta a 80, tope 2500, 3 cm
+                     mas de empujoncito) NO esta copiado aca a proposito: se
+                     prueba con el PARTIDO cargado. Ver DISENO.md 16.12.
      7 UBICARSE      el arranque del partido: atras hasta la linea, enderezarse
                      y el poquito (SIN la rutina de ir al medio)
-     8 SEGUIR        seguir la pelota de costado como el partido, sin despejar
-     9 ATAJAR        seguir + MIRAR + despejar en diagonal, como el partido.
-                     Termina en el primer despeje que sale
+     8 SEGUIR        seguir la pelota de costado como el partido, sin despejar.
+                     Si pisa el lateral vuelve al medio SOLO POR TIEMPO (sin
+                     buscar la linea del area como la 0921k)
+     9 ATAJAR        seguir + MIRAR + despejar, como la 0.1103 (NO como la
+                     0921k: la 0921k no mira y sale derecho). El despeje es
+                     el VIEJO, el mismo del 6. Termina en el primer despeje
+                     que sale
     10 IDA           solo la ida del despeje (msPruebaIda): frena y se queda,
                      para medir con regla cuanto sale
    LAS 6 MEDICIONES DE CANCHA
@@ -2275,7 +2288,8 @@ void mandarConsejos(const DatosMov &d, bool apagado) {
         }
       } else if (despeje && d.picoms >= d.atrasms
                  && (unsigned long)d.picoms < (unsigned long)d.atrasms + 300) {
-        consejo("Se torcio al ARRANCAR PARA ATRAS: el partido no reinicia la rampa ahi. No hay numero para eso: anotarlo en la bitacora.");
+        // 2026-11-12 (revision): la 0921k SI reinicia la rampa ahi; el que no es este despeje VIEJO.
+        consejo("Se torcio al ARRANCAR PARA ATRAS: en este despeje VIEJO la vuelta sale sin rampa (la 0921k si la reinicia). No hay numero para eso aca: anotarlo en la bitacora.");
       } else if (d.picoFase == 'f') {
         consejo("Se tuerce al FRENAR: el freno es igual al del partido, no hay numero para tocar.");
       } else {
@@ -3763,10 +3777,10 @@ void ayuda() {
   decir("  !3 RAPIDO_IZQ    de costado a la izquierda a pwmMaxLateral");
   decir("  !4 RAPIDO_DER    de costado a la derecha a pwmMaxLateral");
   decir("  !5 IDA_Y_VUELTA  rapido a la izquierda y vuelta sin frenar");
-  decir("  !6 DESPEJE       el despeje derecho del partido, sin pelota");
+  decir("  !6 DESPEJE       el despeje VIEJO (0.1103), sin pelota: NO es el de la 0921k");
   decir("  !7 UBICARSE      atras hasta la linea, enderezarse y el poquito");
   decir("  !8 SEGUIR        seguir la pelota de costado, sin despejar (msSeguir)");
-  decir("  !9 ATAJAR        seguir + MIRAR + despejar en diagonal: tirar la pelota despues de la cuenta");
+  decir("  !9 ATAJAR        seguir + MIRAR + despejar (0.1103, despeje VIEJO): tirar la pelota despues de la cuenta");
   decir("  !10 IDA          solo la ida (msPruebaIda), frena y se queda: medir con regla");
   decir("CANCHA:");
   decir("  !L v / !L i / !L d   la linea 4 s: verde / blanco IZQ / blanco DER (no mueve)");

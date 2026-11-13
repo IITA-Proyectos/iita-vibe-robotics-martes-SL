@@ -1,0 +1,2864 @@
+/* =====================================================================
+   ARQUERO — sigue la pelota de costado y la despeja
+   IITA Salta — taller de los martes — Roboliga 2026
+            V E R S I O N   0 9 2 1 j   -   E N   P R U E B A
+   Ultimo cambio: 2026-11-10
+   =====================================================================
+
+   📋 LA 0921j (2026-11-10, la noche antes de la Roboliga): la 0921i + EL
+   DESPEJE DE LA ESTRATEGIA 2. Pedido del equipo, textual: "pone el despeje
+   del ultimo programa de la estrategia dos a este". Se copio TODO el
+   despeje de funciona/estrategia-2/estrategia-2.ino (la "2026-11-10d", la
+   que probaron hoy y les gusto), con sus mismos numeros:
+     1. LA IDA mas lenta y mas larga, para llegar igual de lejos:
+        potenciaDespeje 200 -> 160 y msAdelante 533 -> 666 (~50 cm).
+        Y con RAMPA EN CADA MOTOR (rampaEnCadaMotor): cada rueda sube de a
+        poco con TODO lo que le llega (avance + correrse hacia la pelota +
+        el giroscopio). El costado sube en el MISMO tiempo que el avance.
+     2. LA PAUSA (esperar a que quede plano): igual que la 0921i.
+     3. SE ENDEREZA ANTES DE VOLVER (enderezarAntesDeVolver, nuevo): gira en
+        el lugar hasta quedar a 3 grados del rumbo del arranque, frena un
+        ratito, y recien ahi vuelve. Sin giroscopio, se saltea.
+     4. LA VUELTA mas lenta: para atras a 80 (potenciaVueltaDespeje), con la
+        rampa en cada motor, tope 2500 ms (MS_MAX_VUELTA_DESPEJE). Sigue
+        volviendo por la misma diagonal. potenciaRetroceso (110) y
+        MS_MAX_RETROCESO (1500) NO se tocaron: los usan el arranque, la
+        patrulla y la rutina de ir al medio.
+     5. Al llegar a la linea, IGUAL que la 0921i (frena, se endereza, el
+        empujon final, la patrulla, el limite lateral).
+   Ver "EL DESPEJE DE LA ESTRATEGIA 2" en el panel. Todo lo demas, igual
+   que la 0921i. La 0921i quedo copiada en respaldos/partido-0921i/.
+   🚨 EL TABLERO TODAVIA NO MANEJA LA 0921j ("solo el programa, despues el
+   tablero"). La linea #PARTIDO manda los MISMOS campos que la 0921i (solo
+   cambian version=0921j, potenciaDespeje=160 y msAdelante=666), pero el
+   tablero espera la 0921i: no guardar valores con el tablero sobre esta
+   version hasta adaptarlo.
+
+   📋 LA 0921i (2026-11-09): la 0921g + LA PATRULLA POR LA LINEA DEL AREA.
+   Lo que paso en el partido: la patrulla iba al lateral de la cancha y
+   volvia, "el robot se iba del arco y regalaba el gol". Pedido del equipo:
+   "que el robot con los sensores de atras al pasar 15 segundos encuentre
+   la linea del area y con sus sensores de atras la recorra hasta que un
+   sensor no detecte la linea y de ahi se vuelve hacia el medio".
+   Como quedo (eligieron la "opcion 2", que se mide sola):
+     1. a los 15 s quieto y sin pelota, retrocede hasta la linea del area;
+     2. la recorre de costado hasta una PUNTA (el sensor de adelante en el
+        sentido de la marcha deja de ver blanco y el otro sigue en blanco);
+     3. la recorre para el otro lado hasta la otra punta, CONTANDO EL TIEMPO;
+     4. vuelve la MITAD de ese tiempo: queda en el medio del area, sin
+        ningun numero medido de la cancha;
+     5. se endereza y avanza el poquito, como despues de un despeje.
+   Si aparece la pelota, corta y la sigue. Nunca deja el area.
+        patrullaPorLaLinea = false -> la patrulla vieja (al lateral)
+   🧪 09/11, despues de probarla (ver "LA PATRULLA POR LA LINEA DEL AREA"):
+   va SOLO con el giroscopio (sin corregir adelante/atras: oscilaba), se
+   queda 3 s quieto al llegar a la linea y al llegar al medio (para mirar),
+   SIEMPRE arranca para la IZQUIERDA, y el largo de punta a punta lo mide
+   UNA vez y lo GUARDA EN LA EEPROM (3584..3595). Despues, desde la punta
+   izquierda va directo al medio por tiempo (la mitad de lo guardado), sin
+   buscar la punta derecha (ese sensor frenaba pasado).
+   09/11 (3): MS_PUNTA_A_PUNTA_FIJO = 2548, medido por el equipo con
+   pruebas/medir-ancho-area ("funciona bien").
+   09/11 (4): ARRANCA A MOVERSE A LOS 3 s DE PRENDERLO (pedido del equipo:
+   "el tiempo de preparacion sean 3 segundos"). La cuenta se mide desde que
+   se prende, con el giroscopio arrancando en paralelo (antes ~3,5 s).
+
+   📋 LA 0921g: la 0921f + una linea por el cable al arrancar con la
+   version y los valores que mas importan (pedido del equipo, 03/11:
+   "agrega tambien lo de la linea con la version"). Juega EXACTAMENTE
+   igual: la linea sale solo si hay una compu escuchando por el USB, y
+   solo ANTES de moverse. La lee el TABLERO (pestana PARTIDO) para
+   confirmar que quedo cargado lo que se queria. Ver avisarVersion().
+
+   📋 LA 0921f: la 0921e (abajo) + IR AL MEDIO AL ARRANCAR otra vez
+   (irAlMedioSiNoHayLinea = true), pedido del equipo: "el movimiento para
+   buscar la linea al arrancar el partido y si no la encuentra hace todo el
+   recorrido". La rampa de la ida sigue desde 0.
+
+   📋 LA 0921e (la ultima del 03/11): la 0921c, pero
+     - SIN ir al medio al arrancar (irAlMedioSiNoHayLinea = false) y con la
+       rampa de la ida desde 0 (pisoRampaIda = 0): el equipo prefirio la b;
+     - CON lo que se le agrego a la b despues: corregir con la camara en la
+       ida (perseguirEnElDespeje = true, la "d") y esperar minimo 300 ms
+       quieto antes de volver (MS_PAUSA_MEDIO).
+   O sea: la 0921d + el LIMITE LATERAL + la PATRULLA, a pedido del equipo.
+   (La b, la c y la d quedaron en funciona/partido-0921c y partido-0921d;
+   la b es la d con perseguirEnElDespeje = false.)
+
+   📋 QUE ES ESTA VERSION (2026-11-03)
+   Es el programa de los AMISTOSOS DEL 21/09 (copia exacta en
+   respaldos/partido-2026-09-21/), que el equipo probo el 03/11 contra la
+   0.1103 y vio que "funciona mejor". Pedido del equipo, con cinco cambios:
+     1. velocidad maxima de costado (pwmMaxLateral)   120 -> 160
+        y la minima (pwmMinLateral)                    60 -> 70 (se probo 80)
+        (la ida del despeje se probo en 600 ms y volvio a 533, como el 21/09;
+        el tope de la vuelta, MS_MAX_RETROCESO, quedo en 1500: era 1200)
+     2. la PREDICCION, sacada ENTERA (no apagada: borrada del codigo)
+     3. margen al costado para despejar (umbralDesvio)  7 -> 20 cm
+     4. EL RETROCESO: espera a que el giroscopio diga que el robot quedo
+        PLANO, y arranca para atras con rampa (ver "ESPERAR A QUE QUEDE
+        PLANO" y "LA VUELTA ARRANCA SUAVE"). Cada parte tiene su interruptor.
+     5. TRES COSAS TRAIDAS DE LA ESTABLE 0.1013 (version 0921c). El pedido,
+        textual: "Ponele los limites laterales, que detecte la linea blanca
+        de los laterales y no se salga de la cancha y no haga falta, agrega
+        la patrulla a este programa y lo del movimiento para encontrar la
+        linea". Salen de la copia congelada del 13/10,
+        respaldos/estable1013conlimiteslaterales/, con la MISMA logica y los
+        MISMOS numeros (la explicacion de cada una esta donde se declara):
+          a. LIMITE LATERAL: siguiendo la pelota, si pisa la linea blanca del
+             lateral, en vez de seguir de largo vuelve al medio por tiempo,
+             retrocede hasta la linea del area, se endereza y avanza el
+             poquito. Ver "LIMITE LATERAL".
+                  volverAlMedioEnElLateral = false -> sin limite, como el 21/09
+          b. PATRULLA: sin pelota y quieto 10 s, va al lateral, vuelve al
+             medio por tiempo, retrocede hasta la linea del area y avanza el
+             poquito. Si aparece la pelota (5 cuadros seguidos), corta y la
+             sigue. Ver "PATRULLA".
+                  patrullarSinPelota = false -> quieto para siempre, como el 21/09
+          c. IR AL MEDIO AL ARRANCAR: si al ubicarse no encuentra la linea
+             del area, hace la rutina de `pruebas/ir-al-medio` (lateral,
+             fondo, lateral, medio por tiempo, linea del area). Y si la
+             encuentra, se endereza y avanza el poquito (~10 cm), como en la
+             0.1013: las tres cosas terminan asi. Ver "UBICACION INICIAL".
+                  irAlMedioSiNoHayLinea = false -> se queda donde freno
+                  avanzarAlUbicarse     = false -> se queda sobre la linea
+        Las tres NECESITAN GIROSCOPIO: sin rumbo no hacen nada (de costado
+        el robot gira solo y no puede volver por tiempo).
+        ⚠️ Diferencia con la 0.1013: el tope para encontrar la linea
+        (MS_MAX_RETROCESO) aca es 1500 y no 1200 (punto 1): el arranque
+        retrocede un poco mas antes de salir a buscar el medio.
+        ⚠️ Mientras vuelve del lateral al medio (~2,7 s) NO mira la pelota.
+        Cada patrulla son ~8 s, unos 5 con el arco descubierto. Los tiempos
+        de la rutina se midieron el 06/10, antes de mover los motores.
+   Todo lo demas, igual que el 21/09. Como el 21/09, no lee nada por el
+   cable; desde la 0921g escribe SOLO la linea de version al arrancar
+   (#PARTIDO ..., ver avisarVersion()).
+   =====================================================================
+
+   QUE HACE
+   El robot se para en su area mirando la cancha, con el arco a la espalda,
+   y NUNCA gira: siempre mira al frente.
+
+        1. Sin pelota a la vista: quieto (y si pasa 10 s sin moverse,
+                                  patrulla: ver el punto 5 de arriba).
+        2. Ve la pelota lejos  -> se corre DE COSTADO para ponerse enfrente
+                                  de ella, sin dejar de mirar al frente.
+        3. La pelota llega a 30 cm -> DESPEJA: sale ~50 cm, la saca, vuelve
+                                  hasta pisar la linea, se endereza, y da
+                                  un empujoncito de 10 cm.
+
+   ⚠️ Sale 50 cm para una pelota que estaba a 30. Queda mas lejos del arco
+   de lo necesario. Achicar la ida es el proximo ajuste pendiente, y es una
+   decision de estrategia de arquero, no una cuenta.
+
+   ⚠️ EL LIMITE DEL SEGUIMIENTO DE COSTADO. Hasta el 2026-08-18 se frenaba
+   al pisar una linea; se saco porque el robot vuelve chueco de algunos
+   despejes y estando torcido la pisaba antes de tiempo. En la 0.1013
+   (13/10) volvio a haber limite, distinto: al pisar el LATERAL vuelve al
+   medio. Desde la 0921c (2026-11-03) lo tiene tambien este programa (ver
+   el punto 5, arriba).
+
+   La linea tambien se usa para volver del despeje. Son dos usos distintos
+   de los mismos dos sensores de atras.
+
+   ---------------------------------------------------------------------
+   POR QUE EL GIROSCOPIO NO PUEDE MEDIR CUANTO SE MOVIO DE COSTADO
+   ---------------------------------------------------------------------
+   Vale la pena que quede escrito porque es una confusion facil.
+
+   El giroscopio mide HACIA DONDE MIRA el robot, no DONDE ESTA. Si el robot
+   se corre 20 cm al costado sin girar, el giroscopio marca exactamente lo
+   mismo antes y despues. Y este robot no tiene encoders en las ruedas ni
+   sensor de distancia, asi que no hay ninguna forma de medir cuanto se
+   desplazo.
+
+   Por eso el limite del movimiento lateral es la LINEA BLANCA — una marca
+   fisica de la cancha — y no una cuenta del giroscopio.
+
+   Lo que SI hace el giroscopio, y es lo que pidio el profe: mantenerlo
+   DERECHO. Al moverse de costado, un omni de tres ruedas tiende a girar
+   un poco (la rueda trasera empuja distinto que las dos de adelante). El
+   giroscopio detecta ese giro y lo corrige mientras se mueve.
+
+   ---------------------------------------------------------------------
+   COMO SE MEZCLAN MOVERSE Y ENDEREZARSE
+   ---------------------------------------------------------------------
+   El codigo 2025 resolvia esto con tablas de valores fijos: tres ramas de
+   `if` con numeros escritos a mano (50/50/89, 65/40/100...) segun cuanto
+   estaba torcido. Funciona, pero no se puede ajustar sin reescribir la
+   tabla.
+
+   Aca se hace sumando dos cosas separadas:
+
+        lo que cada rueda tiene que hacer para IR DE COSTADO
+      + lo que cada rueda tiene que hacer para NO GIRAR
+      = lo que se le manda a esa rueda
+
+   Moverse de costado son las tres ruedas en la proporcion 50/50/89 (esa
+   proporcion sale de la geometria del robot y es la del codigo 2025).
+   No girar son las tres ruedas parejas, en la misma direccion.
+
+   Como son dos cosas independientes, se calculan por separado y se suman.
+   Asi se puede tocar una sin romper la otra.
+
+   ---------------------------------------------------------------------
+   🚨 DOS SIGNOS QUE HAY QUE DESCUBRIR PROBANDO
+   ---------------------------------------------------------------------
+   No se pueden deducir leyendo el codigo, hay que medirlos:
+
+     1. Cuando el programa dice "andá a la derecha", ¿el robot va a la
+        derecha? Los comentarios del codigo 2025 estan espejados, asi que
+        no sirven de referencia.         -> lateralInvertido
+
+     2. Cuando la camara dice que la pelota esta desviada +5, ¿esta a la
+        derecha o a la izquierda?        -> camaraYInvertida
+
+   Si alguno esta al reves, el robot se aleja de la pelota en vez de
+   seguirla. Se nota en dos segundos. Los dos ya estan medidos (abajo).
+
+   ---------------------------------------------------------------------
+   SIN TECLAS NI TERMINAL (2026-09-21)
+   ---------------------------------------------------------------------
+   A pedido del equipo se saco todo lo de la consola: teclas, mensajes,
+   monitor en vivo y pruebas por tecla. En la cancha no hay cable y nunca
+   se usaban. El robot arranca solo al prenderlo y se para con la llave
+   de la bateria. Lo unico que avisa es el LED. Para cambiar un valor, se
+   cambia aca en el codigo y se vuelve a cargar (o con el TABLERO,
+   pestana PARTIDO). Desde la 0921g escribe SOLO la linea de version al
+   arrancar, y no lee nada.
+
+   ---------------------------------------------------------------------
+   MEDICIONES QUE USA (todas hechas en banco o en cancha)
+   ---------------------------------------------------------------------
+   Ruedas    U5=2/5/3 izquierda · U17=8/7/6 derecha · U7=11/12/4 trasera
+   Linea     A12 adelante · A13 atras-IZQ · A11 atras-DER
+             verde ~356 y ~465 · blanco ~760 · umbral 620
+   Distancia 1 cm cada 10 ms a potencia 200, con ~33 ms de arranque
+   Camara    9 bytes a 19200 por Serial1. Xp=0 significa NO LA VEO
+             2,87 unidades de camara = 1 cm real (medido el 2026-08-25 con
+             regla, 5 posiciones). La camara esta a ~8 cm del piso, no a
+             los 18,7 para los que la calibraron en 2025.
+   ===================================================================== */
+
+#include <Arduino.h>
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BNO055.h>
+#include <EEPROM.h>     // 0921i: solo para guardar el largo de la linea del area
+
+
+// ---- ARQUERO (ROBOT1) ----
+#define INA1 2
+#define INB1 5
+#define PWM1 3      // M1 = IZQUIERDA (U5)
+
+#define INA2 8
+#define INB2 7
+#define PWM2 6      // M2 = DERECHA (U17)
+
+#define INA3 11
+#define INB3 12
+#define PWM3 4      // M3 = TRASERA (U7)
+
+#define LED 13
+
+#define LINEA_ATRAS_DER A11
+#define LINEA_ATRAS_IZQ A13
+#define LINEA_ADELANTE  A12
+
+const unsigned long BAUDIOS = 19200;
+
+// ---- 🏷️ LA LINEA DE VERSION (2026-11-08, version 0921g) ----
+// Pedido del equipo: "agrega tambien lo de la linea con la version". Al
+// arrancar, si hay una compu escuchando por el USB, el robot dice UN renglon:
+//   #PARTIDO version=0921j sello=fabrica giro=1 umbralBlanco=425 ... interruptores=1111111110101
+// Con eso el TABLERO (pestana PARTIDO) confirma que quedo cargado lo que se
+// queria. Se repite cada medio segundo mientras parpadea antes de arrancar,
+// por si la primera no la escucho nadie (cargar.py abre el puerto un rato tarde).
+// 🚨 NO CAMBIA NADA DE COMO JUEGA: sin cable, if (Serial) da false y no se manda
+//    nada; con cable, se manda solo ANTES de moverse y no espera a nadie.
+// 🚨 NO ponerle begin() al Serial del USB: el USB del Teensy anda sin eso, y en
+//    algunas versiones begin() espera hasta 2,5 s a que abran el puerto (arrancaria tarde).
+const char* VERSION_PARTIDO = "0921j";   // 10/11: el despeje de la estrategia 2 (ver el encabezado)
+// La escribe el TABLERO cada vez que guarda valores (fecha y hora, sin espacios).
+// "fabrica" = los valores tal como salieron del taller. A mano no hace falta tocarla.
+// 2026-11-09 (tarde): vuelve a "fabrica". Decia "20261109-092611", que es el
+// sello de un guardado del tablero viejo sobre la 0921g (09:26, patrullarSinPelota
+// NO) y quedo pegado cuando se armo la 0921i encima. Con ese sello, una 0921i con
+// OTROS valores (la de la manana, con la patrulla por la linea prendida) se podia
+// confundir con esta. Estos valores (los de ebb5518) son los de fabrica del tablero.
+const char* SELLO = "fabrica";
+unsigned long t_ultimaVersion = 0;     // la ultima vez que se mando la linea
+
+
+// ---- los dos signos, YA DESCUBIERTOS (2026-08-11, en banco) ----
+//
+// Lateral: se mando una prueba corta de costado y el robot fue efectivamente
+// a la derecha. Queda como esta.
+bool lateralInvertido = false;
+//
+// Camara: con la pelota puesta a la DERECHA del robot, la camara mandaba
+// Yp = -24. O sea que el negativo es la derecha, al reves de lo que
+// suponia el codigo. Por eso va invertido.
+bool camaraYInvertida = true;
+
+
+// ---- 🎯 LA CAMARA NO HABLA EN CENTIMETROS: HAY QUE TRADUCIRLA ----
+//
+// La camara no mide distancia. Ve en que pixel aparecio la mancha naranja y
+// lo traduce a centimetros con una tabla de conversion que quedo escrita en
+// su programa en 2025, calibrada para una camara a 18,7 cm del piso.
+//
+// La camara de ESTE robot esta a ~8 cm. Por eso exagera: dice numeros mucho
+// mas grandes que la distancia real.
+//
+// MEDIDO EN CANCHA EL 2026-08-25, cinco posiciones con regla:
+//
+//       pelota a  10 cm  ->  la camara dice   28     factor 2,80
+//       pelota a  20 cm  ->  la camara dice   58     factor 2,90
+//       pelota a  30 cm  ->  la camara dice   89     factor 2,97
+//       pelota a  40 cm  ->  la camara dice  117     factor 2,93
+//       pelota a  50 cm  ->  la camara dice  142     factor 2,84
+//
+// El factor es PAREJO. Eso es lo que dice que cambio la ALTURA y no la
+// inclinacion: una inclinacion distinta daria un factor que crece con la
+// distancia. Por eso alcanza con dividir, sin tabla ni interpolacion.
+//
+// Confirmacion independiente: despejando la cuenta, la camara tendria que
+// estar a 7,9 cm. Se midio con regla y da 7-8. Cierra.
+//
+// ⚠️ Medido entre 10 y 50 cm. Fuera de ese rango no esta comprobado.
+//
+// 🚨 DE ACA EN ADELANTE, TODO EL PROGRAMA HABLA EN CENTIMETROS REALES.
+// Lo unico en unidades de camara son Xp e Yp, que son lo que llega crudo
+// por el cable.
+const float CAMARA_POR_CM = 2.87;    // unidades de camara por cm real
+
+// ---- seguimiento lateral ----
+// La proporcion 50/50/89 entre las ruedas sale de la geometria del robot;
+// es la que usa el codigo 2025 en ai/adproporcional. Lo que cambia es la
+// FUERZA con que se aplica, que aca es proporcional a lo desviada que esta
+// la pelota en vez de ser un numero fijo.
+const int LADO_FRENTE  = 50;     // las dos de adelante
+const int LADO_TRASERA = 89;     // la de atras
+
+// 🚨 kpLateral SUBIO DE 4.0 A 11.5 EL 2026-08-25, Y NO ES UN AJUSTE.
+// Es la misma fuerza de antes, escrita en la unidad nueva. Antes el desvio
+// llegaba en unidades de camara; ahora llega en centimetros reales, que son
+// numeros 2,87 veces mas chicos. Para que el robot empuje igual, el numero
+// que los multiplica tiene que ser 2,87 veces mas grande:
+//
+//       4.0 x 2,87 = 11,5
+//
+// Si algun dia alguien "corrige" esto de vuelta a 4, el robot va a seguir la
+// pelota casi tres veces mas flojo y va a parecer que se rompio.
+float kpLateral   = 11.5;        // PWM por cm REAL de desvio de la pelota
+int   pwmMinLateral = 70;        // abajo de esto no se mueve, solo zumba. 2026-11-03: 60 -> 80 -> 70, pedido del equipo
+int   pwmMaxLateral = 160;       // 2026-11-03: 120 -> 140 -> 160, pedido del equipo. ⚠️ Mas de 150 casi no se probo: una vez a 160 choco la madera
+
+// 4.0 de camara / 2,87 = 1,4 cm reales. Mismo comportamiento que antes.
+const float ZONA_MUERTA_PELOTA = 1.4;   // cm REALES: no perseguir migajas
+
+// ---- despeje ----
+// 0921j (10/11): 200 -> 160, el de la estrategia 2 (pedido del equipo: "solo
+// el despeje" mas lento). msAdelante sube a 666 para llegar igual de lejos.
+int potenciaDespeje   = 160;
+// 🚨 potenciaRetroceso NO es la vuelta del despeje desde la 0921j (esa es
+// potenciaVueltaDespeje, abajo). Este lo usa el retroceso del ARRANQUE.
+int potenciaRetroceso = 110;
+// La ida tiene que ALCANZAR a la pelota: si el robot dispara a 48 cm y solo
+// avanza 30, frena 18 cm antes y no la toca nunca. Por eso este numero sube
+// junto con umbralCm.
+// Calibrado 2026-08-04 con regla: distancia_cm = tiempo_ms/10 - 3.3
+//     50 cm -> (50 + 3.3) * 10 = 533 ms
+// 2026-09-15, DOS PASADAS EN LA MISMA CLASE:
+//
+//   533 ms (~50 cm) -> 333 (~30) : la cancha nueva es mas chica y salir
+//                                  medio metro dejaba el arco muy solo.
+//   333 ms (~30 cm) -> 433 (~40) : PROBADO EN CANCHA y quedaba CORTO,
+//                                  "ni llegaba a tocar la pelota".
+//
+// La cuenta sale de la calibracion con regla del 04/08:
+//        distancia_cm = tiempo_ms / 10 - 3,3
+//        40 cm  ->  (40 + 3,3) x 10 = 433 ms
+//
+// 🎯 POR QUE QUEDABA CORTO, Y POR QUE AHORA CIERRA. Con la ida en 30 y el
+// disparo tambien en 30, el robot llegaba JUSTO a donde estaba la pelota
+// y no le sobraba ni un centimetro para empujarla. Ahora dispara a 20 y
+// avanza 40: le sobran 20 cm de empuje. La regla vuelve a cumplirse con
+// margen, que era lo que faltaba.
+// 2026-09-21: +10 cm a pedido del equipo, junto con el disparo (+10 cm),
+// para que quede parejo: dispara a 30 y avanza 50 -> sobran 20 de empuje,
+// igual que antes (20 y 40).
+//        50 cm  ->  (50 + 3,3) x 10 = 533 ms
+// 2026-11-10 (0921j): 533 -> 666, con potenciaDespeje 160 (la estrategia 2).
+// Es la misma cuenta que la tecnica challenge: a menos fuerza, mas tiempo,
+// para llegar a los mismos ~50 cm. 🚨 umbralCm nunca mas grande que lo que llega la ida.
+int msAdelante        = 666;     // ~50 cm a 160. 2026-11-03: se probo 600 y el equipo lo volvio a 533
+int msAdelanteChico   = 133;     // 10 cm
+// 🚨 2026-09-15 — CANCHA NUEVA, UMBRAL NUEVO. Era 620.
+//
+// La cancha cambio: mas chica, el verde MUCHO mas oscuro, las lineas
+// blancas mas angostas. Medido con `pruebas/calibrar-linea`, 79.000
+// muestras:
+//
+//              cancha vieja      cancha nueva
+//     verde     356 / 465          60 a 95
+//     blanco       ~760              ~755
+//
+// El blanco quedo igual y el verde se oscurecio muchisimo, asi que el
+// contraste MEJORO. El punto medio entre 97 y 753 da 425.
+//
+// ⚠️ Y hay un motivo mas fuerte que la cuenta para bajarlo tanto. El mismo
+// sensor, sobre la misma linea, dio 557 o 763 segun que tan centrado
+// estaba. El robot vuelve del despeje EN MOVIMIENTO y muchas veces en
+// diagonal, asi que nunca cruza perfectamente centrado: el umbral tiene
+// que aguantar una lectura mediocre. Con 620, una pasada floja no
+// disparaba y el robot se pasaba de largo.
+int umbralBlanco      = 425;     // medido en cancha el 2026-09-15
+// Historia de este numero, en UNIDADES DE CAMARA mientras no sabiamos que
+// no eran centimetros:  30 -> 20 -> 48 (2026-08-11).
+//
+// 2026-08-25: ahora esta en CENTIMETROS REALES. Los 48 de camara de antes
+// eran 16,7 cm reales — el robot esperaba a tenerla casi encima. El equipo
+// pidio que salga a buscarla a 30 cm reales.
+//
+// 🚨 REGLA: umbralCm NUNCA puede ser mayor que el alcance de la ida. Si el
+// robot dispara a 30 cm y la ida son 20, frena antes de llegar y no toca
+// la pelota. Si se cambia uno, hay que mirar el otro.
+// Hoy: dispara a 30, la ida son ~50. La regla se cumple.
+// 2026-09-15: BAJADO DE 30 A 20 a pedido del equipo despues de probar en
+// cancha — que salga a despejar con la pelota mas cerca. En la cancha
+// nueva, que es mas chica, salir a buscarla a 30 cm era salir demasiado.
+// 2026-09-21: 20 -> 30 cm a pedido del equipo, junto con la ida (+10 cm).
+float umbralCm        = 30.0;    // cm REALES: despeja si esta a esto o menos
+
+// Cuan de frente tiene que estar la pelota para disparar. 15 de camara /
+// 2,87 = 5,2 cm reales: es lo mismo que venia haciendo.
+//
+// ⚠️ Ojo con este al subir umbralCm: 5,2 cm de costado a 16,7 cm de
+// distancia es un angulo ancho, pero los mismos 5,2 cm a 30 cm de distancia
+// son un angulo mucho mas angosto. O sea que disparando de mas lejos el
+// robot se vuelve MAS exigente con la alineacion. Si en cancha se lo ve
+// dudar y no despejar, este es el primer numero a mirar.
+// 2026-09-08: SUBIDO DE 5,2 A 7,0 a pedido del equipo.
+// Los 5,2 venian de cuando el despeje salia DERECHO: no tenia sentido
+// salir si la pelota no estaba justo enfrente, porque yendo derecho no la
+// alcanzaba nunca. Ahora que sale en DIAGONAL si puede alcanzar pelotas
+// corridas, y ese limite se habia vuelto la traba que impedia usar la
+// diagonal justo en los casos para los que se hizo.
+//
+// 7,0 ensancha el pasillo de ~10 a ~14 cm (unos +-13 grados desde 30 cm).
+// Se puede ensanchar sin miedo PORQUE si la cuenta dice que no llega, el
+// robot NO SALE. Sin esa proteccion, subir esto seria peligroso.
+// 🚨 2026-11-03: 7 -> 20, pedido del equipo. OJO: con despejeEnDiagonal en
+// false (como esta aca) la cuenta de "no llega" NO SE HACE: sale SIEMPRE, y
+// sale DERECHO. Con la pelota a 20 cm al costado, derecho no la toca. Si se
+// ve que sale de gusto y deja el arco solo, bajarlo (10 o 12).
+float umbralDesvio    = 20.0;    // cm REALES de desvio tolerado
+
+
+// ---- 🎯 PERSEGUIR LA PELOTA DURANTE EL DESPEJE (2026-09-08) ----
+//
+// EL PROBLEMA, contado por el equipo:
+//   "cuando la pelota viene rapido en diagonal, el robot despeja pero la
+//    pelota a veces pasa de largo, porque el robot se movio hacia adelante
+//    en un eje QUE YA QUEDO ANTIGUO"
+//
+// Tenian razon y se ve en el codigo. La fase ADELANTE era una sola linea:
+//        adelanteControlado(potenciaDespeje);
+// Ni menciona la camara. El robot decidia UNA vez y despues manejaba 533 ms
+// con los ojos cerrados. Una pelota rapida se corre muchisimo en medio
+// segundo, asi que el robot llegaba al lugar donde la pelota ESTABA.
+//
+// LA SOLUCION: que no vaya a ciegas. Este robot es un omni de tres ruedas,
+// asi que puede AVANZAR Y CORRERSE AL MISMO TIEMPO. Ahora, mientras carga,
+// sigue mirando la pelota 26 veces por segundo y se va corriendo hacia
+// donde ella este. En vez de ir a un punto viejo, PERSIGUE.
+//
+// Se eligio esto antes que "calcular la velocidad y predecir" porque
+// predecir es apostar una vez: si la pelota cambia de direccion, erraste.
+// Corregir todo el tiempo no le tiene que acertar a nada.
+//
+// Es el mismo truco de sumar movimientos independientes que ya usa todo el
+// programa. Ahora son tres sumandos en vez de dos:
+//        avanzar + correrse hacia la pelota + no girar
+// 🚨 APAGADO A PROPOSITO EL 2026-09-08. Esto (la "opcion B") quedo escrito
+// y compilado pero SIN PROBAR: el equipo decidio probar primero la
+// prediccion (la "opcion A") por separado, para no mezclar dos cosas
+// nuevas en la misma corrida y no saber cual hizo que.
+// Se prende cambiando este false por true.
+// 2026-11-03: PRENDIDO, pedido del equipo ("que con la camarita vaya viendo
+// la pelota y con eso se vaya centrando para pegarle mejor"). Primera vez que
+// se prueba. Si hace eses en la ida: bajar kpPersecucion (6 -> 4) o
+// PWM_MAX_PERSECUCION (60 -> 40).
+bool perseguirEnElDespeje = true;
+
+// PWM de costado por cada cm REAL que la pelota esta desviada.
+// 6.0 -> con la pelota 5 cm al costado empuja 30; con 10 cm, 60 (el tope).
+// ⚠️ PUESTO A OJO, primera version. Se ajusta mirando al robot.
+float kpPersecucion = 6.0;
+
+// Tope del empujon lateral. No es solo por prolijidad:
+//
+// 🚨 CUIDADO CON QUEDARSE SIN MOTOR. El maximo que aguanta una rueda es
+// 255. Durante el despeje ya se le esta pidiendo 200 para avanzar, mas la
+// correccion de rumbo. Si el costado pide mucho mas, la cuenta se pasa de
+// 255, la rueda se queda corta, y el robot no hace bien NINGUNA de las dos
+// cosas — ni avanza derecho ni se corre.
+// Si en cancha se lo ve flojo o raro justo cuando persigue fuerte, el
+// primer sospechoso es ese: la salida es BAJAR potenciaDespeje para
+// dejarle lugar al volantazo.
+const int PWM_MAX_PERSECUCION = 60;
+
+const unsigned long MS_PAUSA_MEDIO   = 300;     // espera MINIMA entre la ida y la vuelta. 2026-11-03: 150 -> 300, pedido del equipo ("para quedarse quieto y retroceder mas prolijo")
+// 2026-11-03: 1200 -> 1500, cuando la ida subio a 600 ms (~57 cm). La vuelta
+// va a 110, mucho mas lenta que la ida a 200, y ahora arranca con rampa: con
+// 1200 podia cortarse ANTES de llegar a la linea y dejar al robot adelantado.
+// La ida volvio a 533, pero se dejo en 1500: es solo el tope de seguridad
+// (si ve la linea, frena ahi igual) y la rampa de la vuelta come un poco.
+// 🚨 0921j: la vuelta del DESPEJE ya no usa este (usa MS_MAX_VUELTA_DESPEJE).
+// Este queda para el arranque, la patrulla y la rutina de ir al medio.
+const unsigned long MS_MAX_RETROCESO = 1500;
+
+// ---- 🎯 ESPERAR A QUE QUEDE PLANO ANTES DE VOLVER (2026-11-03) ----
+//
+// LO QUE VIO EL EQUIPO: "el despeje va derecho pero en el retroceso oscila
+// demasiado. Creemos que es porque al frenar de golpe el robot se inclina y
+// mas se intenta retroceder de inmediato."
+//
+// El giroscopio (BNO055) no solo dice hacia donde MIRA el robot: tambien
+// cuanto esta INCLINADO, para adelante/atras y para los costados. Asi que al
+// terminar la ida el robot espera a que la inclinacion vuelva a la de
+// siempre (la que tiene quieto en el piso) y se QUEDE ahi un ratito. Recien
+// ahi retrocede.
+//
+// "La de siempre" se mide sola: mientras espera la pelota quieto, el robot
+// va promediando su inclinacion. Asi da igual si el sensor no quedo pegado
+// perfectamente derecho o si la cancha no es plana.
+//
+// Si el giroscopio no contesta, hace lo de antes (MS_PAUSA_MEDIO y vuelve).
+// Y nunca espera mas de MS_MAX_ESPERA_PLANO: no se puede quedar trabado.
+bool esperarPlanoAntesDeVolver = true;     // false = espera MS_PAUSA_MEDIO justo y vuelve (el 21/09 eran 150 ms)
+const float GRADOS_PLANO = 1.5;            // "plano" = a esto o menos de la inclinacion de siempre
+const unsigned long MS_PLANO_SOSTENIDO = 100;   // ...y quedarse asi este tiempo (si se hamaca, pasa por el plano y se va)
+const unsigned long MS_MAX_ESPERA_PLANO = 800;  // tope: a los 800 ms vuelve igual
+
+// ---- 🎯 LA VUELTA ARRANCA SUAVE, CON RAMPA (2026-11-03) ----
+// Hasta el 21/09 la vuelta NO reiniciaba la rampa: la potencia bajaba de
+// golpe de 200 (yendo para adelante) a 110 (para atras), o sea que
+// arrancaba para atras A FONDO, de un tiron. El 20/10 la herramienta midio
+// que el retroceso solo, arrancando quieto y con rampa, se tuerce 2 grados;
+// el que viene pegado a la ida, de 15 a 20 y yendo y viniendo.
+// ⚠️ 0921j: con rampaEnCadaMotor en true la vuelta del despeje va con la
+// rampa de cada motor, y este interruptor no la toca.
+bool rampaAlVolver = true;                 // false = como el 21/09, sin rampa
+
+// ---- 🎯 LA IDA ARRANCA DESDE 70, NO DESDE 0 (2026-11-03) ----
+// LO QUE VIO EL EQUIPO: "sale a despejar, hace un tiron recto, se mueve un
+// poco a la izquierda y vuelve a seguir derecho". Tambien con la pelota
+// quieta, asi que no es el envion de venir de costado.
+// TEORIA: una rueda parada necesita ~70 para arrancar, y las dos de adelante
+// no arrancan con EXACTAMENTE lo mismo. Con la rampa desde 0, una empieza a
+// girar unos milisegundos antes que la otra, el robot gira un poquito, y el
+// giroscopio lo endereza sumandole a las tres ruedas, tambien a la de atras,
+// que es la que empuja de costado: de ahi el saltito. Arrancando ya en 70,
+// las dos vencen el rozamiento juntas.
+// Si sigue el saltito: subir (80, 90). Si el arranque patina o se tuerce:
+// bajar. 0 = como antes (la rampa desde 0).
+// 0921e: en 0, como la b (el equipo volvio a la b despues de probar la c).
+// ⚠️ 0921j: con rampaEnCadaMotor en true (ver abajo) la ida NO usa la rampa
+// general ni este piso: cada rueda arranca desde 0 con su propia rampa.
+// Se dejan por si se apaga rampaEnCadaMotor.
+int pisoRampaIda = 0;
+
+// ---- 🎯 EL DESPEJE DE LA ESTRATEGIA 2 (0921j, 2026-11-10) ----
+// Pedido del equipo: "pone el despeje del ultimo programa de la estrategia
+// dos a este". Copiado de funciona/estrategia-2/estrategia-2.ino (la
+// "2026-11-10d", la que probaron hoy y les gusto), con los mismos numeros.
+//
+// 🎯 RAMPA EN CADA MOTOR (en la ida, el enderezado y la vuelta del despeje).
+// Lo que vio el equipo con la estrategia 2: "a la hora de despejar se va
+// para la izquierda: un saltito al arrancar", con el robot QUIETO antes de
+// salir. La rampa general sube de a poco SOLO el avance: el correrse hacia
+// la pelota y la correccion del giroscopio llegaban DE GOLPE, y la rueda de
+// atras es la que empuja de costado. Con esto CADA RUEDA sube de a poco con
+// TODO lo que le llega (avance + costado + giroscopio). Bajar es en el acto,
+// y si una rueda cambia de sentido pasa primero por 0. Seguir la pelota de
+// costado NO usa esta rampa.
+//   Si sigue el tiron: bajar PASO_RAMPA_RUEDA (5 = el doble de suave).
+//   Si sale muy lento y no llega a la pelota: subirlo.
+// false = la ida y la vuelta con la rampa general, como la 0921i (los
+// numeros de la ida y de la vuelta de aca son los mismos igual).
+bool rampaEnCadaMotor = true;
+const int PASO_RAMPA_RUEDA = 10;            // cuanto sube cada rueda...
+const unsigned long MS_RAMPA_RUEDA = 10;    // ...cada este tiempo (10 cada 10 ms = de 0 a 160 en 0,16 s)
+// El correrse hacia la pelota (kpPersecucion, PWM_MAX_PERSECUCION) sube en
+// el MISMO tiempo que el avance: asi la direccion no cambia mientras
+// arranca, y no hay tiron de costado al salir.
+
+// 🎯 SE ENDEREZA ANTES DE VOLVER. Despues de la pausa (ya plano), gira en el
+// lugar hasta quedar a GRADOS_DERECHO del rumbo del arranque, frena un
+// ratito y recien ahi vuelve para atras: asi la vuelta sale derecha. (En la
+// estrategia 2: "en el retroceso lo hace chueco".) Sin giroscopio
+// respondiendo se saltea y vuelve directo, como la 0921i.
+bool enderezarAntesDeVolver = true;          // false = vuelve directo despues de la pausa, como la 0921i
+const float GRADOS_DERECHO = 3.0;            // "derecho" = a esto o menos del rumbo del arranque
+const unsigned long MS_TOPE_ENDEREZAR = 1500;   // si no llega en este tiempo, vuelve igual
+// La fuerza del giro: grados de error x KP_RUMBO (5), entre estos dos.
+// Menos de 70 no gira. En la estrategia 2 (10/11): 120 -> 85, pedido del
+// equipo ("al enderezarse se pasa").
+const int PWM_MIN_GIRO = 70;
+const int PWM_MAX_GIRO = 85;
+const unsigned long MS_FRENO_ENDEREZADO = 150;  // despues de enderezarse frena esto, y recien ahi vuelve
+
+// 🎯 LA VUELTA DEL DESPEJE, mas lenta. En la estrategia 2 (10/11): 110 -> 90
+// -> 80, pedido del equipo ("vuelve muy rapido"). Si se traba o hace zigzag:
+// volver a 90.
+// 🚨 Son SOLO de la vuelta del despeje. potenciaRetroceso (110) y
+// MS_MAX_RETROCESO (1500) quedaron como estaban: los usan el retroceso del
+// arranque, la patrulla y la rutina de ir al medio.
+int potenciaVueltaDespeje = 80;
+// Tope de la vuelta (es solo un seguro: frena al ver la linea). A 80 tarda
+// mas en llegar que a 110 (en la estrategia 2 la revision vio que a 90 ya
+// cortaba justo con 1500).
+const unsigned long MS_MAX_VUELTA_DESPEJE = 2500;
+
+// Cuanto se sostiene el freno electrico. Despues se sueltan los motores:
+// mantenerlos cortocircuitados sin necesidad solo calienta el driver.
+unsigned long msFreno = 200;
+
+
+// El empujoncito de 10 cm al final, para que el robot termine donde arranco
+// y no pegado a la linea. Se saco un rato el 2026-08-18 mientras se probaba
+// el freno, y se volvio a poner el mismo dia una vez que el freno funciono.
+bool empujonFinal = true;
+
+// Va DESPACIO, no a la potencia del despeje: son 10 cm y el robot ya esta
+// bien parado sobre la linea. Yendo rapido patina y arruina justo lo que
+// acaba de lograr.
+int potenciaEmpujon = 100;
+
+// MEDIDO con regla el 2026-08-18, a potencia 100 y con rampa:
+//     400 ms  ->  13 cm      (dos corridas)
+//
+// Para 10 cm NO alcanza la regla de tres (daria 308 ms). Los primeros
+// 100 ms el robot esta acelerando por la rampa, asi que ese tramo rinde
+// menos distancia que el resto. Al acortar el tiempo total, la rampa pasa
+// a ser una porcion mas grande del viaje y se pierde proporcionalmente mas.
+//
+// Descontando la rampa (~50 ms de recorrido equivalente) y el retardo
+// mecanico de arranque (~33 ms, medido el 04/08):
+//     velocidad = 13 cm / (400 - 50 - 33) ms = 0.041 cm/ms
+//     para 10 cm  ->  10/0.041 + 50 + 33  =  ~320 ms
+//     para 15 cm  ->  15/0.041 + 50 + 33  =  ~450 ms
+// 2026-11-09: 320 -> 450 (~15 cm), pedido del equipo: "el avance despues de
+// encontrar la linea del area cambiala a 15". Es una CUENTA (del 18/08, antes
+// de mover los motores): medir con regla si queda a 15 cm de la linea.
+int msEmpujonFinal = 450;
+const unsigned long MS_ENFRIAMIENTO  = 1500;
+// 2026-09-21: bajado de 10 s a 2 s a pedido del equipo. Con 2 s toda la
+// cuenta queda en parpadeo rapido (el lento era para los primeros 7 s).
+// 🚨 2026-11-09, pedido del equipo: "necesitamos que en 3 segundos arranque a
+// moverse... que el tiempo de preparacion sean 3 segundos". Desde la 0921i la
+// cuenta se mide DESDE QUE SE PRENDE (millis() arranca en 0), no despues de
+// prender el giroscopio: el giroscopio arranca mientras corre la cuenta. Antes
+// eran ~1,5 s de giroscopio + 2 s de cuenta = ~3,5 s. Si a los 3 s el
+// giroscopio todavia no contesta, espera (LED temblando) como siempre.
+const unsigned long MS_AVISO_ARMADO  = 3000;   // desde que se PRENDE hasta que se mueve
+const int VECES_PARA_CREERLE = 3;
+
+
+// ---- giroscopio: mantenerlo derecho ----
+Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
+bool hayGiroscopo = false;
+bool enderezarActivado = true;
+
+// ---- AVISO DE "ESTOY SIN GIROSCOPIO" ----
+//
+// Pedido del equipo el 2026-09-01: en cancha el robot no andaba derecho y
+// no habia forma de saber si era porque el giroscopio no estaba
+// funcionando. Ahora avisa con el LED, con un parpadeo MUCHO mas rapido
+// que cualquier otro del programa (10 por segundo), para que no se
+// confunda con las otras senales.
+//
+// ⚠️ El LED del pin 13 es de UN SOLO COLOR: no puede ser rojo. Si quieren
+// una luz roja de verdad, hay que soldar un LED con su resistencia a un
+// pin libre (el 9 o el 10 estan sin usar) y cambiar PIN_AVISO aca abajo.
+// El codigo ya esta preparado: es cambiar este numero y nada mas.
+#define PIN_AVISO 13
+const unsigned long MS_PARPADEO_AVISO = 50;   // 50 encendido + 50 apagado
+
+// Se actualiza adentro de rumboActual(), asi el aviso refleja el estado de
+// verdad sin agregar lecturas extra al bus I2C.
+bool giroscopoRespondiendo = false;
+
+unsigned long t_chequeoGiro = 0;
+
+// 🚨 2026-09-08 — CONTESTAR QUE EXISTE Y DAR DATOS SON DOS COSAS DISTINTAS.
+//
+// La clase pasada se arreglo que bno.begin() insistiera 10 veces. Pero
+// begin() solo pregunta "¿estas ahi?". El BNO055 contesta que si mucho
+// ANTES de tener un rumbo valido: primero tiene que arrancar su fusion de
+// sensores, y mientras tanto devuelve CEROS — que es exactamente lo que el
+// programa lee como "esta mudo".
+//
+// Por que no se veia en la mesa: ahi el robot lleva minutos encendido y el
+// sensor ya esta caliente. En la cancha lo prenden y a los 10 segundos ya
+// esta jugando.
+//
+// Lo que lo destapo: el equipo midio la bateria y dio 8,23 V — mas que la
+// nominal. O sea que la explicacion de "bateria floja" no alcanzaba, y
+// habia que buscar otra cosa.
+//
+// Ahora se espera a que el sensor DE UN DATO, no a que salude.
+const unsigned long MS_ESPERA_DATOS_GIRO  = 5000;   // en setup()
+const unsigned long MS_ESPERA_EXTRA_GIRO  = 2000;   // antes de armarse (era 15 s, bajado el 2026-09-21)
+
+float rumboBase = -1;            // el rumbo que hay que sostener siempre
+
+// Correccion continua de rumbo (proporcional + acumulada). Los valores
+// vienen de lo medido el 2026-08-04 en las rectas del cuadrado: con solo
+// proporcional quedaba un error fijo de 7 grados; con el termino acumulado
+// bajo a menos de 2.
+const float KP_RUMBO = 5.0;
+const float KI_RUMBO = 1.5;
+const float LIMITE_INTEGRAL = 30.0;
+// 2026-09-01: subido de 70 a 100. Con 70, durante el despeje (potencia 200)
+// la correccion era demasiado floja para evitar que el robot se torciera.
+const int   MAX_CORRECCION_RUMBO = 100;
+const float ZONA_MUERTA_RUMBO = 1.0;
+float integralRumbo = 0;
+unsigned long t_ultimoControl = 0;
+
+// Enderezado al terminar el despeje
+const float TOLERANCIA_ACOMODO = 3.0;
+// 🚨 2026-09-01 — EL ENDEREZADO NO TENIA FUERZA PARA GIRAR EL ROBOT.
+//
+// En cancha el robot termino 80 grados torcido y no se enderezaba nunca.
+// El robot SI sabia que estaba torcido: conectado por USB contesto
+// "rumbo 274.6, base 354.7" y "no llego a enderezarse en 3 s". O sea que
+// el giroscopio andaba y el rumbo de referencia estaba bien guardado.
+//
+// El problema era la POTENCIA. La cuenta con 80 grados de error daba:
+//        80 x KP_ACOMODO (1,5) = 120  ->  recortado a PWM_MAX_ACOMODO = 60
+// Y un motor PARADO necesita ~70 de PWM para arrancar (medido en banco).
+// Con 60 las ruedas zumban y no giran. Intentaba 3 segundos, se rendia,
+// reintentaba 3 veces y seguia de largo — 80 grados torcido.
+//
+// El minimo tenia el mismo problema, peor: con 35 no se movia NUNCA, asi
+// que los errores chicos tampoco se corregian jamas.
+//
+// Los dos suben por encima del piso de arranque. Mejor pasarse un poco y
+// que el reintento lo acomode, que no moverse nunca.
+const float KP_ACOMODO = 1.5;
+// 2026-09-01, segunda pasada: con MAX=110 el robot SI giraba, pero giraba
+// DEMASIADO RAPIDO y se pasaba: oscilaba varias veces antes de quedarse
+// quieto, y a veces terminaba mal acomodado. A pedido del equipo el techo
+// baja a la mitad del cambio (110 -> 85): menos velocidad, menos inercia.
+//
+// ⚠️ EL MINIMO NO SE PUEDE BAJAR. No es una perilla de ajuste fino: es lo
+// que hace que el robot se mueva ALGO. Debajo de ~70 las ruedas zumban y
+// no giran, que era exactamente el bug de antes.
+const int   PWM_MIN_ACOMODO = 75;    // era 35: debajo del piso de arranque
+const int   PWM_MAX_ACOMODO = 85;    // era 60, despues 110
+const unsigned long MS_ASENTAR_ACOMODO = 300;
+const unsigned long MS_TIMEOUT_ACOMODO = 3000;
+const int MAX_REINTENTOS_ACOMODO = 3;
+
+// ---- 🎯 ENDEREZARSE TAMBIEN CUANDO NO VE LA PELOTA (2026-09-15) ----
+//
+// LO QUE NOTO EL EQUIPO EN CANCHA:
+//   "el robot hace las correcciones cuando esta viendo la pelota. Si no la
+//    esta viendo o la perdio, queremos que mire hacia adelante, porque a
+//    veces queda viendo al lateral y la pelota esta en otro lado y por
+//    estar mirando al costado no entra en su campo de vision."
+//
+// Tenian razon y es un circulo vicioso feo: el robot quedaba torcido, y
+// justamente POR estar torcido no volvia a ver la pelota — y sin ver la
+// pelota no hacia nada que lo enderezara. Se quedaba trabado mirando al
+// costado para siempre.
+//
+// Por que pasaba: la correccion de rumbo viaja SUMADA al movimiento, asi
+// que solo actua cuando el robot se esta moviendo. En ESPERANDO el robot
+// hace parar() — motores apagados — y ahi no se corrige nada.
+//
+// Ahora, mientras espera, si se da cuenta de que esta torcido se endereza
+// solo y vuelve a esperar. Reusa la misma maniobra del final del despeje.
+//
+// ⚠️ LOS DOS NUMEROS SON DISTINTOS A PROPOSITO: se endereza hasta quedar a
+// menos de 3 grados (TOLERANCIA_ACOMODO), pero no vuelve a arrancar hasta
+// pasarse de 8. Si los dos fueran iguales, el robot estaria todo el dia
+// corrigiendo de a un grado, temblando en el arco.
+const float TOLERANCIA_ESPERA = 8.0;          // grados para decidir enderezarse
+const unsigned long MS_CHEQUEO_ESPERA = 300;  // no preguntarle al sensor a cada rato
+unsigned long t_chequeoEspera = 0;
+// Descanso obligatorio entre intentos de enderezarse esperando. Mientras
+// descansa, el robot vuelve a mirar la pelota. Sin esto puede quedarse
+// reintentando una maniobra que no converge y no atajar nunca.
+const unsigned long MS_DESCANSO_ENDEREZAR = 6000;
+unsigned long t_ultimoIntentoEnderezar = 0;
+bool enderezandoEnEspera = false;
+const int RAMPA_PASO = 3;
+const unsigned long RAMPA_MS = 15;
+int pwmAcomodoAplicado = 0;
+unsigned long t_rampa = 0;
+int reintentosAcomodo = 0;
+
+
+// ---- UBICACION INICIAL ----
+//
+// Al armarse, el robot retrocede hasta pisar la linea del area y se
+// endereza. (Desde la 0921c hace algo mas: ver abajo.)
+//
+// 2026-09-21: SE SACO EL CENTRADO CON EL ARCO DEL RIVAL, a pedido del
+// equipo: "lo centramos nosotros". El robot se apoya a mano en el centro
+// del arco antes de prenderlo.
+bool  ubicandose      = false;
+
+// 🧩 2026-11-03: TODO LO QUE SIGUE HASTA "estado" ESTA TRAIDO DE LA ESTABLE
+// 0.1013 (respaldos/estable1013conlimiteslaterales/), con los mismos numeros
+// y las mismas explicaciones, a pedido del equipo (punto 5 del encabezado).
+// Las fechas de adentro (12/10, 13/10) son las de cuando se hizo alla.
+//
+// 2026-10-12, pedido del equipo: DOS COSAS NUEVAS en la ubicacion inicial.
+//
+//   1. Si ENCONTRO la linea del area, despues de enderezarse avanza el mismo
+//      empujoncito de ~10 cm que hace al volver de un despeje. Asi no queda
+//      sentado sobre el blanco, y arranca parado en el mismo lugar en el que
+//      va a quedar despues de cada despeje.
+//
+//   2. Si NO la encontro (retrocedio MS_MAX_RETROCESO y nada), en vez de
+//      quedarse ahi hace la rutina de `pruebas/ir-al-medio`, la que usa las
+//      lineas del costado y del fondo para saber donde esta parado.
+//
+// Cada una tiene su interruptor: se pueden probar y apagar por separado.
+//
+// 2026-11-03, por que se trajo tambien la 1 (no se pidio por nombre): la
+// rutina, la patrulla y el limite lateral TERMINAN por este mismo camino
+// (linea del area, enderezarse, el poquito), y la patrulla da por hecho que
+// el robot NO arranca parado sobre el blanco. Sin el poquito, cada patrulla
+// empezaria despegandose de la linea del area de costado, que no es lo que
+// hace la 0.1013.
+bool avanzarAlUbicarse     = true;
+bool irAlMedioSiNoHayLinea = true;    // 0921f: prendido otra vez, pedido del equipo (en la 0921e estaba apagado)
+
+// Como termino la ubicacion: si hay linea debajo, el robot sabe donde esta.
+bool encontroLaLinea = false;
+
+// El empujoncito del arranque usa la misma fase que el del despeje
+// (ADELANTE_CHICO), pero al terminar NO tiene que enfriarse: el enfriamiento
+// existe para no volver a disparar un despeje, y aca no hubo ninguno. Sin
+// esto el arquero arrancaba ~1,3 s mas tarde sin mirar la pelota.
+bool empujonDeArranque = false;
+
+
+// ---- PATRULLA: no quedarse quieto para siempre ----
+//
+// 2026-10-12, pedido del equipo, despues de ganar 2-0: el robot hacia la
+// rutina, quedaba en el medio y sin pelota a la vista NO SE MOVIA MAS. El
+// juez penso que estaba roto y lo saco. (El 21/09 ya habia pasado lo mismo.)
+//
+// Ahora, si pasa MS_QUIETO_PARA_PATRULLAR sin moverse y sin ver la pelota,
+// va hasta el lateral, vuelve al medio por tiempo, retrocede hasta la linea
+// del area y avanza el poquito. O sea: los pasos 5, 6 y 7 de la rutina de
+// ir al medio. Sirve para dos cosas: el juez ve que esta vivo, y el robot
+// vuelve a quedar CENTRADO (el seguimiento lo va corriendo y nada lo traia).
+//
+// Cuatro cuidados, sacados de la revision del 21/09:
+//   - El reloj cuenta desde la ultima vez que el robot SE MOVIO, no desde la
+//     ultima vez que vio la pelota. Si no, un reflejo naranja cada tanto lo
+//     dejaria quieto para siempre.
+//   - Si aparece la pelota varios cuadros SEGUIDOS, corta la patrulla y la
+//     sigue. Un cuadro suelto no alcanza.
+//   - Termina en la linea del area, asi no se va corriendo en profundidad.
+//   - Sin giroscopio no patrulla: de costado y sin rumbo gira solo.
+//
+// ⚠️ COSTO: cada patrulla son unos 8 s, y 5 de esos el arco queda
+// descubierto. Si el juez aguanta mas de 10 s quieto, conviene subirlo.
+bool patrullarSinPelota = true;   // 09/11: apagada para el primer partido y prendida otra vez despues ("activa la patrulla la ultima"). Cual patrulla: ver patrullaPorLaLinea (abajo)
+const unsigned long MS_QUIETO_PARA_PATRULLAR = 20000;   // 09/11: 15000 -> 20000, pedido del equipo ("que inicie a 20")
+
+// ---- 🎯 LA PATRULLA POR LA LINEA DEL AREA (0921i, 2026-11-09) ----
+// Ver el encabezado. En vez de irse al lateral de la cancha (y dejar el
+// arco solo ~5 s), recorre la linea del area con los sensores de atras:
+// punta, otra punta contando el tiempo, y vuelve la mitad. Nunca sale del
+// area.
+// 09/11: APAGADA, pedido del equipo: "la patrulla de antes, que iba hacia un
+// lateral y luego volvia al medio por tiempo", a los dos lados (ver
+// alternarLadoPatrulla). true = la patrulla por la linea del area.
+bool patrullaPorLaLinea = false;         // false = la patrulla vieja, al lateral de la cancha
+// 🧪 2026-11-09, VERSION DE PRUEBA, pedida asi por el equipo: "el robot
+// retrocede hasta ver la linea. cuando llegue, espera 3 segundos quieto (en
+// ese tiempo vemos en que parte de la linea quedo; la idea es que quede lo
+// mas centrado posible). Luego va de costado usando UNICAMENTE EL
+// GIROSCOPIO, para no oscilar, hasta dejar de detectar con un sensor el
+// blanco, que es el final de la linea. Despues va hacia el otro para
+// calcular el medio." (La primera 0921i ademas se corregia para adelante y
+// para atras para quedarse sobre la linea: oscilaba, se pasaba de las
+// puntas y se metio en el area. Eso se SACO.)
+//
+// Retroceso hasta la linea: mas despacio que el del despeje, para que frene
+// mas cerca de donde la vio. No bajar de ~75 (parado no arranca).
+const int VEL_ATRAS_A_LA_LINEA = 80;
+// Cuanto se queda quieto al llegar a la linea, y otra vez al llegar al
+// medio, para que el equipo vea donde quedo. Para el partido se puede bajar.
+const unsigned long MS_QUIETO_PARA_MIRAR = 3000;
+// De costado por la linea (moverDeCostado: solo la correccion de rumbo del
+// giroscopio). La ida a la segunda punta y la vuelta al medio van a ESTA
+// misma fuerza, asi que la mitad del tiempo es la mitad del camino.
+const int VEL_LINEA = 90;
+// El FINAL de la linea: el sensor de ADELANTE en el sentido de la marcha
+// (yendo a la izquierda, el de la izquierda) ve verde, todo este rato
+// seguido. Se mira solo ese: el de atras, al arrancar el tramo de vuelta,
+// todavia esta afuera de la punta anterior. Si frena antes del final (por
+// un temblor): subir. Si se pasa mucho: bajar.
+const unsigned long MS_PUNTA_SOSTENIDA = 80;
+// Al arrancar cada tramo no mira el final durante esto.
+const unsigned long MS_MIN_ANTES_DE_PUNTA = 300;
+// Tope de cada tramo. Si no encuentra el final, frena, se endereza y juega
+// desde donde quedo.
+const unsigned long MS_TOPE_PUNTA = 5000;
+// 🧪 2026-11-09 (2), lo que vio el equipo: "a la izquierda estuvo perfecto,
+// pero hacia la derecha llega hasta una punta y despues hace un pequeno
+// movimiento hacia la derecha... seria mejor medir por tiempo". Y: "b, pero
+// guardalo en la memoria". Entonces:
+//   - SIEMPRE arranca para la IZQUIERDA (ese final lo encuentra bien);
+//   - el tiempo de punta a punta lo MIDE una vez (izquierda -> derecha, con
+//     el sensor de la derecha) y lo GUARDA EN LA EEPROM: sobrevive a apagar;
+//   - las patrullas siguientes, desde la punta izquierda van a la DERECHA la
+//     MITAD de ese tiempo, directo al medio, sin buscar la otra punta.
+// Para LEERLO: con la bateria apagada, enchufar el USB y abrir MIRAR.bat:
+// al arrancar escribe "LINEA DEL AREA: ...".
+// Sospecha de por que la derecha se pasa: los dos sensores de atras no leen
+// igual el verde (el 11/08 habia 110 puntos de diferencia); si el de la
+// derecha lee el verde cerca de umbralBlanco, tarda mas en "ver verde".
+const int LADO_PATRULLA_LINEA = -1;      // -1 = siempre arranca para la izquierda
+// Si se pone un numero aca (ms de PUNTA A PUNTA), usa ESTE y no el medido.
+// 0 = usar el medido y guardado. Sirve si el medido sale mal por la derecha.
+// 2026-11-09 (3): 0 -> 2548, MEDIDO por el equipo con pruebas/medir-ancho-area
+// (el sensor de ADELANTE, de costado a costado del area, a VEL_LINEA 90).
+// Desde la punta izquierda va a la derecha la mitad: 1274 ms. Si queda
+// corrido del medio, ajustar: queda a la IZQUIERDA del medio -> subir; queda
+// a la DERECHA -> bajar.
+const unsigned long MS_PUNTA_A_PUNTA_FIJO = 2548;
+// true = mide de nuevo en CADA patrulla (y guarda lo ultimo). false = mide
+// una sola vez, la primera, y despues usa lo guardado.
+bool remedirLineaSiempre = false;
+const int DIR_LINEA = 3584;              // EEPROM: 3584..3595 (libre en el mapa de medir-ancho)
+const uint32_t MAGIA_LINEA = 0x4C494E31; // "LIN1": si no esta, no hay nada guardado
+unsigned long msLineaGuardado = 0;       // 0 = no hay nada guardado
+int ladoLinea = -1;                      // -1 izquierda, +1 derecha: para donde arranca ESTA patrulla
+int ladoAlMedio = +1;                    // para donde va el tramo al medio
+unsigned long t_puntaDesde = 0;
+unsigned long msLargoLinea = 0;          // cuanto tarda de punta a punta (medido o guardado)
+const int CUADROS_PARA_CORTAR_PATRULLA = 5;     // ~0,2 s viendo la pelota
+
+// Ademas de los 10 s sin moverse, tiene que llevar este rato SEGUIDO sin ver
+// la pelota. Sin esto, si el arquero estuvo 10 s quieto MIRANDO una pelota
+// trabada enfrente y un rival se la tapa un instante, salia al lateral en el
+// acto, justo cuando le llevan la pelota.
+const unsigned long MS_SIN_PELOTA_PARA_PATRULLAR = 3000;
+
+// Con menos que esto en las tres ruedas, el robot no se mueve a la vista.
+const int PWM_CUENTA_COMO_MOVERSE = 60;
+
+// PLAN B, por si la patrulla por el lateral hace algo raro en la cancha: con
+// esto en false la "patrulla" es solo retroceder hasta la linea del area,
+// enderezarse y avanzar el poquito. Dura ~1,3 s y NO descubre el arco; lo
+// que se pierde es que no vuelve a centrarlo de costado.
+bool patrullaPorElLateral = true;
+
+unsigned long t_ultimoMovimiento = 0;   // lo actualiza aplicar()
+unsigned long t_soltoLinea = 0;         // para el paso de despegarse
+bool patrullando = false;
+int  cuadrosConPelota = 0;              // cuadros seguidos con pelota a la vista
+
+// ---- la rutina de ir al medio ----
+//
+// 🚨 SON LOS NUMEROS DE `pruebas/ir-al-medio`, COPIADOS TAL CUAL. Alla estan
+// explicados uno por uno y alla se midieron (2026-10-06). Si se cambia uno
+// en un lado hay que cambiarlo en el otro, o la prueba deja de decir lo que
+// va a hacer el partido.
+//
+// Hay DOS velocidades de costado y no es un descuido: los pasos que
+// terminan al VER una linea pueden ir a cualquier velocidad, pero el que
+// termina por TIEMPO tiene que ir a la velocidad con la que se midio ese
+// tiempo. Los 2228 ms son a velocidad 100.
+//
+// ⚠️ 2026-11-03: estos pasos van con moverDeCostado(), adelanteControlado()
+// y atrasControlado() a fuerza FIJA. No los tocan pwmMinLateral (70) ni
+// pwmMaxLateral (160) de esta version: esos son solo del seguimiento.
+const int VEL_MEDIO_BUSCAR = 110;     // de costado, hasta ver una linea
+const int VEL_MEDIO_MEDIR  = 100;     // 🚨 atada a MS_MEDIO_AL_MEDIO
+const int VEL_MEDIO_RECTO  = 110;     // atras y adelante. Atada a MS_MEDIO_ADELANTE
+const int LADO_MEDIO = -1;            // -1 = va a buscar el lateral IZQUIERDO
+
+// ---- 🎯 LA PATRULLA AL LATERAL, A LOS DOS LADOS (de la 0921h, 09/11) ----
+// Pedido del equipo: "la patrulla de antes, que iba hacia un lateral y luego
+// volvia al medio por tiempo", "que se vaya hacia ambos lados". El lado de la
+// rutina es una variable (ladoMedio):
+//   - ir al medio al ARRANCAR: siempre LADO_MEDIO (el izquierdo, el medido);
+//   - cada PATRULLA: una al izquierdo, la siguiente al derecho, y asi.
+// ⚠️ Desde el DERECHO vuelve al medio con los MISMOS 2228 ms (decision del
+// equipo del 13/10 para el limite lateral). La cuenta del 06/10 da 2331 ms
+// desde ese lado: si desde la derecha queda corto del medio, ese es el
+// numero. Los dos son de antes de mover los motores.
+bool alternarLadoPatrulla = true;     // false = siempre al izquierdo
+int  ladoMedio = LADO_MEDIO;          // -1 izquierdo, +1 derecho: el de la rutina en curso
+int  ladoProximaPatrulla = LADO_MEDIO;
+
+// ---- 🎯 VOLVIENDO AL MEDIO, SI VE LA LINEA DEL AREA (09/11) ----
+// Pedido del equipo: "despues de tocar el lateral, si al volver al medio por
+// tiempo ve la linea blanca, que avance 10 cm y que vaya con el otro tiempo
+// medido desde la linea del area hacia el medio del arco". O sea: volviendo
+// del lateral (patrulla, ir al medio y la vuelta del limite lateral), si un
+// sensor de atras ve blanco (despues de haber salido del lateral), FRENA,
+// avanza ~10 cm y va de costado hacia el medio la MITAD de
+// MS_PUNTA_A_PUNTA_FIJO (medido con medir-ancho-area: 2548 -> 1274 ms), a
+// VEL_LINEA (la velocidad a la que se midio). Despues, atras hasta la linea
+// del area como siempre.
+bool buscarLineaDelAreaAlVolver = true;    // false = como antes: el tiempo largo y listo
+const unsigned long MS_VERDE_PARA_ARMAR = 150;   // primero tiene que salir del blanco del lateral
+const unsigned long MS_BLANCO_LINEA_VUELTA = 20; // blanco seguido para creerle
+const unsigned long MS_AVANCE_10CM = 450;        // a potenciaEmpujon (100): ~15 cm (cuenta del 18/08). 09/11: 320 (10 cm) -> 450 (15 cm), pedido del equipo
+bool vioVerdeVuelta = false;
+unsigned long t_verdeVuelta = 0;
+unsigned long t_blancoVuelta = 0;
+int dirVueltaLinea = +1;              // para donde sigue hacia el medio
+
+const unsigned long MS_MEDIO_ALEJARSE = 400;    // despegarse del lateral
+const unsigned long MS_MEDIO_ADELANTE = 943;    // ~50 cm a 110 (regla de tres)
+const unsigned long MS_MEDIO_AL_MEDIO = 2228;   // del lateral izquierdo al medio
+const unsigned long MS_MEDIO_TOPE_LATERAL = 6000;
+const unsigned long MS_MEDIO_QUIETO = 300;      // quieto entre paso y paso
+
+// 2026-10-12, dato del equipo: EL FONDO SE MIDE POR TIEMPO.
+//
+// En los bordes de la cancha hay una rampita, puesta para que la pelota
+// vuelva sola al campo. El robot NO la sube, asi que los sensores de atras
+// no llegan nunca a pisar la linea del fondo y "retroceder hasta ver blanco"
+// no terminaba: se cumplia el tope y la rutina se daba por fallada.
+//
+// Ahora el paso 3 termina con LO QUE PASE PRIMERO: ve la linea, o se cumple
+// este tiempo. Si se cumple el tiempo se da por hecho que el robot esta
+// apoyado contra la rampa del fondo —que es una marca fisica tan buena como
+// la linea— y la rutina SIGUE.
+//
+// ⚠️ ES UN NUMERO A OJO, NO UNA MEDICION. Tiene que alcanzar para llegar al
+// fondo desde donde este (ya viene de retroceder MS_MAX_RETROCESO antes de
+// empezar la rutina: 1200 ms en la 0.1013, 1500 en esta) y no ser tan largo
+// que se quede empujando la rampa de gusto.
+// A 110 el robot hace 1 cm cada 18 a 24 ms: 2000 ms son entre 80 y 110 cm.
+// Como medirlo: cronometrar cuanto tarda en tocar la rampa desde el lugar
+// mas lejano en el que se lo vaya a apoyar, y sumarle medio segundo.
+const unsigned long MS_MEDIO_FONDO_POR_TIEMPO = 2000;
+
+
+// ---- LIMITE LATERAL: al pisar el lateral, volver al medio ----
+//
+// 2026-10-13, pedido del equipo: siguiendo la pelota el robot se iba de
+// largo por el costado, chocaba el muro de afuera de la cancha y el juez lo
+// sacaba 1 minuto. Ahora, si mientras sigue la pelota pisa la linea blanca
+// del lateral, frena y vuelve al medio.
+//
+// ⚠️ 2026-11-03: en esta version importa MAS que en la 0.1013, porque el
+// seguimiento va mas rapido (pwmMaxLateral 160, alla 150) y una vez a 160
+// ya choco la madera.
+//
+// COMO SABE QUE ES EL LATERAL Y NO LA LINEA DEL AREA. El limite que hubo
+// del 11/08 al 18/08 ya miraba solo el sensor del lado hacia el que iba, y
+// igual se saco porque cortaba de mas: torcido, ese sensor pisaba otra
+// linea antes de tiempo. Este pide ademas que el OTRO sensor siga en verde
+// y varias lecturas seguidas. Las dos lineas se distinguen por como cruzan
+// el par de sensores:
+//
+//     lateral   (va de adelante hacia atras)  ->  la pisa PRIMERO el sensor
+//               del lado hacia el que va el robot; el otro sigue en verde
+//     del area  (va de costado a costado)     ->  la pisan LOS DOS
+//
+// Por eso cuenta solo si ve blanco el sensor del lado hacia el que va Y el
+// otro no. ⚠️ No es infalible: corrido para atras Y torcido puede quedar
+// un solo sensor sobre la linea del area. Para eso esta el cuidado de la
+// vuelta: si volviendo al medio pisa el OTRO lateral, frena ahi.
+//
+// EL MISMO TIEMPO DESDE LOS DOS LATERALES, decision del equipo: usa
+// MS_MEDIO_AL_MEDIO (2228), que sale de los cruces desde el IZQUIERDO.
+// Desde el derecho la misma cuenta del 06/10 da 2331 ms (103 mas): si de
+// ese lado queda corto del medio, ese es el numero. Los dos son de antes
+// de mover los motores.
+//
+// Mientras vuelve al medio NO mira la pelota (~2,7 s): la pelota esta de
+// ese lado y lo llevaria derecho de vuelta al lateral. Una vez en el medio,
+// si la ve, la sigue ahi mismo.
+//
+// SIN GIROSCOPIO NO HAY LIMITE: de costado y sin rumbo gira solo, asi que
+// no puede volver por tiempo. Es lo mismo que pasa con la patrulla.
+bool volverAlMedioEnElLateral = true;       // false -> sin limite, como antes
+const int LECTURAS_PARA_CREER_LATERAL = 3;  // vueltas seguidas viendolo
+int lecturasDeLateral = 0;
+int ladoDelLateral = 0;                     // -1 = piso el izquierdo, +1 = el derecho
+
+
+// ---- estado ----
+enum Fase { APAGADO, ARMANDOSE, ESPERANDO, SIGUIENDO,
+            ADELANTE, PAUSA_MEDIO, ATRAS_HASTA_LINEA, FRENANDO,
+            ACOMODANDO, ACOMODO_ASENTAR, ADELANTE_CHICO, ENFRIANDO,
+            UBIC_ATRAS, UBIC_FRENANDO,
+            // 2026-11-03, de la 0.1013: la rutina de ir al medio y la vuelta
+            // del lateral.
+            MEDIO_PAUSA, MEDIO_AL_LATERAL, MEDIO_ALEJARSE, MEDIO_AL_FONDO,
+            MEDIO_ADELANTE, MEDIO_AL_LATERAL_2, MEDIO_AL_MEDIO,
+            MEDIO_AL_AREA, MEDIO_DESPEGARSE,
+            LATERAL_AL_MEDIO,
+            // 0921i: la patrulla por la linea del area.
+            LINEA_BUSCAR, LINEA_PUNTA_A, LINEA_PUNTA_B, LINEA_AL_MEDIO,
+            LINEA_MIRAR, LINEA_MIRAR_MEDIO,
+            // 09/11: volviendo al medio, vio la linea del area.
+            MEDIO_LINEA_AVANZAR, MEDIO_LINEA_AL_MEDIO,
+            // 0921j: el despeje de la estrategia 2, enderezarse antes de volver.
+            ENDEREZAR_DESPEJE, FRENO_ENDEREZADO };
+Fase fase = APAGADO;
+unsigned long t_fase = 0;
+
+// A que paso de la rutina se va cuando termine la pausa entre pasos.
+Fase faseDespuesDePausa = ESPERANDO;
+
+int vecesSeguidas = 0;
+
+// ---- camara ----
+byte paquete[9];
+int  cuantos = 0;
+bool sincronizado = false;
+int  Xp = 0, Yp = 0;
+
+
+unsigned long t_ultimoPaquete = 0;
+
+
+// ---- PREDICCION: SACADA ENTERA el 2026-11-03, pedido del equipo ----
+// Hasta el 21/09 aca se calculaba la velocidad de la pelota y se seguia
+// adonde IBA a estar. Con la camara arriba del robot, cuando el robot se
+// mueve la pelota PARECE moverse (bitacora del 20/10), y eso lo hacia ir
+// y venir. Ahora el robot sigue y despeja mirando solo DONDE ESTA.
+
+
+// ---- 🎯 DESPEJE EN DIAGONAL (2026-09-08) ----
+//
+// PEDIDO DEL EQUIPO, textual:
+//   "el robot cuando despeja va recto y a veces la pelota la pierde, o si
+//    esta muy cerca hace mal el despeje. Nos parecia buena idea que
+//    despeje usando el giroscopio EN DIAGONAL si es necesario,
+//    PREDICIENDO EL ANGULO con el que debe salir a despejar."
+//
+// La idea, y es mejor que corregir sobre la marcha: en el instante de
+// disparar, con la pelota todavia bien a la vista, el robot calcula
+// ADONDE SE VAN A ENCONTRAR los dos, saca de ahi el angulo, y se lanza
+// comprometido con esa diagonal. Despues no necesita ver nada mas.
+//
+// Por que importa que no necesite ver: la camara PIERDE la pelota justo
+// cuando la tiene encima (manda Xp = 0 tanto si no la ve como si la tiene
+// pegada). Un despeje que depende de mirar se queda sin datos en el peor
+// momento. Este no.
+//
+// LA CUENTA, en castellano:
+//   1. ¿En cuanto tiempo nos encontramos? La pelota se me viene encima y
+//      yo voy hacia ella, asi que la distancia se cierra con la SUMA de
+//      las dos velocidades.
+//          tiempo = distancia / (mi velocidad + la de acercamiento de ella)
+//   2. ¿Donde va a estar de costado en ese momento?
+//          desvio_final = desvio_ahora + velocidad_lateral x tiempo
+//   3. ¿Que tan rapido me tengo que correr para llegar ahi?
+//          velocidad_lateral_necesaria = desvio_final / tiempo
+//   4. Si esa velocidad es mas de lo que puedo, NO SALGO. Decision del
+//      equipo: un arquero que sale y no llega queda fuera de posicion Y
+//      ademas le hacen el gol. Mejor quedarse y seguir acomodandose.
+//
+// El giroscopio no dirige nada: IMPIDE QUE EL ROBOT GIRE. Eso es lo que
+// hace que la diagonal salga recta y no curva, y que el robot llegue
+// mirando al frente.
+// 🚨 2026-09-15: APAGADA, PORQUE EL GIROSCOPIO ESTA MUERTO.
+//
+// Sin giroscopio la diagonal es PEOR que ir derecho: la mezcla lateral
+// 50/50/89 genera una rotacion parasita chica, y el que la corrige es
+// justamente el giroscopio. Sin el, el robot sale en diagonal Y GIRANDO,
+// y encima despues no se puede enderezar.
+//
+// Ir derecho sin giroscopio es lo que el robot venia haciendo en agosto:
+// no es ideal, pero es predecible.
+//
+// ⚠️ APENAS EL GIROSCOPIO VUELVA, PRENDER ESTO (poner true).
+// La diagonal esta escrita, compilada y sin probar.
+bool despejeEnDiagonal = false;
+
+
+// ⚠️ EL UNICO NUMERO DE FE QUE QUEDA.
+// Con el MISMO PWM, ¿el robot se corre de costado tan rapido como avanza?
+// No: rinde menos. Avanzando, las dos ruedas de adelante tiran enteras.
+// De costado, con la proporcion 50/50/89, parte del empuje de cada rueda
+// se va para donde no sirve. De la geometria sale ~0,80 (o sea, el 80%).
+// Esperar que la cancha pida bajarlo a 0,60-0,70.
+//
+// Lo bueno de que sea UN SOLO multiplicador: tambien tapa el otro agujero
+// conocido (que al eje Y de la camara se le aplica el mismo factor 2,87
+// que al X sin haberlo medido). Si ese estuviera errado, los dos terminos
+// de la cuenta se escalan igual, y esta misma perilla los corrige a los
+// dos. Una perilla, dos agujeros — aunque nunca sepamos cual era.
+float rendimientoCostado = 0.80;
+
+// 🚨 EL REPARTO DEL MOTOR. Una rueda no pasa de 255. La mas cargada
+// recibe el avance ENTERO mas la MITAD del costado. Se le reservan 45
+// para el giroscopio (con KP_RUMBO = 5,0 eso son 9 grados de error
+// corregibles sin recortar nada), y quedan 210 para el movimiento.
+const int RESERVA_RUMBO      = 45;
+const int PRESUPUESTO_RUEDA  = 210;   // 255 - RESERVA_RUMBO
+
+// Debajo de este avance ya no es un despeje: es un paseo.
+const int PWM_MIN_AVANCE_DESPEJE = 140;
+const unsigned long MS_MAX_ADELANTE = 800;   // tope duro de la ida
+
+// Debajo de este costado el rozamiento se lo come: no vale la pena pagar
+// avance por una diagonal que no se va a cumplir. Sale derecho.
+const int COSTADO_MINIMO_UTIL = 20;
+
+// Lo que se decidio para ESTE despeje. Se guarda para poder volver por la
+// MISMA diagonal, que es lo que pidio el equipo: si sali torcido para
+// alla, vuelvo torcido para aca y caigo donde arranque.
+int lateralDelDespeje  = 0;
+int pwmAvanceDespeje   = 160;    // puede bajar para dejarle lugar al costado (lo pone intentarDespejar)
+unsigned long msIdaDespeje = 666;
+
+
+
+// ---------------------------------------------------------------- motores
+
+// SOLTAR los motores. No es frenar: el robot sigue de largo por inercia.
+// Las dos patas de direccion en 0 (no alcanza con poner el PWM en 0, eso ya
+// lo midio la otra mesa).
+void parar() {
+  analogWrite(PWM1, 0); digitalWrite(INA1, 0); digitalWrite(INB1, 0);
+  analogWrite(PWM2, 0); digitalWrite(INA2, 0); digitalWrite(INB2, 0);
+  analogWrite(PWM3, 0); digitalWrite(INA3, 0); digitalWrite(INB3, 0);
+}
+
+// FRENO ELECTRICO. La idea es cortocircuitar los bornes del motor: la
+// corriente que el propio motor genera al girar lo frena a el mismo. Es
+// instantaneo y no hay que calibrar nada.
+//
+// Hay DOS formas de pedirselo al driver. MEDIDO en el piso el 2026-08-18
+// con `pruebas/probar-freno` (tres corridas iguales de 1 segundo, marcando
+// donde quedaba cada una):
+//
+//   VARIANTE 1 — las dos patas en ALTO, PWM al maximo.   ✅ FRENA
+//   VARIANTE 2 — las dos patas en BAJO, PWM al maximo.   ✅ FRENA  <-- activa
+//   Soltar (lo que habia antes)                          quedo MAS LEJOS
+//
+// Las dos frenan parecido. Se usa la 2 porque es la que quedo probada en
+// este camino del codigo.
+//
+// ⚠️ La variante 2 se parece peligrosamente a parar(): la unica diferencia
+// es el PWM. Con el PWM en CERO el driver apaga la salida y el motor queda
+// suelto; con el PWM al maximo, cortocircuitado. **Mismo estado de las patas
+// de direccion, efecto opuesto.** No confundirlas al leer.
+//
+// 🚨 Antes de esto hubo una prueba en la MESA que dijo que la variante 1 no
+// frenaba. Estaba mal: el retroceso era de 250 ms y el robot se movia menos
+// de 3 cm, o sea que nunca agarraba velocidad. **Un freno solo se puede
+// medir si hay inercia que frenar.** El experimento no podia distinguir las
+// dos respuestas, asi que no era una medicion.
+void frenar() {
+  digitalWrite(INA1, 0); digitalWrite(INB1, 0); analogWrite(PWM1, 255);
+  digitalWrite(INA2, 0); digitalWrite(INB2, 0); analogWrite(PWM2, 255);
+  digitalWrite(INA3, 0); digitalWrite(INB3, 0); analogWrite(PWM3, 255);
+}
+
+// Aplica un valor CON SIGNO a una rueda. Positivo = pata A alta.
+// Tener valores con signo es lo que permite sumar movimientos: no se puede
+// sumar "50 hacia alla" con "20 hacia el otro lado" si no hay signos.
+void rueda(int ina, int inb, int pwm, int v) {
+  if (v > 255)  v = 255;
+  if (v < -255) v = -255;
+  digitalWrite(ina, v >= 0 ? 1 : 0);
+  digitalWrite(inb, v >= 0 ? 0 : 1);
+  analogWrite(pwm, abs(v));
+}
+
+void aplicar(int v1, int v2, int v3) {
+  rueda(INA1, INB1, PWM1, v1);
+  rueda(INA2, INB2, PWM2, v2);
+  rueda(INA3, INB3, PWM3, v3);
+  // Todo movimiento pasa por aca (parar() y frenar() no): es el reloj de
+  // "hace cuanto que no me muevo" que usa la patrulla.
+  //
+  // Solo cuenta si alguna rueda recibe fuerza de verdad. Sin este piso, un
+  // reflejo naranja de UN cuadro mandaba al robot a seguir "la pelota", se
+  // llamaba aca con la rampa todavia en cero, y el reloj se reiniciaba sin
+  // que el robot se hubiera movido: la patrulla no salia nunca. Todos los
+  // movimientos de verdad pasan de 60 en alguna rueda.
+  // (De la 0.1013, traido el 2026-11-03.)
+  if (abs(v1) >= PWM_CUENTA_COMO_MOVERSE || abs(v2) >= PWM_CUENTA_COMO_MOVERSE
+      || abs(v3) >= PWM_CUENTA_COMO_MOVERSE) {
+    t_ultimoMovimiento = millis();
+  }
+}
+
+// Avanzar recto: mismas direcciones que avanzar() de arquero.ino, escritas
+// con signos. Las dos de adelante van opuestas entre si porque estan
+// montadas espejadas; la trasera no aporta al avance recto.
+
+
+// ---------------------------------------------------- arranque suave
+
+// MEDIDO en cancha el 2026-08-18: arrancando de golpe a potencia 200, las
+// ruedas PATINAN. Y no patinan igual las dos — una agarra antes que la
+// otra, y ese instante de diferencia tuerce al robot. De ahi en mas se va
+// chueco, y como el avance no corregia el rumbo, llegaba torcido y volvia
+// por la misma diagonal.
+//
+// Subiendo la potencia de a poco (200 ms hasta el fondo) las ruedas
+// alcanzan a agarrar. Llega a la misma velocidad, sin el tiron.
+const int RAMPA_MOV_PASO = 10;
+const unsigned long RAMPA_MOV_MS = 10;
+int potenciaRampa = 0;
+unsigned long t_rampaMov = 0;
+
+void reiniciarRampaMovimiento() {
+  potenciaRampa = 0;
+  t_rampaMov = millis();
+}
+
+// Devuelve la potencia que corresponde AHORA, subiendo de a escalones.
+// Bajar puede ser de golpe: pedir menos fuerza nunca hace patinar.
+int rampa(int objetivo) {
+  unsigned long ahora = millis();
+  if (objetivo < potenciaRampa) {
+    potenciaRampa = objetivo;
+  } else if (ahora - t_rampaMov >= RAMPA_MOV_MS) {
+    t_rampaMov = ahora;
+    potenciaRampa += RAMPA_MOV_PASO;
+    if (potenciaRampa > objetivo) potenciaRampa = objetivo;
+  }
+  return potenciaRampa;
+}
+
+// ---- la rampa de CADA motor (0921j, copia de la estrategia 2) ----
+// Ver "EL DESPEJE DE LA ESTRATEGIA 2" en el panel. Solo la usa el despeje.
+int ruedaActual[3] = {0, 0, 0};   // lo que tiene cada rueda ahora
+unsigned long t_rampaRuedas = 0;
+
+// Las tres ruedas a 0: la proxima vez arrancan de nuevo con su rampa.
+void reiniciarRuedas() {
+  ruedaActual[0] = ruedaActual[1] = ruedaActual[2] = 0;
+  t_rampaRuedas = millis();
+}
+
+// Una rueda: sube de a PASO_RAMPA_RUEDA (si `toca`), baja en el acto, y si
+// cambia de sentido pasa primero por 0.
+int pasoRueda(int actual, int objetivo, bool toca) {
+  if (objetivo == 0) return 0;
+  if ((actual > 0 && objetivo < 0) || (actual < 0 && objetivo > 0)) actual = 0;
+  if (abs(objetivo) <= abs(actual)) return objetivo;
+  if (!toca) return actual;
+  int sube = abs(actual) + PASO_RAMPA_RUEDA;
+  if (sube > abs(objetivo)) sube = abs(objetivo);
+  return (objetivo > 0) ? sube : -sube;
+}
+
+// Como aplicar(), pero cada rueda llega a su fuerza con su propia rampa.
+void aplicarSuave(int v1, int v2, int v3) {
+  unsigned long ahora = millis();
+  bool toca = (ahora - t_rampaRuedas >= MS_RAMPA_RUEDA);
+  if (toca) t_rampaRuedas = ahora;
+  ruedaActual[0] = pasoRueda(ruedaActual[0], v1, toca);
+  ruedaActual[1] = pasoRueda(ruedaActual[1], v2, toca);
+  ruedaActual[2] = pasoRueda(ruedaActual[2], v3, toca);
+  aplicar(ruedaActual[0], ruedaActual[1], ruedaActual[2]);
+}
+
+
+// ---------------------------------------------------------------- rumbo
+
+// Devuelve el rumbo, o -1 si el sensor esta mudo. Un numero imposible en
+// vez de 0 evita la confusion de siempre: 0.0 es a la vez un rumbo valido
+// y el sintoma de que el chip no contesta.
+// ---- la inclinacion (2026-11-03, ver ESPERAR A QUE QUEDE PLANO) ----
+// El BNO055 da tres angulos: x es el rumbo, y/z son las dos inclinaciones.
+float incBaseY = 0, incBaseZ = 0;   // la inclinacion "de siempre", quieto en el piso
+bool  hayIncBase = false;
+unsigned long t_planoDesde = 0;     // desde cuando esta plano (0 = no lo esta)
+
+bool leerInclinacion(float &y, float &z) {
+  if (!hayGiroscopo) return false;
+  sensors_event_t e;
+  bno.getEvent(&e);
+  if (e.orientation.x == 0.0 && e.orientation.y == 0.0
+      && e.orientation.z == 0.0) return false;   // mudo
+  y = e.orientation.y;
+  z = e.orientation.z;
+  return true;
+}
+
+// Promedia despacito la inclinacion con el robot quieto. Se llama en
+// ESPERANDO: si la cancha esta en pendiente, la "de siempre" la sigue.
+void aprenderInclinacion() {
+  static unsigned long t_ultima = 0;
+  if (millis() - t_ultima < 20) return;          // 50 veces por segundo sobra
+  t_ultima = millis();
+  float y, z;
+  if (!leerInclinacion(y, z)) return;
+  if (!hayIncBase) { incBaseY = y; incBaseZ = z; hayIncBase = true; return; }
+  incBaseY += 0.02 * diferencia(y, incBaseY);    // diferencia(): por si da la vuelta en 180
+  incBaseZ += 0.02 * diferencia(z, incBaseZ);
+}
+
+// ¿Esta plano AHORA? Si no se puede saber, dice que si (para no trabarse).
+bool estaPlano() {
+  float y, z;
+  if (!hayIncBase || !leerInclinacion(y, z)) return true;
+  return fabs(diferencia(y, incBaseY)) <= GRADOS_PLANO
+      && fabs(diferencia(z, incBaseZ)) <= GRADOS_PLANO;
+}
+
+float rumboActual() {
+  if (!hayGiroscopo) { giroscopoRespondiendo = false; return -1; }
+  sensors_event_t e;
+  bno.getEvent(&e);
+  if (e.orientation.x == 0.0 && e.orientation.y == 0.0
+      && e.orientation.z == 0.0) {
+    giroscopoRespondiendo = false;       // se cayo
+    return -1;
+  }
+  giroscopoRespondiendo = true;
+  return e.orientation.x;
+}
+
+float diferencia(float objetivo, float actual) {
+  float d = objetivo - actual;
+  while (d > 180.0)   d -= 360.0;
+  while (d <= -180.0) d += 360.0;
+  return d;
+}
+
+void reiniciarCorreccion() {
+  integralRumbo = 0;
+  t_ultimoControl = millis();
+}
+
+// Cuanto hay que sumarle a las TRES ruedas para que el robot no gire.
+// Devuelve 0 si no hay giroscopio: sin rumbo no se corrige nada, pero el
+// movimiento lateral tiene que seguir funcionando igual.
+int correccionDeRumbo() {
+  if (!enderezarActivado || rumboBase < 0) return 0;
+  float r = rumboActual();
+  if (r < 0) return 0;
+
+  float error = diferencia(rumboBase, r);
+
+  unsigned long ahora = millis();
+  float dt = (ahora - t_ultimoControl) / 1000.0;
+  t_ultimoControl = ahora;
+  if (dt > 0.5) dt = 0.5;
+
+  if (fabs(error) < ZONA_MUERTA_RUMBO) return 0;
+
+  // Anti-windup: el acumulador tiene tope. Sin esto, un rato torcido lo
+  // infla tanto que despues el robot se pasa para el otro lado.
+  integralRumbo += error * dt;
+  if (integralRumbo >  LIMITE_INTEGRAL) integralRumbo =  LIMITE_INTEGRAL;
+  if (integralRumbo < -LIMITE_INTEGRAL) integralRumbo = -LIMITE_INTEGRAL;
+
+  float c = error * KP_RUMBO + integralRumbo * KI_RUMBO;
+  if (c >  MAX_CORRECCION_RUMBO) c =  MAX_CORRECCION_RUMBO;
+  if (c < -MAX_CORRECCION_RUMBO) c = -MAX_CORRECCION_RUMBO;
+  return (int)c;
+}
+
+
+// ---------------------------------------------------------------- linea
+
+bool veBlancoIzq() { return analogRead(LINEA_ATRAS_IZQ) >= umbralBlanco; }
+bool veBlancoDer() { return analogRead(LINEA_ATRAS_DER) >= umbralBlanco; }
+bool algunoDeAtrasVeBlanco() { return veBlancoIzq() || veBlancoDer(); }
+
+// ¿Pisa el lateral de ese lado? (-1 izquierdo, +1 derecho). Solo el sensor
+// de ese lado en blanco y el otro en verde: ver "LIMITE LATERAL".
+// (De la 0.1013, traido el 2026-11-03.)
+bool pisaElLateral(int lado) {
+  bool izq = veBlancoIzq();
+  bool der = veBlancoDer();
+  return (lado < 0) ? (izq && !der) : (der && !izq);
+}
+
+
+// ------------------------------------------------------- moverse de costado
+
+// s > 0 pide ir a la DERECHA, s < 0 a la izquierda. El valor es la fuerza.
+// Suma el movimiento lateral con la correccion de rumbo: son dos cosas
+// independientes y por eso se pueden calcular por separado.
+//
+// La fuerza pasa por la rampa; la correccion de rumbo NO. La correccion
+// tiene que actuar enseguida, y ademas es chica: no hace patinar nada.
+void moverDeCostado(int s) {
+  if (lateralInvertido) s = -s;
+
+  int fuerza = rampa(abs(s));
+  if (s < 0) fuerza = -fuerza;
+
+  int frente  = (fuerza * LADO_FRENTE)  / 100;
+  int trasera = (fuerza * LADO_TRASERA) / 100;
+
+  // Direcciones sacadas de adproporcional() de arquero.ino: las dos de
+  // adelante para el mismo lado, la trasera al reves y mas fuerte.
+  int c = correccionDeRumbo();
+  aplicar(frente + c, frente + c, -trasera + c);
+}
+
+// 09/11: volviendo al medio, ¿vio la linea del area? Primero tiene que salir
+// del blanco del lateral (verde MS_VERDE_PARA_ARMAR seguido) y despues ver
+// blanco MS_BLANCO_LINEA_VUELTA seguido, con cualquiera de los de atras.
+void armarVueltaLinea() {
+  vioVerdeVuelta = false; t_verdeVuelta = 0; t_blancoVuelta = 0;
+}
+bool vueltaVioLaLineaDelArea(unsigned long ahora) {
+  if (!buscarLineaDelAreaAlVolver) return false;
+  bool blanco = algunoDeAtrasVeBlanco();
+  if (!vioVerdeVuelta) {
+    if (blanco) { t_verdeVuelta = 0; return false; }
+    if (t_verdeVuelta == 0) t_verdeVuelta = ahora;
+    if (ahora - t_verdeVuelta >= MS_VERDE_PARA_ARMAR) vioVerdeVuelta = true;
+    return false;
+  }
+  if (!blanco) { t_blancoVuelta = 0; return false; }
+  if (t_blancoVuelta == 0) t_blancoVuelta = ahora;
+  return ahora - t_blancoVuelta >= MS_BLANCO_LINEA_VUELTA;
+}
+
+// 0921i (version de prueba del 09/11): un paso de "ir por la linea del
+// area" hacia `lado` (-1 izquierda, +1 derecha). Va de costado SOLO con la
+// correccion de rumbo del giroscopio (moverDeCostado), sin corregir para
+// adelante ni para atras. Devuelve true cuando llego al FINAL de la linea:
+// el sensor de adelante en el sentido de la marcha ve verde durante
+// MS_PUNTA_SOSTENIDA seguidos (sin contar los primeros
+// MS_MIN_ANTES_DE_PUNTA del tramo, que empezo en `desde`).
+bool andarPorLaLinea(int lado, unsigned long desde) {
+  moverDeCostado(lado * VEL_LINEA);
+  bool adelanteVeBlanco = (lado < 0) ? veBlancoIzq() : veBlancoDer();
+  unsigned long ahora = millis();
+  if (adelanteVeBlanco || ahora - desde < MS_MIN_ANTES_DE_PUNTA) { t_puntaDesde = 0; return false; }
+  if (t_puntaDesde == 0) t_puntaDesde = ahora;
+  return ahora - t_puntaDesde >= MS_PUNTA_SOSTENIDA;
+}
+
+// Avanzar y retroceder SOSTENIENDO EL RUMBO, y con arranque suave.
+//
+// Antes el avance del despeje salia a ciegas: si patinaba al arrancar y se
+// torcia, nadie lo corregia en los 50 cm siguientes. Y el retroceso tampoco
+// corregia, asi que volvia por la misma diagonal torcida — de ahi que el
+// robot terminara "apuntando a donde termino el avance".
+//
+// La correccion se SUMA a las tres ruedas, igual que en el movimiento
+// lateral: girar es las tres parejas, avanzar son las dos de adelante
+// opuestas entre si. Como son movimientos independientes, se suman.
+void adelanteControlado(int potencia) {
+  int p = rampa(potencia);
+  int c = correccionDeRumbo();
+  aplicar(+p + c, -p + c, 0 + c);
+}
+
+// AVANZAR PERSIGUIENDO: avanzar y correrse de costado a la vez.
+//
+// Es adelanteControlado() con un sumando mas. Las tres cosas se calculan
+// por separado y se suman, que es como esta armado todo el programa:
+//
+//     avanzar          ->  (+p, -p,  0)     las dos de adelante opuestas
+//     correrse         ->  (fr, fr, -tr)    la proporcion 50/50/89
+//     no girar         ->  ( c,  c,  c)     las tres parejas
+//
+// `lateral` positivo = correrse a la DERECHA del robot, igual criterio que
+// moverDeCostado().
+//
+// El costado NO pasa por la rampa, por el mismo motivo que la correccion
+// de rumbo: tiene que actuar en el acto, y es chico al lado del avance.
+void avanzarPersiguiendo(int potencia, int lateral) {
+  if (lateralInvertido) lateral = -lateral;
+
+  int p  = rampa(potencia);
+  int c  = correccionDeRumbo();
+  int fr = (lateral * LADO_FRENTE)  / 100;
+  int tr = (lateral * LADO_TRASERA) / 100;
+
+  aplicar(+p + fr + c, -p + fr + c, -tr + c);
+}
+
+// 0921j: lo mismo, pero SIN la rampa general: la suma entera (avance +
+// costado + giroscopio) pasa por la rampa de CADA motor (aplicarSuave).
+// Es la ida de la estrategia 2.
+void avanzarPersiguiendoSuave(int potencia, int lateral) {
+  if (lateralInvertido) lateral = -lateral;
+
+  int c  = correccionDeRumbo();
+  int fr = (lateral * LADO_FRENTE)  / 100;
+  int tr = (lateral * LADO_TRASERA) / 100;
+
+  aplicarSuave(+potencia + fr + c, -potencia + fr + c, -tr + c);
+}
+
+void atrasControlado(int potencia) {
+  int p = rampa(potencia);
+  int c = correccionDeRumbo();
+  aplicar(-p + c, +p + c, 0 + c);
+}
+
+
+// ---------------------------------------------------------------- camara
+
+void leerCamara() {
+  while (Serial1.available()) {
+    byte b = Serial1.read();
+    if (!sincronizado) {
+      if (b == 201) { sincronizado = true; paquete[0] = b; cuantos = 1; }
+      continue;
+    }
+    paquete[cuantos++] = b;
+    if (cuantos < 9) continue;
+
+    cuantos = 0; sincronizado = false;
+    if (paquete[0] == 201 && paquete[3] == 202 && paquete[6] == 203) {
+      Xp = paquete[1];
+      Yp = paquete[2] - 100;
+      // El paquete trae tambien los dos arcos (202 amarillo, 203 azul),
+      // pero desde 2026-09-21 no se usan: el equipo centra el robot a mano.
+      t_ultimoPaquete = millis();
+
+      // Un solo cuadro no alcanza para lanzar al robot: cualquier reflejo
+      // naranja lo dispararia.
+      //
+      // La comparacion se hace en CENTIMETROS REALES: lo que llega por el
+      // cable son unidades de camara y hay que traducirlo antes de decidir.
+      float dCm  = Xp / CAMARA_POR_CM;
+      float dLat = (camaraYInvertida ? -(float)Yp : (float)Yp) / CAMARA_POR_CM;
+
+      // Cuantos cuadros SEGUIDOS viene viendo la pelota: con esto se corta
+      // la patrulla (CUADROS_PARA_CORTAR_PATRULLA), asi un reflejo suelto no
+      // la corta. Es la misma cuenta de la 0.1013 (2026-11-03): alla iba
+      // adentro de la cuenta de la velocidad de la pelota, que aca no
+      // existe (la prediccion se saco entera), asi que va sola.
+      if (Xp > 0) { if (cuadrosConPelota < 1000) cuadrosConPelota++; }
+      else        cuadrosConPelota = 0;
+
+      // Para decidir el despeje se usa DONDE ESTA (sin prediccion, 03/11).
+      float desvCm = fabs(dLat);
+      if (Xp > 0 && dCm <= umbralCm && desvCm <= umbralDesvio) {
+        if (vecesSeguidas < VECES_PARA_CREERLE) vecesSeguidas++;
+      } else {
+        vecesSeguidas = 0;
+      }
+    }
+  }
+}
+
+bool veLaPelota()  { return Xp > 0 && (millis() - t_ultimoPaquete < 500); }
+bool hayQueDespejar() { return vecesSeguidas >= VECES_PARA_CREERLE; }
+
+// A que distancia esta la pelota, en CENTIMETROS REALES.
+float distanciaPelota() {
+  return Xp / CAMARA_POR_CM;
+}
+
+// Desvio de la pelota en CENTIMETROS REALES, con el signo ya corregido:
+// positivo = esta a la derecha del robot.
+//
+// ⚠️ Al eje Y se le aplica el MISMO factor que al eje X. Bajar la camara
+// achica los dos ejes por igual, asi que en teoria corresponde — pero eso
+// es teoria, NO esta medido. Se mide igual que la distancia: pelota corrida
+// 10, 20 y 30 cm al costado, a distancia fija. Anotado como pendiente.
+float desvioPelota() {
+  float y = camaraYInvertida ? -(float)Yp : (float)Yp;
+  return y / CAMARA_POR_CM;
+}
+
+// ¿Con que angulo tengo que salir, y llego?
+//
+// Devuelve true si el despeje es posible, y deja en `lateral` el empuje de
+// costado que hay que sumarle al avance. Si devuelve false, NO HAY QUE
+// SALIR: la pelota se va a escapar igual y el robot queda fuera del arco.
+bool calcularDiagonal(int &avance, int &lateral, unsigned long &msIda) {
+  avance  = potenciaDespeje;
+  lateral = 0;
+  msIda   = msAdelante;
+
+  if (!despejeEnDiagonal) return true;     // modo viejo: sale derecho
+  if (!veLaPelota())      return true;     // sin datos, sale derecho
+
+  float d = distanciaPelota();
+  if (d < 1.0) d = 1.0;                    // no dividir por cero
+  float y  = desvioPelota();               // + = a la derecha
+
+  // ---- LA DIAGONAL: SOLO POR DONDE ESTA LA PELOTA (03/11) ----
+  // Es una regla de tres y nada mas: si esta a 30 cm adelante y 6 al
+  // costado, hay que correrse 6 por cada 30 que se avanza.
+  //         costado = (6/30) x avance
+  // (Hasta el 03/11 se le sumaba la velocidad de la pelota: era la
+  // prediccion, y se saco entera.)
+  float k = y / d;                          // sin unidades
+
+  // ---- ¿ENTRA EN EL MOTOR? ----
+  // La rueda mas cargada recibe el avance entero mas MEDIO costado, y no
+  // puede pasar del presupuesto. Despejando el avance de:
+  //        avance + 0,5 x costado <= PRESUPUESTO
+  //        costado = (k x avance) / rendimiento
+  float r = rendimientoCostado;
+  float denom = 1.0 + 0.5 * fabs(k) / r;
+  float techo = PRESUPUESTO_RUEDA / denom;
+
+  if (techo < avance) avance = (int)techo;
+
+  // 🚨 SI NO ENTRA, SE ACHICAN LOS DOS JUNTOS — nunca solo el costado.
+  // Recortar solo el costado dejaria al robot yendo en una direccion que
+  // NO es la que calculo: ni derecho ni en la diagonal buena, el peor de
+  // los mundos. Achicando los dos en la misma proporcion, la diagonal
+  // apunta exactamente igual, solo que se recorre mas despacio.
+  if (avance < PWM_MIN_AVANCE_DESPEJE) return false;   // no llego: no salgo
+
+  float costado = (k * avance) / r;
+  if (fabs(costado) < COSTADO_MINIMO_UTIL) costado = 0;   // sale derecho
+  lateral = (int)costado;
+
+  // Si el avance bajo, la ida se estira para recorrer la misma distancia.
+  msIda = (unsigned long)((float)msAdelante * potenciaDespeje / avance);
+  if (msIda > MS_MAX_ADELANTE) msIda = MS_MAX_ADELANTE;
+  return true;
+}
+
+// Volver por la MISMA diagonal por la que salio, que es lo que pidio el
+// equipo: si me fui torcido para alla, vuelvo torcido para aca y caigo
+// donde arranque.
+//
+// Se invierten LAS DOS cosas: el avance pasa a retroceso y el costado
+// cambia de lado. Y el costado se achica en la misma proporcion en que se
+// achico la potencia (la ida va a 200 y la vuelta a 110), para que el
+// ANGULO sea el mismo y no solo el sentido.
+void atrasEnDiagonal(int potencia, int lateral) {
+  if (lateralInvertido) lateral = -lateral;
+
+  int p  = rampa(potencia);
+  int c  = correccionDeRumbo();
+  int fr = (lateral * LADO_FRENTE)  / 100;
+  int tr = (lateral * LADO_TRASERA) / 100;
+
+  aplicar(-p + fr + c, +p + fr + c, -tr + c);
+}
+
+// 0921j: la misma diagonal para atras, pero con la rampa de CADA motor
+// (aplicarSuave) en vez de la general. Es la vuelta de la estrategia 2.
+void atrasEnDiagonalSuave(int potencia, int lateral) {
+  if (lateralInvertido) lateral = -lateral;
+
+  int c  = correccionDeRumbo();
+  int fr = (lateral * LADO_FRENTE)  / 100;
+  int tr = (lateral * LADO_TRASERA) / 100;
+
+  aplicarSuave(-potencia + fr + c, +potencia + fr + c, -tr + c);
+}
+
+// 0921j: arranca la vuelta del despeje (despues de la pausa, o despues de
+// enderezarse). Las ruedas (o la rampa general) desde 0, y el giroscopio
+// sin lo acumulado en la ida.
+void empezarVueltaDespeje(unsigned long ahora) {
+  fase = ATRAS_HASTA_LINEA; t_fase = ahora;
+  if (rampaEnCadaMotor) {
+    reiniciarRuedas();
+    reiniciarCorreccion();
+  } else if (rampaAlVolver) {
+    reiniciarRampaMovimiento();   // arrancar para atras de a poco, no de un tiron
+    reiniciarCorreccion();
+  }
+}
+
+// Se llama al terminar de enderezarse, desde las tres salidas de ACOMODANDO.
+void pasarAEsperar() {
+  fase = ESPERANDO;
+  t_fase = millis();
+  vecesSeguidas = 0;
+}
+
+// Arranca la ubicacion inicial: atras hasta la linea y enderezarse.
+void arrancarUbicacion() {
+  ladoMedio = LADO_MEDIO;          // 09/11: al arrancar, siempre por el izquierdo
+  ubicandose      = true;
+  encontroLaLinea = false;
+  reiniciarRampaMovimiento();
+  reiniciarCorreccion();
+  fase = UBIC_ATRAS; t_fase = millis();
+}
+
+// ---- de la 0.1013 (traido el 2026-11-03): rutina, patrulla, lateral ----
+
+// Entre un paso y el otro de la rutina de ir al medio: frenar, soltar y
+// quedarse quieto un momento. Es lo que hace pasarA() en `pruebas/ir-al-medio`,
+// pero sin delay(), para no dejar de leer la camara.
+void pausaMedio(Fase siguiente) {
+  frenar();
+  faseDespuesDePausa = siguiente;
+  fase = MEDIO_PAUSA; t_fase = millis();
+}
+
+// La rutina no cerro: no aparecio una linea antes del tope. En la prueba el
+// robot se quedaba avisando con el LED; en un partido eso es regalar el
+// arco. Aca frena, se endereza y juega desde donde quedo.
+void abandonarMedio() {
+  encontroLaLinea = false;
+  frenar();
+  fase = UBIC_FRENANDO; t_fase = millis();
+}
+
+// ¿Esta en alguno de los pasos de la rutina de ir al medio?
+bool enFaseDeMedio() {
+  switch (fase) {
+    case MEDIO_PAUSA:        case MEDIO_DESPEGARSE:  case MEDIO_AL_LATERAL:
+    case MEDIO_ALEJARSE:     case MEDIO_AL_FONDO:    case MEDIO_ADELANTE:
+    case MEDIO_AL_LATERAL_2: case MEDIO_AL_MEDIO:    case MEDIO_AL_AREA:
+    // 0921i: tambien la patrulla por la linea (asi la pelota la corta).
+    case LINEA_BUSCAR: case LINEA_PUNTA_A: case LINEA_PUNTA_B: case LINEA_AL_MEDIO:
+    case LINEA_MIRAR:  case LINEA_MIRAR_MEDIO:
+    case MEDIO_LINEA_AVANZAR: case MEDIO_LINEA_AL_MEDIO:
+      return true;
+    default:
+      return false;
+  }
+}
+
+// La patrulla entra a la rutina de ir al medio por el paso 5 (ir al lateral)
+// y la termina por el mismo camino que la ubicacion inicial: linea del area,
+// enderezarse y avanzar el poquito.
+//
+// Si arranca parado sobre una linea, primero se despega (el paso 0 de
+// `pruebas/ir-al-medio`). Sin eso el paso 5 terminaria al instante, creyendo
+// que ya llego al lateral, y "volveria al medio" desde cualquier lado.
+void arrancarPatrulla() {
+  cuadrosConPelota = 0;         // los cuadros del corte se cuentan desde aca
+  // 0921i: la patrulla por la linea del area (ver el encabezado).
+  if (patrullaPorLaLinea) {
+    patrullando     = true;
+    ubicandose      = true;     // termina por el camino de la ubicacion
+    encontroLaLinea = false;
+    ladoLinea        = LADO_PATRULLA_LINEA;   // 09/11 (2): siempre para la izquierda
+    reiniciarRampaMovimiento();
+    reiniciarCorreccion();
+    fase = LINEA_BUSCAR; t_fase = millis();
+    return;
+  }
+  if (!patrullaPorElLateral) {
+    // Plan B: lo mismo que al arrancar el partido (atras hasta la linea,
+    // enderezarse, avanzar el poquito).
+    arrancarUbicacion();
+    patrullando = true;
+    return;
+  }
+  patrullando     = true;
+  ubicandose      = true;
+  encontroLaLinea = false;
+  // 09/11: una patrulla a cada lado (ver "LA PATRULLA AL LATERAL, A LOS DOS LADOS").
+  ladoMedio = alternarLadoPatrulla ? ladoProximaPatrulla : LADO_MEDIO;
+  ladoProximaPatrulla = -ladoMedio;
+  pausaMedio(algunoDeAtrasVeBlanco() ? MEDIO_DESPEGARSE : MEDIO_AL_LATERAL_2);
+}
+
+// Aparecio la pelota en plena patrulla: a jugar. Queda donde esta, corrido
+// del medio; la proxima patrulla lo vuelve a centrar.
+void cortarPatrulla() {
+  patrullando = false;
+  ubicandose  = false;
+  reiniciarRampaMovimiento();
+  reiniciarCorreccion();
+  fase = SIGUIENDO; t_fase = millis();
+}
+
+// Piso el lateral siguiendo la pelota: frena y vuelve al medio por tiempo.
+// No es una patrulla (patrullando = false): mientras vuelve, la pelota NO
+// lo corta. Termina por el camino de la ubicacion, igual que la patrulla.
+void arrancarVueltaDelLateral(int lado) {
+  ladoDelLateral    = lado;
+  lecturasDeLateral = 0;
+  patrullando       = false;
+  ubicandose        = true;
+  encontroLaLinea   = false;
+  pausaMedio(LATERAL_AL_MEDIO);
+}
+
+// Pasa al enderezado. Lo usan la ubicacion inicial y el enderezado que
+// se hace mientras espera.
+void pasarAEnderezarse() {
+  parar();
+  fase = ACOMODANDO; t_fase = millis();
+  reintentosAcomodo = 0; pwmAcomodoAplicado = 0; t_rampa = millis();
+}
+
+
+// Adonde ir despues del enderezado. Esta en una funcion y no repetido en
+// cada rama porque hay TRES caminos que salen del enderezado (termino bien,
+// estaba desactivado, o el giroscopio estaba mudo) y los tres tienen que
+// respetar el interruptor del empujon final. Cuando estaba escrito tres
+// veces, dos se lo salteaban.
+// Se llama cuando la camara ya dijo 3 cuadros seguidos que la pelota esta
+// cerca y de frente. Aca se decide el ANGULO y, sobre todo, SI SALIR.
+// Devuelve true si arranco el despeje.
+bool intentarDespejar(unsigned long ahora) {
+  int avance = potenciaDespeje;
+  int lateral = 0;
+  unsigned long msIda = msAdelante;
+
+  if (!calcularDiagonal(avance, lateral, msIda)) {
+    // La cuenta dice que no llego. Decision del equipo: no salir.
+    // Un arquero que sale y no llega queda fuera de posicion Y ademas le
+    // hacen el gol: es lo peor de los dos mundos.
+    vecesSeguidas = 0;          // que vuelva a juntar cuadros desde cero
+    return false;
+  }
+
+  lateralDelDespeje  = lateral;
+  pwmAvanceDespeje   = avance;
+  msIdaDespeje       = msIda;
+
+  fase = ADELANTE; t_fase = ahora;
+  reiniciarRampaMovimiento();   // arrancar suave: si patina, se tuerce
+  potenciaRampa = pisoRampaIda; // ...pero desde 70: las dos de adelante juntas (03/11)
+  reiniciarRuedas();            // 0921j: con rampaEnCadaMotor, cada rueda arranca desde 0
+  reiniciarCorreccion();
+  return true;
+}
+
+void terminarDespeje() {
+  // Si lo que acaba de terminar fue un enderezado de los que se hace solo
+  // mientras espera, vuelve a esperar y listo: ni empujoncito ni cuenta de
+  // despeje. No despejo nada, solo se acomodo.
+  if (enderezandoEnEspera) {
+    enderezandoEnEspera = false;
+    pasarAEsperar();
+    return;
+  }
+  // Si lo que acaba de terminar era la UBICACION INICIAL y no un despeje.
+  // Se reusa toda la maquinaria de enderezarse, solo cambia adonde va
+  // despues.
+  //
+  // 2026-10-12 en la 0.1013 (traido aca el 2026-11-03), pedido del equipo:
+  // si encontro la linea, avanza el poquito. (Antes no: se quedaba parado
+  // sobre la linea.) Si NO la encontro no avanza nada, porque no sabe donde
+  // esta parado. Por aca terminan tambien la rutina de ir al medio, la
+  // patrulla y la vuelta del lateral.
+  if (ubicandose) {
+    ubicandose = false;
+    patrullando = false;        // la patrulla termina por este mismo camino
+    if (avanzarAlUbicarse && encontroLaLinea) {
+      empujonDeArranque = true;
+      fase = ADELANTE_CHICO; t_fase = millis();
+    } else {
+      pasarAEsperar();
+    }
+    return;
+  }
+  if (empujonFinal) {
+    fase = ADELANTE_CHICO; t_fase = millis();
+  } else {
+    fase = ENFRIANDO; t_fase = millis();
+  }
+}
+
+
+
+// ---------------------------------------------------------- la linea de version
+// (El contrato de la linea esta en avisarVersion(), abajo del largo de la linea.)
+// ---- 0921i: el largo de la linea del area, guardado en la EEPROM ----
+struct LargoLinea { uint32_t magia; uint32_t ms; uint32_t veces; };
+
+void cargarLargoLinea() {
+  LargoLinea g;
+  EEPROM.get(DIR_LINEA, g);
+  if (g.magia == MAGIA_LINEA && g.ms >= 300 && g.ms <= 10000) msLineaGuardado = g.ms;
+  else msLineaGuardado = 0;
+}
+
+// Se llama con el robot frenando en la punta (quieto a proposito): escribir
+// la EEPROM puede tardar unos milisegundos y ahi no importa.
+void guardarLargoLinea(unsigned long ms) {
+  LargoLinea g;
+  EEPROM.get(DIR_LINEA, g);
+  uint32_t veces = (g.magia == MAGIA_LINEA) ? g.veces + 1 : 1;
+  g.magia = MAGIA_LINEA; g.ms = ms; g.veces = veces;
+  EEPROM.put(DIR_LINEA, g);
+  msLineaGuardado = ms;
+}
+
+void avisarLargoLinea() {
+  if (!Serial) return;
+  Serial.print("LINEA DEL AREA: ");
+  if (MS_PUNTA_A_PUNTA_FIJO > 0) {
+    Serial.print("uso el FIJO, "); Serial.print(MS_PUNTA_A_PUNTA_FIJO);
+    Serial.print(" ms de punta a punta -> al medio "); Serial.print(MS_PUNTA_A_PUNTA_FIJO / 2);
+    Serial.print(" ms. (Guardado: "); Serial.print(msLineaGuardado); Serial.println(" ms)");
+  } else if (msLineaGuardado > 0) {
+    Serial.print("guardado en la memoria: "); Serial.print(msLineaGuardado);
+    Serial.print(" ms de punta a punta -> al medio "); Serial.print(msLineaGuardado / 2);
+    Serial.println(" ms");
+  } else {
+    Serial.println("todavia no hay nada guardado: la proxima patrulla lo mide");
+  }
+}
+
+// 🚨 El orden de los campos es el CONTRATO con el tablero (tablero.py: CAMPOS_PARTIDO
+// y ORDEN_INTERRUPTORES): version primero, interruptores ultimo. Si se agrega uno,
+// va antes de interruptores y se agrega tambien alla.
+// 2026-11-09: la 0921i manda los MISMOS campos que la 0921g (13 interruptores).
+// Lo nuevo (patrullaPorLaLinea, alternarLadoPatrulla, buscarLineaDelAreaAlVolver,
+// MS_AVANCE_10CM, MS_PUNTA_A_PUNTA_FIJO, VEL_LINEA...) NO va en la linea: lo
+// confirma el SELLO, como todo lo que no va (DISENO del tablero, 16.11).
+// 2026-11-10: la 0921j manda los MISMOS campos que la 0921i (solo cambian los
+// valores: version=0921j, potenciaDespeje=160, msAdelante=666). Lo nuevo del
+// despeje (rampaEnCadaMotor, enderezarAntesDeVolver, potenciaVueltaDespeje,
+// MS_MAX_VUELTA_DESPEJE...) NO va en la linea. El tablero todavia no la maneja.
+void avisarVersion() {
+  if (!Serial) return;                 // nadie escuchando (en la cancha): nada
+  Serial.print("#PARTIDO version=");            Serial.print(VERSION_PARTIDO);
+  Serial.print(" sello=");                      Serial.print(SELLO);
+  Serial.print(" giro=");                       Serial.print((hayGiroscopo && giroscopoRespondiendo) ? 1 : 0);
+  Serial.print(" umbralBlanco=");               Serial.print(umbralBlanco);
+  Serial.print(" CAMARA_POR_CM=");              Serial.print(CAMARA_POR_CM, 2);
+  Serial.print(" MS_MEDIO_AL_MEDIO=");          Serial.print(MS_MEDIO_AL_MEDIO);
+  Serial.print(" MS_MEDIO_FONDO_POR_TIEMPO=");  Serial.print(MS_MEDIO_FONDO_POR_TIEMPO);
+  Serial.print(" MS_MAX_RETROCESO=");           Serial.print(MS_MAX_RETROCESO);
+  Serial.print(" msAdelante=");                 Serial.print(msAdelante);
+  Serial.print(" umbralCm=");                   Serial.print(umbralCm, 1);
+  Serial.print(" umbralDesvio=");               Serial.print(umbralDesvio, 1);
+  Serial.print(" potenciaDespeje=");            Serial.print(potenciaDespeje);
+  Serial.print(" pwmMinLateral=");              Serial.print(pwmMinLateral);
+  Serial.print(" pwmMaxLateral=");              Serial.print(pwmMaxLateral);
+  Serial.print(" kpLateral=");                  Serial.print(kpLateral, 2);
+  Serial.print(" MS_QUIETO_PARA_PATRULLAR=");   Serial.print(MS_QUIETO_PARA_PATRULLAR);
+  // Los 13 interruptores (1 = SI), en ESTE orden:
+  const bool llaves[] = {
+    volverAlMedioEnElLateral, patrullarSinPelota, patrullaPorElLateral,
+    irAlMedioSiNoHayLinea, avanzarAlUbicarse, perseguirEnElDespeje,
+    esperarPlanoAntesDeVolver, rampaAlVolver, empujonFinal,
+    despejeEnDiagonal, enderezarActivado, lateralInvertido, camaraYInvertida };
+  Serial.print(" interruptores=");
+  for (unsigned int i = 0; i < sizeof(llaves) / sizeof(llaves[0]); i++) Serial.print(llaves[i] ? '1' : '0');
+  Serial.print('\n');
+}
+
+
+
+// ---------------------------------------------------------------- programa
+
+void setup() {
+  pinMode(INA1, OUTPUT); pinMode(INB1, OUTPUT); pinMode(PWM1, OUTPUT);
+  pinMode(INA2, OUTPUT); pinMode(INB2, OUTPUT); pinMode(PWM2, OUTPUT);
+  pinMode(INA3, OUTPUT); pinMode(INB3, OUTPUT); pinMode(PWM3, OUTPUT);
+  pinMode(LED, OUTPUT);
+  pinMode(LINEA_ATRAS_IZQ, INPUT);
+  pinMode(LINEA_ATRAS_DER, INPUT);
+  pinMode(LINEA_ADELANTE,  INPUT);
+  parar();
+
+  Serial1.begin(BAUDIOS);       // la camara
+
+  // 🚨 2026-09-01 — EL ARRANQUE DEL GIROSCOPIO ES UNA CARRERA, Y SE PERDIA.
+  //
+  // Antes aca habia UNA sola linea: `hayGiroscopo = bno.begin();`. Se
+  // preguntaba una vez y, si contestaba que no, no se volvia a preguntar
+  // nunca mas.
+  //
+  // El problema: cuando se prende la bateria, el Teensy arranca en
+  // milisegundos pero el BNO055 tarda casi un segundo en estar listo para
+  // contestar por I2C. Si el Teensy pregunta antes, recibe "no estoy" —
+  // y queda `hayGiroscopo = false` para TODA la corrida. Sin correccion de
+  // rumbo en ningun movimiento.
+  //
+  // Se noto porque dos corridas seguidas del MISMO programa dieron
+  // distinto: la primera el robot no anduvo derecho y termino en cualquier
+  // lado; la segunda anduvo bien. Mismo codigo, dos resultados = algo que
+  // a veces sale bien y a veces mal. Era esta carrera.
+  //
+  // Ahora insiste: hasta 10 intentos separados por 300 ms (3 segundos en
+  // total), que sobra para que el sensor despierte.
+  int intentos = 0;
+  while (!hayGiroscopo && intentos < 10) {
+    intentos++;
+    hayGiroscopo = bno.begin();
+    if (!hayGiroscopo) delay(300);
+  }
+  if (hayGiroscopo) {
+    delay(1000);
+    bno.setExtCrystalUse(true);
+
+    // Y ahora lo importante: esperar a que DE UN DATO. Saludar no alcanza.
+    unsigned long t0 = millis();
+    while (rumboActual() < 0 && millis() - t0 < MS_ESPERA_DATOS_GIRO) {
+      delay(50);
+    }
+  }
+  // Si el giroscopio no aparece, el robot juega igual pero sin enderezarse,
+  // y avisa con el LED temblando (10 por segundo).
+
+  // Arranca solo: la unica forma de pararlo es la llave de la bateria.
+  cargarLargoLinea();   // 0921i: el largo de la linea del area, si ya lo midio
+  avisarVersion();   // 0921g: si hay alguien escuchando
+  avisarLargoLinea();
+  fase = ARMANDOSE; t_fase = 0;   // 09/11: la cuenta cuenta DESDE QUE SE PRENDIO (ver MS_AVISO_ARMADO)
+}
+
+
+void loop() {
+
+  leerCamara();
+  unsigned long ahora = millis();
+
+  // Patrullando y aparecio la pelota: se corta la patrulla y se la sigue.
+  // Varios cuadros SEGUIDOS, para que no la corte un reflejo suelto. Solo
+  // la patrulla: la ubicacion del arranque se deja terminar.
+  // (De la 0.1013, traido el 2026-11-03.)
+  if (patrullando && enFaseDeMedio() && veLaPelota()
+      && cuadrosConPelota >= CUADROS_PARA_CORTAR_PATRULLA) {
+    cortarPatrulla();
+  }
+
+  switch (fase) {
+
+    case APAGADO:
+      digitalWrite(LED, LOW);
+      break;
+
+    case ARMANDOSE: {
+      if (ahora - t_ultimaVersion >= 500) { t_ultimaVersion = ahora; avisarVersion(); }   // 0921g: cada 1/2 s mientras parpadea (quieto)
+      unsigned long falta = (ahora - t_fase >= MS_AVISO_ARMADO)
+                            ? 0 : MS_AVISO_ARMADO - (ahora - t_fase);
+      unsigned long periodo = (falta <= 1000) ? 100 : 500;   // rapido el ultimo segundo: manos afuera
+      digitalWrite(LED, ((ahora / periodo) % 2) ? HIGH : LOW);
+      if (ahora - t_fase >= MS_AVISO_ARMADO) {
+        // 🚨 NO ARMARSE SIN RUMBO. Si el sensor todavia no da datos, se
+        // sigue esperando en vez de salir a jugar a ciegas. El LED ya esta
+        // temblando (10 destellos por segundo), asi que desde afuera se ve
+        // que esta ESPERANDO y no que se colgo.
+        float r = rumboActual();
+        if (r < 0 && (ahora - t_fase) < MS_AVISO_ARMADO + MS_ESPERA_EXTRA_GIRO) {
+          break;                    // todavia no da datos: seguir esperando
+        }
+
+        // El rumbo de referencia se fija ACA, con el robot ya quieto y
+        // apuntando a la cancha. Es el que va a sostener siempre.
+        rumboBase = r;
+        reiniciarCorreccion();
+        // Antes se pasaba derecho a ESPERANDO, o sea que el robot se
+        // quedaba donde lo hubieran apoyado. Ahora primero se ubica.
+        arrancarUbicacion();
+      }
+      break;
+    }
+
+    // ---------------- ubicacion inicial: atras hasta la linea ----------------
+
+    case UBIC_ATRAS:
+      // Igual que el regreso del despeje, y por el mismo motivo: la linea
+      // del area es una marca fisica, siempre esta en el mismo lugar.
+      digitalWrite(LED, ((ahora / 200) % 2) ? HIGH : LOW);
+      atrasControlado(potenciaRetroceso);
+      if (algunoDeAtrasVeBlanco()) {
+        encontroLaLinea = true;
+        frenar();
+        fase = UBIC_FRENANDO; t_fase = ahora;
+        break;
+      }
+      if (ahora - t_fase >= MS_MAX_RETROCESO) {
+        // 2026-10-12 en la 0.1013 (traido el 2026-11-03): no aparecio la
+        // linea. Antes se quedaba aca; ahora va a buscar el medio con los
+        // laterales. Sin giroscopio NO: de costado y sin rumbo el robot gira
+        // solo y la rutina no tiene sentido. Se mira que conteste AHORA, no
+        // solo que haya contestado al armarse.
+        //
+        // ⚠️ Si el giroscopio se cae A MITAD de la rutina, sigue igual hasta
+        // el tope de ese paso, sin corregir el rumbo (lo mismo que hace la
+        // prueba). No se corta ahi a proposito: la unica senal que hay de
+        // "se cayo" son tres ceros seguidos, y con el robot quieto cerca del
+        // rumbo 0 esa senal puede dar falsa (bitacora del 29/09).
+        //
+        // ⚠️ En esta version MS_MAX_RETROCESO es 1500 (en la 0.1013, 1200):
+        // retrocede un poco mas antes de darse por perdido.
+        if (irAlMedioSiNoHayLinea && enderezarActivado && rumboBase >= 0
+            && giroscopoRespondiendo) {
+          pausaMedio(MEDIO_AL_LATERAL);
+        } else {
+          frenar();
+          fase = UBIC_FRENANDO; t_fase = ahora;
+        }
+      }
+      break;
+
+    case UBIC_FRENANDO:
+      if (ahora - t_fase >= msFreno) {
+        parar();
+        reiniciarRampaMovimiento();
+        reiniciarCorreccion();
+        // Se queda donde encontro la linea y pasa a enderezarse.
+        pasarAEnderezarse();
+      }
+      break;
+
+    // ---------- sin linea: ir al medio usando los laterales ----------
+    // (De la 0.1013, traido tal cual el 2026-11-03.)
+    //
+    // Es la rutina de `pruebas/ir-al-medio`, con los mismos pasos y los
+    // mismos numeros. Arranca cuando el retroceso de arriba no encontro la
+    // linea del area, o sea que el robot NO esta parado sobre ningun blanco
+    // (por eso aca no hace falta el paso 0 de la prueba, el de despegarse).
+    //
+    //   1. de costado hasta la linea LATERAL       fija el ANCHO
+    //   2. se aleja un poquito                     para que "ver blanco"
+    //                                              vuelva a significar algo
+    //   3. retrocede hasta el FONDO                fija la PROFUNDIDAD
+    //      (hasta ver la linea o, si la rampita del borde no lo deja
+    //      llegar, por tiempo: MS_MEDIO_FONDO_POR_TIEMPO)
+    //   4. avanza ~50 cm                           sale del area
+    //   5. vuelve al MISMO lateral                 por si se corrio
+    //   6. al medio por TIEMPO                     ahora si
+    //   7. atras hasta la linea del AREA           igual que el arranque
+    //
+    // Y de ahi sigue por el camino de siempre: frena, se endereza y avanza
+    // el poquito. Si en algun paso no aparece la linea antes del tope, no se
+    // queda clavado: abandonarMedio() lo manda a enderezarse y a jugar desde
+    // donde quedo.
+
+    case MEDIO_PAUSA:
+      if (ahora - t_fase < msFreno) { frenar(); break; }
+      parar();
+      if (ahora - t_fase >= msFreno + MS_MEDIO_QUIETO) {
+        reiniciarRampaMovimiento();
+        reiniciarCorreccion();
+        // El retroceso miro el blanco EN MOVIMIENTO. Si con el envion del
+        // freno termino parado sobre una linea, es la que venia buscando:
+        // la encontro tarde, pero la encontro. Sin este chequeo el paso 1
+        // terminaria al instante creyendo que ya llego al lateral.
+        if (faseDespuesDePausa == MEDIO_AL_LATERAL && algunoDeAtrasVeBlanco()) {
+          encontroLaLinea = true;
+          pasarAEnderezarse();
+          break;
+        }
+        fase = faseDespuesDePausa; t_fase = ahora;
+        t_soltoLinea = ahora;     // el margen de despegarse cuenta desde ACA
+        armarVueltaLinea();       // 09/11: para ver la linea del area volviendo al medio
+      }
+      break;
+
+    // ---------- 0921i: la patrulla por la linea del area ----------
+    // Ver el encabezado. Las pausas entre tramos son las de la rutina
+    // (MEDIO_PAUSA), y si aparece la pelota se corta igual que antes.
+
+    case LINEA_BUSCAR:              // 1. atras hasta la linea del area
+      digitalWrite(LED, ((ahora / 200) % 2) ? HIGH : LOW);
+      atrasControlado(VEL_ATRAS_A_LA_LINEA);
+      if (algunoDeAtrasVeBlanco()) {
+        frenar();
+        fase = LINEA_MIRAR; t_fase = ahora;    // 3 s quieto, para mirar donde quedo
+        break;
+      }
+      // Sin linea a la vista: se endereza y juega desde donde quedo.
+      if (ahora - t_fase >= MS_MAX_RETROCESO) abandonarMedio();
+      break;
+
+    case LINEA_MIRAR:               // 1b. quieto sobre la linea (el equipo mira donde quedo)
+      digitalWrite(LED, HIGH);
+      if (ahora - t_fase < msFreno) { frenar(); break; }
+      parar();
+      if (ahora - t_fase >= MS_QUIETO_PARA_MIRAR) {
+        reiniciarRampaMovimiento();
+        reiniciarCorreccion();
+        fase = LINEA_PUNTA_A; t_fase = ahora;
+      }
+      break;
+
+    case LINEA_PUNTA_A:             // 2. por la linea hasta la punta IZQUIERDA
+      digitalWrite(LED, HIGH);
+      if (andarPorLaLinea(ladoLinea, t_fase)) {
+        // 09/11 (2): con un largo FIJO o GUARDADO va directo al medio desde
+        // aca; si no hay ninguno (o remedirLineaSiempre), primero lo mide.
+        unsigned long largo = (MS_PUNTA_A_PUNTA_FIJO > 0) ? MS_PUNTA_A_PUNTA_FIJO : msLineaGuardado;
+        if (largo > 0 && !(remedirLineaSiempre && MS_PUNTA_A_PUNTA_FIJO == 0)) {
+          msLargoLinea = largo;
+          ladoAlMedio  = -ladoLinea;       // desde la punta izquierda, a la derecha
+          pausaMedio(LINEA_AL_MEDIO);
+        } else {
+          pausaMedio(LINEA_PUNTA_B);
+        }
+        break;
+      }
+      if (ahora - t_fase >= MS_TOPE_PUNTA) abandonarMedio();
+      break;
+
+    case LINEA_PUNTA_B:             // 3. hasta la otra punta, CONTANDO el tiempo
+      digitalWrite(LED, HIGH);
+      if (andarPorLaLinea(-ladoLinea, t_fase)) {
+        msLargoLinea = ahora - t_fase;
+        frenar();                         // quieto: ahora se puede escribir la EEPROM
+        guardarLargoLinea(msLargoLinea);  // 09/11 (2): "guardalo en la memoria"
+        avisarLargoLinea();
+        ladoAlMedio = ladoLinea;          // desde la punta derecha, vuelve a la izquierda
+        pausaMedio(LINEA_AL_MEDIO);
+        break;
+      }
+      if (ahora - t_fase >= MS_TOPE_PUNTA) abandonarMedio();
+      break;
+
+    case LINEA_AL_MEDIO:            // 4. la MITAD del largo: queda en el medio
+      digitalWrite(LED, HIGH);
+      moverDeCostado(ladoAlMedio * VEL_LINEA);   // solo el giroscopio; aca el final no importa
+      if (ahora - t_fase >= msLargoLinea / 2) {
+        frenar();
+        fase = LINEA_MIRAR_MEDIO; t_fase = ahora;   // 3 s quieto, para mirar si quedo en el medio
+      }
+      break;
+
+    case LINEA_MIRAR_MEDIO:         // 4b. quieto en el medio, y termina con el poquito
+      digitalWrite(LED, HIGH);
+      if (ahora - t_fase < msFreno) { frenar(); break; }
+      parar();
+      if (ahora - t_fase >= MS_QUIETO_PARA_MIRAR) {
+        encontroLaLinea = true;     // esta sobre la linea: termina con el poquito
+        fase = UBIC_FRENANDO; t_fase = ahora;
+      }
+      break;
+
+    // Paso 0, solo si la patrulla arranco parado sobre una linea: irse para
+    // el mismo lado al que va a ir despues, hasta dejar de ver blanco, y un
+    // rato mas (MS_MEDIO_ALEJARSE) para no quedar justo en el borde.
+    case MEDIO_DESPEGARSE:
+      digitalWrite(LED, HIGH);
+      moverDeCostado(ladoMedio * VEL_MEDIO_BUSCAR);
+      if (algunoDeAtrasVeBlanco()) {
+        t_soltoLinea = ahora;                    // sigue encima del blanco
+      } else if (ahora - t_soltoLinea >= MS_MEDIO_ALEJARSE) {
+        pausaMedio(MEDIO_AL_LATERAL_2);
+        break;
+      }
+      // No logro salirse: lleva MS_MEDIO_TOPE_LATERAL yendo para ese lado,
+      // asi que esta contra el lateral. Vuelve al medio por tiempo.
+      if (ahora - t_fase >= MS_MEDIO_TOPE_LATERAL) pausaMedio(MEDIO_AL_MEDIO);
+      break;
+
+    case MEDIO_AL_LATERAL:            // paso 1
+    case MEDIO_AL_LATERAL_2:          // paso 5
+      digitalWrite(LED, HIGH);
+      moverDeCostado(ladoMedio * VEL_MEDIO_BUSCAR);
+      // Termina al VER la linea o, si no aparece, POR TIEMPO: despues de
+      // MS_MEDIO_TOPE_LATERAL empujando para ese lado el robot esta contra
+      // el lateral aunque no haya visto el blanco. Antes aca abandonaba y
+      // quedaba estacionado en el borde; con una patrulla que se repite
+      // eso era un robot atascado.
+      if (algunoDeAtrasVeBlanco()
+          || ahora - t_fase >= MS_MEDIO_TOPE_LATERAL) {
+        pausaMedio(fase == MEDIO_AL_LATERAL ? MEDIO_ALEJARSE : MEDIO_AL_MEDIO);
+      }
+      break;
+
+    case MEDIO_ALEJARSE:              // paso 2
+      digitalWrite(LED, HIGH);
+      moverDeCostado(-ladoMedio * VEL_MEDIO_BUSCAR);
+      if (ahora - t_fase >= MS_MEDIO_ALEJARSE) pausaMedio(MEDIO_AL_FONDO);
+      break;
+
+    case MEDIO_AL_FONDO:              // paso 3
+      digitalWrite(LED, HIGH);
+      atrasControlado(VEL_MEDIO_RECTO);
+      if (algunoDeAtrasVeBlanco()) { pausaMedio(MEDIO_ADELANTE); break; }
+      // Sin linea a la vista: por tiempo. La rampita del borde no lo deja
+      // llegar a pisarla, asi que a esta altura ya esta apoyado contra ella.
+      if (ahora - t_fase >= MS_MEDIO_FONDO_POR_TIEMPO) pausaMedio(MEDIO_ADELANTE);
+      break;
+
+    case MEDIO_ADELANTE:              // paso 4
+      digitalWrite(LED, HIGH);
+      adelanteControlado(VEL_MEDIO_RECTO);
+      if (ahora - t_fase >= MS_MEDIO_ADELANTE) pausaMedio(MEDIO_AL_LATERAL_2);
+      break;
+
+    case MEDIO_AL_MEDIO:              // paso 6
+      digitalWrite(LED, HIGH);
+      moverDeCostado(-ladoMedio * VEL_MEDIO_MEDIR);   // 🚨 100, no 110
+      // 09/11: si en la vuelta ve la linea del area, sigue desde ahi.
+      if (vueltaVioLaLineaDelArea(ahora)) {
+        dirVueltaLinea = -ladoMedio;
+        pausaMedio(MEDIO_LINEA_AVANZAR);
+        break;
+      }
+      if (ahora - t_fase >= MS_MEDIO_AL_MEDIO) pausaMedio(MEDIO_AL_AREA);
+      break;
+
+    // 09/11: vio la linea del area volviendo al medio: avanza ~10 cm...
+    case MEDIO_LINEA_AVANZAR:
+      digitalWrite(LED, HIGH);
+      adelanteControlado(potenciaEmpujon);
+      if (ahora - t_fase >= MS_AVANCE_10CM) pausaMedio(MEDIO_LINEA_AL_MEDIO);
+      break;
+
+    // ...y va hacia el medio del arco la mitad del ancho del area medido.
+    case MEDIO_LINEA_AL_MEDIO:
+      digitalWrite(LED, HIGH);
+      moverDeCostado(dirVueltaLinea * VEL_LINEA);
+      if (ahora - t_fase >= MS_PUNTA_A_PUNTA_FIJO / 2) pausaMedio(MEDIO_AL_AREA);
+      break;
+
+    case MEDIO_AL_AREA:               // paso 7
+      digitalWrite(LED, ((ahora / 200) % 2) ? HIGH : LOW);
+      atrasControlado(VEL_MEDIO_RECTO);
+      if (algunoDeAtrasVeBlanco()) {
+        encontroLaLinea = true;
+        frenar();
+        fase = UBIC_FRENANDO; t_fase = ahora;
+        break;
+      }
+      // El tope es el mismo de todos los retrocesos a la linea del area.
+      // En esta version son 1500 ms (en la 0.1013, 1200).
+      if (ahora - t_fase >= MS_MAX_RETROCESO) abandonarMedio();
+      break;
+
+    // 2026-10-13: la vuelta al medio despues de pisar un lateral siguiendo
+    // la pelota. Es el paso 6 de arriba, pero para el lado que haga falta.
+    case LATERAL_AL_MEDIO:
+      digitalWrite(LED, HIGH);
+      moverDeCostado(-ladoDelLateral * VEL_MEDIO_MEDIR);   // 🚨 100, no 110
+      // 09/11: si en la vuelta ve la linea del area, sigue desde ahi (ver
+      // "VOLVIENDO AL MEDIO, SI VE LA LINEA DEL AREA").
+      if (vueltaVioLaLineaDelArea(ahora)) {
+        dirVueltaLinea = -ladoDelLateral;
+        lecturasDeLateral = 0;
+        patrullando = true;       // como el final de abajo: si ve la pelota, la sigue
+        pausaMedio(MEDIO_LINEA_AVANZAR);
+        break;
+      }
+      // Si aparece el OTRO lateral, no salio de donde creia: frena ahi.
+      if (pisaElLateral(-ladoDelLateral)) lecturasDeLateral++;
+      else                                lecturasDeLateral = 0;
+      if (ahora - t_fase >= MS_MEDIO_AL_MEDIO
+          || lecturasDeLateral >= LECTURAS_PARA_CREER_LATERAL) {
+        lecturasDeLateral = 0;
+        // Desde aca es el final de una patrulla: si ve la pelota la sigue,
+        // y si no, se acomoda contra la linea del area.
+        patrullando = true;
+        pausaMedio(MEDIO_AL_AREA);
+      }
+      break;
+
+    case ESPERANDO:
+      parar();
+      digitalWrite(LED, ((ahora / 800) % 2) ? HIGH : LOW);
+      aprenderInclinacion();      // quieto: la inclinacion "de siempre" (03/11)
+
+      // 🎯 ENDEREZARSE MIENTRAS ESPERA (2026-09-15).
+      // Si quedo torcido, se acomoda solo aunque no vea la pelota. Sin
+      // esto se quedaba mirando al costado para siempre: torcido no veia
+      // la pelota, y sin ver la pelota no hacia nada que lo enderezara.
+      //
+      // Va ANTES de mirar la pelota: si esta torcido, primero se acomoda.
+      // De todos modos no pierde nada — si la pelota aparece mientras se
+      // endereza, la va a ver apenas termine, que son menos de 2 segundos.
+      //
+      // 🚨 CON DESCANSO OBLIGATORIO ENTRE INTENTOS. Sin esto quedaba un
+      // lazo feo: si el enderezado no llegaba a converger, volvia a
+      // ESPERANDO todavia torcido, medía de nuevo, y disparaba la MISMA
+      // maniobra que acababa de fracasar — sin tope y sin descanso. Y como
+      // este bloque corta antes de mirar la pelota, un robot atrapado ahi
+      // SE QUEDA SIN ATAJAR. Con el descanso, en el peor caso pierde unos
+      // segundos y despues vuelve a jugar.
+      if (enderezarActivado && rumboBase >= 0
+          && ahora - t_chequeoEspera >= MS_CHEQUEO_ESPERA
+          && ahora - t_ultimoIntentoEnderezar >= MS_DESCANSO_ENDEREZAR) {
+        t_chequeoEspera = ahora;
+        float r = rumboActual();
+        if (r >= 0 && fabs(diferencia(rumboBase, r)) > TOLERANCIA_ESPERA) {
+          t_ultimoIntentoEnderezar = ahora;
+          enderezandoEnEspera = true;
+          pasarAEnderezarse();
+          break;
+        }
+      }
+      if (hayQueDespejar()) {
+        if (intentarDespejar(ahora)) digitalWrite(LED, HIGH);
+      } else if (veLaPelota()) {
+        fase = SIGUIENDO; t_fase = ahora;
+        reiniciarRampaMovimiento();
+        reiniciarCorreccion();
+      } else if (patrullarSinPelota && enderezarActivado && rumboBase >= 0
+                 && giroscopoRespondiendo
+                 && ahora - t_fase >= MS_SIN_PELOTA_PARA_PATRULLAR
+                 && ahora - t_ultimoMovimiento >= MS_QUIETO_PARA_PATRULLAR) {
+        // 2026-10-12 en la 0.1013 (traido el 2026-11-03): sin pelota a la
+        // vista y hace rato que no se mueve. A patrullar, que el juez vea
+        // que esta vivo (y de paso se centra).
+        //
+        // aprenderInclinacion() (arriba) no se pierde nada: se llama en cada
+        // vuelta de ESPERANDO, y la patrulla sale de ESPERANDO y termina en
+        // ESPERANDO. Mientras patrulla no se llama, que es lo correcto: solo
+        // tiene que aprender con el robot QUIETO.
+        arrancarPatrulla();
+      }
+      break;
+
+    case SIGUIENDO: {
+      digitalWrite(LED, HIGH);
+
+      if (hayQueDespejar()) {
+        // Si la cuenta dice que no llega, intentarDespejar() no cambia de
+        // fase y el robot sigue en SIGUIENDO, acomodandose. No sale a
+        // perderse.
+        int faseAntes = fase;
+        parar();
+        intentarDespejar(ahora);
+        if (fase != faseAntes) break;
+      }
+      if (!veLaPelota()) {
+        parar();
+        fase = ESPERANDO; t_fase = ahora;
+        break;
+      }
+
+      // 2026-11-03: se sigue DONDE ESTA la pelota (la prediccion se saco).
+      float desvio = desvioPelota();
+
+      // Zona muerta: si la pelota esta casi enfrente, quedarse quieto. Sin
+      // esto el robot tiembla persiguiendo el ruido de la camara.
+      if (fabs(desvio) < ZONA_MUERTA_PELOTA) {
+        parar();
+        // 🚨 2026-09-01: FALTABA ESTO, y era una fuente de torceduras.
+        // Sin reiniciar la rampa, el proximo arranque salia A FONDO DE
+        // GOLPE — justo lo que hace patinar las ruedas y torcer al robot.
+        // Y pasa muchas veces por minuto, cada vez que la pelota entra y
+        // sale de la zona muerta.
+        reiniciarRampaMovimiento();
+        break;
+      }
+
+      int fuerza = (int)(fabs(desvio) * kpLateral);
+      if (fuerza > pwmMaxLateral) fuerza = pwmMaxLateral;
+      if (fuerza < pwmMinLateral) fuerza = pwmMinLateral;
+
+      bool hayQueIrDerecha = (desvio > 0);
+
+      // Si la pelota cruzo al otro lado, el robot tiene que invertir la
+      // marcha. Sin reiniciar la rampa, saldria para el otro lado a fondo
+      // de una — el mismo tiron que hace patinar al arrancar, pero peor,
+      // porque ademas viene con velocidad en contra.
+      static bool ibaDerecha = true;
+      if (hayQueIrDerecha != ibaDerecha) {
+        ibaDerecha = hayQueIrDerecha;
+        reiniciarRampaMovimiento();
+      }
+
+      // 2026-08-18: SIN LIMITE LATERAL, a pedido del equipo.
+      //
+      // Antes el seguimiento se frenaba al pisar la linea del costado del
+      // area. Se saco porque el robot vuelve chueco de algunos despejes, y
+      // estando torcido sus dos sensores de atras quedan en diagonal
+      // respecto de la linea: uno la pisa ANTES de que el robot este
+      // realmente en el borde, y el seguimiento se cortaba de mas.
+      //
+      // ⚠️ Esto saca el SINTOMA, no la causa. Lo que hay que arreglar es el
+      // enderezado (ver la bitacora del 11/08). Si algun dia se arregla,
+      // conviene volver a probar con el limite puesto.
+      //
+      // ⚠️ Consecuencia: lo unico que detiene el seguimiento ahora es perder
+      // de vista la pelota. El robot puede terminar lejos del arco, y ahi se
+      // queda — todavia no vuelve solo al centro.
+      //
+      // La linea SIGUE usandose para volver del despeje (ATRAS_HASTA_LINEA).
+      // Eso no se toco.
+      //
+      // 2026-10-13: VUELVE A HABER LIMITE, pero distinto del que se saco.
+      // Mira solo el sensor del lado hacia el que va (ver "LIMITE LATERAL",
+      // donde esta el interruptor) y en vez de frenarse vuelve al medio.
+      // Sin giroscopio no: no puede volver por tiempo.
+      // (Es el de la 0.1013, traido el 2026-11-03. Alla el lado salia de la
+      // cuenta de la prediccion, que estaba apagada y daba donde ESTA la
+      // pelota; aca sale de desvioPelota(), porque la prediccion se saco
+      // entera. Es lo mismo.)
+      if (volverAlMedioEnElLateral && enderezarActivado && rumboBase >= 0
+          && giroscopoRespondiendo) {
+        int lado = hayQueIrDerecha ? +1 : -1;
+        if (pisaElLateral(lado)) lecturasDeLateral++;
+        else                     lecturasDeLateral = 0;
+        if (lecturasDeLateral >= LECTURAS_PARA_CREER_LATERAL) {
+          arrancarVueltaDelLateral(lado);
+          break;
+        }
+      }
+
+      moverDeCostado(hayQueIrDerecha ? fuerza : -fuerza);
+      break;
+    }
+
+    case ADELANTE: {
+      // Antes esto era una sola linea que ni miraba la camara: el robot
+      // manejaba 533 ms con los ojos cerrados. Ahora persigue.
+      // El angulo YA se decidio al salir, con la pelota bien a la vista.
+      // El robot se compromete con esa diagonal y el giroscopio se la
+      // sostiene derecha. No necesita seguir viendo la pelota — que es lo
+      // bueno, porque justo cuando la tiene encima la camara la pierde.
+      int lateral = lateralDelDespeje;
+
+      // Ademas del angulo fijo, la version de corregir sobre la marcha.
+      // Apagada por defecto: se prueba una cosa por vez.
+      if (perseguirEnElDespeje && veLaPelota()) {
+        float d = desvioPelota();          // cm reales, + = a la derecha
+        if (fabs(d) > ZONA_MUERTA_PELOTA) {
+          lateral = (int)(d * kpPersecucion);
+          if (lateral >  PWM_MAX_PERSECUCION) lateral =  PWM_MAX_PERSECUCION;
+          if (lateral < -PWM_MAX_PERSECUCION) lateral = -PWM_MAX_PERSECUCION;
+        }
+      }
+
+      // El avance puede ser menor que potenciaDespeje: si la diagonal
+      // pedia mucho costado, se achicaron LOS DOS JUNTOS para que la
+      // direccion siga siendo la calculada. Por eso la ida tambien se
+      // estira, para recorrer los mismos centimetros.
+      if (rampaEnCadaMotor) {
+        // 0921j (la ida de la estrategia 2): el costado sube en el MISMO
+        // tiempo que tardan las ruedas de adelante en llegar al avance
+        // (160 / 10 x 10 ms = 160 ms). Asi la direccion no cambia mientras
+        // arranca, y no hay tiron de costado al salir. Despues, la rampa de
+        // cada motor le pone la suba a todo lo que le llega a cada rueda.
+        unsigned long msSubida = (unsigned long)(pwmAvanceDespeje / PASO_RAMPA_RUEDA) * MS_RAMPA_RUEDA;
+        unsigned long dt = ahora - t_fase;
+        if (msSubida > 0 && dt < msSubida) lateral = (int)((long)lateral * (long)dt / (long)msSubida);
+        avanzarPersiguiendoSuave(pwmAvanceDespeje, lateral);
+      } else {
+        avanzarPersiguiendo(pwmAvanceDespeje, lateral);   // como la 0921i (la rampa general)
+      }
+
+      if (ahora - t_fase >= msIdaDespeje) {
+        parar(); fase = PAUSA_MEDIO; t_fase = ahora;
+        t_planoDesde = 0;
+      }
+      break;
+    }
+
+    case PAUSA_MEDIO: {
+      parar();
+      // 2026-11-03: no vuelve hasta que el giroscopio diga que quedo PLANO
+      // un ratito (ver "ESPERAR A QUE QUEDE PLANO"). Minimo MS_PAUSA_MEDIO,
+      // maximo MS_MAX_ESPERA_PLANO.
+      bool listo;
+      if (!esperarPlanoAntesDeVolver) {
+        listo = (ahora - t_fase >= MS_PAUSA_MEDIO);
+      } else {
+        if (estaPlano()) { if (t_planoDesde == 0) t_planoDesde = ahora; }
+        else             t_planoDesde = 0;
+        listo = (ahora - t_fase >= MS_PAUSA_MEDIO
+                 && t_planoDesde != 0 && ahora - t_planoDesde >= MS_PLANO_SOSTENIDO)
+             || (ahora - t_fase >= MS_MAX_ESPERA_PLANO);
+      }
+      if (listo) {
+        // 0921j: antes de volver, se endereza (ver "SE ENDEREZA ANTES DE
+        // VOLVER"). Sin giroscopio respondiendo se saltea: vuelve directo.
+        if (enderezarAntesDeVolver && enderezarActivado && rumboBase >= 0
+            && giroscopoRespondiendo) {
+          fase = ENDEREZAR_DESPEJE; t_fase = ahora;
+          reiniciarRuedas();            // el giro tambien arranca con la rampa de cada motor
+          reiniciarCorreccion();
+        } else {
+          empezarVueltaDespeje(ahora);  // como la 0921i
+        }
+      }
+      break;
+    }
+
+    // 0921j (de la estrategia 2): girar en el lugar hasta quedar mirando
+    // igual que al arrancar, asi la vuelta sale derecha.
+    case ENDEREZAR_DESPEJE: {
+      float r = rumboActual();
+      // Si el giroscopio se cayo justo ahora, no se puede enderezar: vuelve.
+      float e = (r < 0) ? 0 : diferencia(rumboBase, r);
+      if (fabs(e) <= GRADOS_DERECHO || ahora - t_fase >= MS_TOPE_ENDEREZAR) {
+        frenar();                       // y frena un ratito antes de volver
+        fase = FRENO_ENDEREZADO; t_fase = ahora;
+        break;
+      }
+      int g = (int)(e * KP_RUMBO);
+      if (abs(g) < PWM_MIN_GIRO) g = (e > 0) ? PWM_MIN_GIRO : -PWM_MIN_GIRO;
+      if (abs(g) > PWM_MAX_GIRO) g = (e > 0) ? PWM_MAX_GIRO : -PWM_MAX_GIRO;
+      aplicarSuave(g, g, g);     // las tres para el mismo lado = girar en el lugar (con rampa en cada una)
+      break;
+    }
+
+    // 0921j: frena MS_FRENO_ENDEREZADO despues de enderezarse, y recien ahi
+    // vuelve para atras (como la estrategia 2).
+    case FRENO_ENDEREZADO:
+      frenar();
+      if (ahora - t_fase >= MS_FRENO_ENDEREZADO) empezarVueltaDespeje(ahora);
+      break;
+
+    case ATRAS_HASTA_LINEA: {
+      // 2026-09-08, pedido del equipo: VOLVER POR LA MISMA DIAGONAL.
+      // Si la ida fue torcida y la vuelta fuera derecha, el robot
+      // terminaria corrido de costado y fuera del centro del arco.
+      //
+      // El costado se achica en la misma proporcion en que se achica la
+      // potencia (la ida va a 200 y la vuelta a 110) para que el ANGULO
+      // sea el mismo, no solo el sentido. Y va con el signo cambiado,
+      // porque se esta desandando el camino.
+      // 0921j: la vuelta va a potenciaVueltaDespeje (80, la de la estrategia
+      // 2), y la cuenta de la misma diagonal se hace con ESA potencia. Con
+      // rampaEnCadaMotor, cada rueda sube de a poco con todo lo que le llega.
+      int lateralVuelta = -(lateralDelDespeje * potenciaVueltaDespeje)
+                          / pwmAvanceDespeje;
+      if (rampaEnCadaMotor) atrasEnDiagonalSuave(potenciaVueltaDespeje, lateralVuelta);
+      else                  atrasEnDiagonal(potenciaVueltaDespeje, lateralVuelta);   // la rampa general, como la 0921i
+
+      if (algunoDeAtrasVeBlanco()) {
+        // FRENAR, no soltar. Antes aca iba parar(), y el robot seguia de
+        // largo y se pasaba de la linea: quedaba en un lugar distinto cada
+        // vez. Frenando se detiene practicamente donde la vio.
+        frenar();
+        // 0921j: la rampa general queda como la dejaba la vuelta de la
+        // 0921i (en 110). Asi el empujon final sale de una a 100, como en
+        // la 0921i, y no arrancando desde 0 (con rampaEnCadaMotor la vuelta
+        // no toca la rampa general, y con false la deja en 80).
+        potenciaRampa = potenciaRetroceso;
+        fase = FRENANDO; t_fase = ahora;
+        break;
+      }
+      // Freno de emergencia: un robot que retrocede sin limite se va de la
+      // cancha. El codigo 2025 tiene ese bug exacto en el arquero.
+      // 0921j: el tope de la vuelta del despeje es MS_MAX_VUELTA_DESPEJE
+      // (2500: a 80 tarda mas), no MS_MAX_RETROCESO.
+      if (ahora - t_fase >= MS_MAX_VUELTA_DESPEJE) {
+        frenar();
+        potenciaRampa = potenciaRetroceso;  // el empujon sale de una, como en la 0921i
+        fase = FRENANDO; t_fase = ahora;
+      }
+      break;
+    }
+
+    case FRENANDO:
+      // El freno se sostiene un ratito y despues se sueltan los motores:
+      // dejarlos cortocircuitados de gusto solo calienta el driver.
+      if (ahora - t_fase >= msFreno) {
+        parar();
+        fase = ACOMODANDO; t_fase = ahora;
+        reintentosAcomodo = 0; pwmAcomodoAplicado = 0; t_rampa = ahora;
+      }
+      break;
+
+    case ACOMODANDO: {
+      if (!enderezarActivado) { terminarDespeje(); break; }
+      float r = rumboActual();
+      if (rumboBase < 0 || r < 0) {
+        terminarDespeje();
+        break;
+      }
+      float error = diferencia(rumboBase, r);
+      if (fabs(error) <= TOLERANCIA_ACOMODO) {
+        // FRENAR, no soltar: llego al punto y hay que clavarlo ahi mismo.
+        frenar(); fase = ACOMODO_ASENTAR; t_fase = ahora;
+        break;
+      }
+      if (ahora - t_fase >= MS_TIMEOUT_ACOMODO) {
+        frenar();
+        fase = ACOMODO_ASENTAR; t_fase = ahora;
+        break;
+      }
+      int pwm = (int)(fabs(error) * KP_ACOMODO);
+      if (pwm > PWM_MAX_ACOMODO) pwm = PWM_MAX_ACOMODO;
+      if (pwm < PWM_MIN_ACOMODO) pwm = PWM_MIN_ACOMODO;
+      // arranque suave: las tres de golpe dejan mudo al giroscopio
+      if (pwm < pwmAcomodoAplicado) pwmAcomodoAplicado = pwm;
+      else if (ahora - t_rampa >= RAMPA_MS) {
+        t_rampa = ahora;
+        pwmAcomodoAplicado += RAMPA_PASO;
+        if (pwmAcomodoAplicado > pwm) pwmAcomodoAplicado = pwm;
+      }
+      int g = (error > 0) ? pwmAcomodoAplicado : -pwmAcomodoAplicado;
+      aplicar(g, g, g);          // las tres parejas = rotacion pura
+      break;
+    }
+
+    case ACOMODO_ASENTAR: {
+      // Esperar que pase la inercia ANTES de volver a medir. Sin esta pausa
+      // el robot cree que llego cuando todavia esta girando.
+      //
+      // 🚨 2026-09-01: ACA HABIA UN parar() Y ESO ERA PARTE DEL PROBLEMA.
+      // parar() SUELTA los motores: el robot llegaba al punto, se cortaba
+      // la corriente, y la inercia lo seguia llevando de largo. Por eso se
+      // pasaba y despues tenia que volver — la oscilacion.
+      // Ahora se sostiene el FRENO ELECTRICO (cortocircuita los motores y
+      // se frenan solos) los primeros msFreno, y recien despues se sueltan.
+      // Es el mismo freno que se midio el 18/08 para el regreso del despeje.
+      if (ahora - t_fase < msFreno) { frenar(); break; }
+      parar();
+      if (ahora - t_fase < MS_ASENTAR_ACOMODO) break;
+      float error = diferencia(rumboBase, rumboActual());
+      if (fabs(error) > TOLERANCIA_ACOMODO
+          && reintentosAcomodo < MAX_REINTENTOS_ACOMODO) {
+        reintentosAcomodo++;
+        pwmAcomodoAplicado = 0; t_rampa = ahora;
+        fase = ACOMODANDO; t_fase = ahora;
+      } else {
+        terminarDespeje();
+      }
+      break;
+    }
+
+    case ADELANTE_CHICO:
+      // Va DESPUES de enderezarse, para que los 10 cm salgan derechos.
+      // Despacio y con rumbo sostenido: la gracia es terminar bien parado,
+      // no llegar rapido.
+      adelanteControlado(potenciaEmpujon);
+      if (ahora - t_fase >= (unsigned long)msEmpujonFinal) {
+        // Frenar, no soltar. Es corto: si suelta, la inercia se lleva
+        // puesta buena parte de los 10 cm.
+        frenar();
+        delay(msFreno);
+        parar();
+        if (empujonDeArranque) {
+          // Era el poquito del arranque, no el final de un despeje: a
+          // esperar la pelota ya mismo, sin enfriarse. (De la 0.1013.)
+          empujonDeArranque = false;
+          reiniciarCorreccion();
+          pasarAEsperar();
+        } else {
+          fase = ENFRIANDO; t_fase = ahora;
+        }
+      }
+      break;
+
+    case ENFRIANDO:
+      parar();
+      vecesSeguidas = 0;
+      if (ahora - t_fase >= MS_ENFRIAMIENTO) {
+        reiniciarCorreccion();
+        fase = ESPERANDO; t_fase = ahora;
+      }
+      break;
+  }
+
+  // ------------------------------------------------------------------
+  // AVISO: "ESTOY SIN GIROSCOPIO"
+  // ------------------------------------------------------------------
+  // Va DESPUES del switch a proposito: asi PISA el LED que haya puesto la
+  // fase. Cuando no hay rumbo, esta senal manda sobre todas las demas.
+  //
+  // Parpadeo de 10 por segundo — el mas rapido de todo el programa. El que
+  // le sigue es de 5 por segundo (las cuentas regresivas), asi que se
+  // distingue: este se ve casi como una luz temblando.
+  //
+  // Se chequea el sensor cada 200 ms y no en cada vuelta, para no cargar
+  // el bus I2C al pedo.
+
+  if (ahora - t_chequeoGiro >= 200) {
+    t_chequeoGiro = ahora;
+    rumboActual();                 // actualiza giroscopoRespondiendo
+  }
+
+  bool sinRumbo = (!hayGiroscopo)
+               || (!giroscopoRespondiendo)
+               || (fase != ARMANDOSE && rumboBase < 0);
+
+  if (sinRumbo && fase != APAGADO) {
+    digitalWrite(PIN_AVISO, ((ahora / MS_PARPADEO_AVISO) % 2) ? HIGH : LOW);
+  }
+}

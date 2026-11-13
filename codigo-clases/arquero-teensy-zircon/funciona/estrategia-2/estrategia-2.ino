@@ -23,7 +23,7 @@
                  arco
 
    ---------------------------------------------------------------------
-   QUE HACE (todavia SIN despeje y SIN patrulla)
+   QUE HACE (SIN patrulla; el DESPEJE se agrego el 09/11, ver el PANEL)
    ---------------------------------------------------------------------
    1. A los 3 s de prenderlo (LED lento, y rapido el ultimo segundo: manos
       afuera) RETROCEDE hasta que un sensor de atras ve la linea, y frena.
@@ -98,7 +98,7 @@ const unsigned long MS_TOPE_BUSCAR_LINEA = 3000;   // si no ve la linea, se para
 // ---- seguir la pelota (los de la 0921) ----
 float kpLateral = 11.5;                     // PWM por cm de desvio
 int   pwmMinLateral = 70;
-int   pwmMaxLateral = 160;
+int   pwmMaxLateral = 130;   // 10/11: 160 -> 130, pedido del equipo ("va muy rapido y se desvia al golpear la pelota")
 const float ZONA_MUERTA_PELOTA = 1.4;       // cm: casi enfrente, no se mueve
 
 // ---- acomodarse adelante/atras ----
@@ -129,24 +129,54 @@ const unsigned long MS_TOPE_VOLVER = 1000;
 // ido para el otro lado este rato seguido (si no, chequea a cada ratito).
 const unsigned long MS_SOLTAR_PUNTA = 300;
 
-// ---- despeje (09/11, los numeros de la 0921) ----
+// ---- despeje (09/11, los numeros de la 0921; 10/11: mas lento y sin saltito) ----
 bool  despejeActivado = true;
 float umbralCm        = 30.0;      // despeja si la pelota esta a esto o menos
 float umbralDesvio    = 20.0;      // y a esto o menos de costado
 const int VECES_PARA_CREERLE = 3;  // cuadros seguidos de camara
-int   potenciaDespeje = 200;
-unsigned long msAdelante = 533;    // la ida (~50 cm)
+// 10/11, pedido del equipo ("solo el despeje" mas lento): 200 -> 160, y la
+// ida 533 -> 666 ms para llegar igual de lejos (la misma cuenta que la
+// tecnica challenge). 🚨 umbralCm nunca mas grande que lo que llega la ida.
+int   potenciaDespeje = 160;
+unsigned long msAdelante = 666;    // la ida (~50 cm)
+// 10/11: "a la hora de despejar se va para la izquierda: un saltito al
+// arrancar", con el robot QUIETO antes de salir. Primero se probo arrancar
+// la ida ya en 70 (la teoria del 03/11): no lo saco. Despues el equipo pidio
+// "una rampa de velocidad para cada motor":
+//
+// 🎯 RAMPA EN CADA MOTOR (solo en el despeje: la ida, el enderezado y la
+// vuelta). CADA RUEDA sube de a poco con TODO lo que le llega: el avance,
+// el correrse hacia la pelota y la correccion del giroscopio. Antes esas dos
+// ultimas llegaban DE GOLPE, y la rueda de atras es la que empuja de costado.
+// Bajar es en el acto. Seguir la pelota de costado NO usa esta rampa.
+//   Si sigue el tiron: bajar PASO_RAMPA_RUEDA (5 = el doble de suave).
+//   Si sale muy lento y no llega a la pelota: subirlo.
+const int PASO_RAMPA_RUEDA = 10;            // cuanto sube cada rueda...
+const unsigned long MS_RAMPA_RUEDA = 10;    // ...cada este tiempo (10 cada 10 ms = de 0 a 160 en 0,16 s)
+// Correrse hacia la pelota sube en el MISMO tiempo que el avance: asi la
+// direccion no cambia mientras arranca.
 const float KP_PERSECUCION = 6.0;  // en la ida se corre de costado hacia la pelota
-const int PWM_MAX_PERSECUCION = 80;
-const unsigned long MS_PAUSA_DESPEJE = 300;   // frena y espera antes de volver
+const int PWM_MAX_PERSECUCION = 60;  // 10/11: 80 -> 60, el de la 0921
+const unsigned long MS_PAUSA_DESPEJE = 300;   // frena y espera antes de volver (minimo)
+// 10/11: "en el retroceso lo hace chueco" (zigzag). Como la 0921 (03/11):
+// antes de enderezarse y volver, ESPERA A QUE QUEDE PLANO. Al frenar
+// despues de la ida el robot se hamaca, y mientras se hamaca el giroscopio
+// da cualquier cosa. Espera a que la inclinacion vuelva a la de siempre (la
+// aprende quieto en la linea) un ratito seguido; nunca mas de 0,8 s.
+bool esperarPlanoAntesDeVolver = true;          // false = solo los 300 ms
+const float GRADOS_PLANO = 1.5;                 // "plano" = a esto o menos de la inclinacion de siempre
+const unsigned long MS_PLANO_SOSTENIDO = 100;   // ...y quedarse asi este tiempo
+const unsigned long MS_MAX_ESPERA_PLANO = 800;  // tope: a los 800 ms vuelve igual
 // Al volver: primero se ENDEREZA con el giroscopio (para quedar alineado),
 // despues va DERECHO para atras hasta la linea, y ahi se acomoda arriba.
 const float GRADOS_DERECHO = 3.0;
 const unsigned long MS_TOPE_ENDEREZAR = 1500;
 const int PWM_MIN_GIRO = 70;
-const int PWM_MAX_GIRO = 120;
-int   potenciaRetroceso = 110;
-const unsigned long MS_MAX_RETROCESO = 1500;
+const int PWM_MAX_GIRO = 85;    // 10/11: 120 -> 85, pedido del equipo ("al enderezarse se pasa"). Menos de 70 no gira
+int   potenciaRetroceso = 80;    // 10/11: 110 -> 90 -> 80, pedido del equipo ("vuelve muy rapido"). Como el retroceso del arranque. Si se traba o hace zigzag: volver a 90
+// Tope de la vuelta (es solo un seguro: frena al ver la linea). 10/11: 1500 -> 2500,
+// porque a 80 tarda mas en llegar (la revision vio que a 90 ya cortaba justo).
+const unsigned long MS_MAX_RETROCESO = 2500;
 
 // ---- fijos del partido (no son perillas) ----
 const unsigned long BAUDIOS = 19200;
@@ -180,6 +210,8 @@ float integralRumbo = 0;
 unsigned long t_ultimoControl = 0;
 int potenciaRampa = 0;
 unsigned long t_rampaMov = 0;
+int ruedaActual[3] = {0, 0, 0};   // la rampa de cada motor (10/11): lo que tiene cada rueda ahora
+unsigned long t_rampaRuedas = 0;
 
 // camara
 byte paquete[9];
@@ -246,6 +278,36 @@ int rampa(int objetivo) {
 }
 
 
+// ---- la rampa de CADA motor (10/11, solo en el despeje) ----
+void reiniciarRuedas() {
+  ruedaActual[0] = ruedaActual[1] = ruedaActual[2] = 0;
+  t_rampaRuedas = millis();
+}
+
+// Una rueda: sube de a PASO_RAMPA_RUEDA (si `toca`), baja en el acto, y si
+// cambia de sentido pasa primero por 0.
+int pasoRueda(int actual, int objetivo, bool toca) {
+  if (objetivo == 0) return 0;
+  if ((actual > 0 && objetivo < 0) || (actual < 0 && objetivo > 0)) actual = 0;
+  if (abs(objetivo) <= abs(actual)) return objetivo;
+  if (!toca) return actual;
+  int sube = abs(actual) + PASO_RAMPA_RUEDA;
+  if (sube > abs(objetivo)) sube = abs(objetivo);
+  return (objetivo > 0) ? sube : -sube;
+}
+
+// Como aplicar(), pero cada rueda llega a su fuerza con su propia rampa.
+void aplicarSuave(int v1, int v2, int v3) {
+  unsigned long ahora = millis();
+  bool toca = (ahora - t_rampaRuedas >= MS_RAMPA_RUEDA);
+  if (toca) t_rampaRuedas = ahora;
+  ruedaActual[0] = pasoRueda(ruedaActual[0], v1, toca);
+  ruedaActual[1] = pasoRueda(ruedaActual[1], v2, toca);
+  ruedaActual[2] = pasoRueda(ruedaActual[2], v3, toca);
+  aplicar(ruedaActual[0], ruedaActual[1], ruedaActual[2]);
+}
+
+
 // ================================================== rumbo (del partido)
 float rumboActual() {
   if (!hayGiroscopo) return -1;
@@ -281,6 +343,42 @@ int correccionDeRumbo() {
   if (c >  MAX_CORRECCION_RUMBO) c =  MAX_CORRECCION_RUMBO;
   if (c < -MAX_CORRECCION_RUMBO) c = -MAX_CORRECCION_RUMBO;
   return (int)c;
+}
+
+// ---- ¿quedo plano? (10/11, copia de la 0921) ----
+float incBaseY = 0, incBaseZ = 0;   // la inclinacion "de siempre", quieto en el piso
+bool  hayIncBase = false;
+unsigned long t_planoDesde = 0;     // desde cuando esta plano (0 = no lo esta)
+
+bool leerInclinacion(float &y, float &z) {
+  if (!hayGiroscopo) return false;
+  sensors_event_t e;
+  bno.getEvent(&e);
+  if (e.orientation.x == 0.0 && e.orientation.y == 0.0 && e.orientation.z == 0.0) return false;
+  y = e.orientation.y;
+  z = e.orientation.z;
+  return true;
+}
+
+// Promedia despacito la inclinacion con el robot QUIETO (si la cancha esta
+// en pendiente, la "de siempre" la sigue).
+void aprenderInclinacion() {
+  static unsigned long t_ultima = 0;
+  if (millis() - t_ultima < 20) return;
+  t_ultima = millis();
+  float y, z;
+  if (!leerInclinacion(y, z)) return;
+  if (!hayIncBase) { incBaseY = y; incBaseZ = z; hayIncBase = true; return; }
+  incBaseY += 0.02 * diferencia(y, incBaseY);
+  incBaseZ += 0.02 * diferencia(z, incBaseZ);
+}
+
+// ¿Esta plano AHORA? Si no se puede saber, dice que si (para no trabarse).
+bool estaPlano() {
+  float y, z;
+  if (!hayIncBase || !leerInclinacion(y, z)) return true;
+  return fabs(diferencia(y, incBaseY)) <= GRADOS_PLANO
+      && fabs(diferencia(z, incBaseZ)) <= GRADOS_PLANO;
 }
 
 // De costado (s > 0 = DERECHA, con rampa) mas un poquito de avance (prof > 0)
@@ -354,6 +452,7 @@ void empezar(Fase f) {
   fase = f; t_fase = millis();
   reiniciarRampaMovimiento();
   reiniciarCorreccion();
+  reiniciarRuedas();
 }
 
 // Frena y despues vuelve a cuidar la linea. NO borra el limite de la punta.
@@ -387,7 +486,7 @@ void setup() {
     while (rumboActual() < 0 && millis() - t0 < MS_ESPERA_DATOS_GIRO) delay(50);
   }
   if (Serial) {
-    Serial.println("=== ESTRATEGIA 2 version B (2026-11-09) — sensores de atras ARRIBA de la linea del area ===");
+    Serial.println("=== ESTRATEGIA 2 version B (2026-11-10d: costado 130, giro 85, vuelta 80) — sensores de atras ARRIBA de la linea del area ===");
     Serial.println(" 3 s, retrocede hasta la linea, y sigue la pelota de costado por la linea.");
   }
   fase = CUENTA; t_fase = 0;    // los 3 s cuentan DESDE QUE SE PRENDIO
@@ -402,6 +501,7 @@ void loop() {
       parar();
       unsigned long falta = (ahora >= MS_ARRANQUE) ? 0 : MS_ARRANQUE - ahora;
       digitalWrite(LED, ((ahora / ((falta <= 1000) ? 100 : 500)) % 2) ? HIGH : LOW);
+      if (falta <= 1000) aprenderInclinacion();   // el ultimo segundo ya esta en el piso, sin manos
       if (falta > 0) break;
       float r = rumboActual();
       if (r < 0) {
@@ -460,7 +560,7 @@ void loop() {
       // DESPEJE: la pelota cerca y de frente, varios cuadros seguidos.
       if (despejeActivado && viendo && vecesSeguidas >= VECES_PARA_CREERLE) {
         vecesSeguidas = 0;
-        empezar(DESPEJE_IDA);
+        empezar(DESPEJE_IDA);              // (empezar pone las ruedas en 0: arrancan con su rampa)
         break;
       }
 
@@ -528,7 +628,7 @@ void loop() {
       }
 
       int prof = corrigiendo * PROF_CORRECCION;
-      if (lateral == 0 && prof == 0) parar();
+      if (lateral == 0 && prof == 0) { parar(); aprenderInclinacion(); }   // quieto: aprende "plano"
       else costadoYProfundidad(lateral, prof);
       break;
     }
@@ -590,7 +690,7 @@ void loop() {
     // ---- DESPEJE: ida para adelante (corriendose hacia la pelota) ----
     case DESPEJE_IDA: {
       digitalWrite(LED, HIGH);
-      int p = rampa(potenciaDespeje);
+      int p = potenciaDespeje;        // la rampa la pone cada rueda (aplicarSuave)
       int lat = 0;
       if (veLaPelota()) {
         float d = desvioPelota();
@@ -600,19 +700,39 @@ void loop() {
           if (lat < -PWM_MAX_PERSECUCION) lat = -PWM_MAX_PERSECUCION;
         }
       }
+      // El costado sube en el MISMO tiempo que el avance (lo que tardan las
+      // ruedas de adelante en llegar a potenciaDespeje): la direccion no
+      // cambia mientras arranca, y no hay tiron de costado al salir.
+      {
+        unsigned long msSubida = (unsigned long)(potenciaDespeje / PASO_RAMPA_RUEDA) * MS_RAMPA_RUEDA;
+        unsigned long dt = ahora - t_fase;
+        if (msSubida > 0 && dt < msSubida) lat = (int)((long)lat * (long)dt / (long)msSubida);
+      }
       if (lateralInvertido) lat = -lat;
       int fr = (lat * LADO_FRENTE) / 100;
       int tr = (lat * LADO_TRASERA) / 100;
       int c = correccionDeRumbo();
-      aplicar(+p + fr + c, -p + fr + c, -tr + c);
-      if (ahora - t_fase >= msAdelante) { frenar(); fase = DESPEJE_PAUSA; t_fase = ahora; }
+      aplicarSuave(+p + fr + c, -p + fr + c, -tr + c);
+      if (ahora - t_fase >= msAdelante) { frenar(); fase = DESPEJE_PAUSA; t_fase = ahora; t_planoDesde = 0; }
       break;
     }
 
-    case DESPEJE_PAUSA:
-      frenar();
-      if (ahora - t_fase >= MS_PAUSA_DESPEJE) { parar(); empezar(ENDEREZAR); }
+    // Frena, y espera a que deje de hamacarse (minimo 0,3 s, maximo 0,8 s).
+    case DESPEJE_PAUSA: {
+      if (ahora - t_fase < MS_FRENO) frenar(); else parar();
+      bool listo;
+      if (!esperarPlanoAntesDeVolver) {
+        listo = (ahora - t_fase >= MS_PAUSA_DESPEJE);
+      } else {
+        if (estaPlano()) { if (t_planoDesde == 0) t_planoDesde = ahora; }
+        else             t_planoDesde = 0;
+        listo = (ahora - t_fase >= MS_PAUSA_DESPEJE
+                 && t_planoDesde != 0 && ahora - t_planoDesde >= MS_PLANO_SOSTENIDO)
+             || (ahora - t_fase >= MS_MAX_ESPERA_PLANO);
+      }
+      if (listo) { parar(); empezar(ENDEREZAR); }
       break;
+    }
 
     // Girar en el lugar hasta quedar mirando igual que al arrancar.
     case ENDEREZAR: {
@@ -627,7 +747,7 @@ void loop() {
       int g = (int)(e * KP_RUMBO);
       if (abs(g) < PWM_MIN_GIRO) g = (e > 0) ? PWM_MIN_GIRO : -PWM_MIN_GIRO;
       if (abs(g) > PWM_MAX_GIRO) g = (e > 0) ? PWM_MAX_GIRO : -PWM_MAX_GIRO;
-      aplicar(g, g, g);          // las tres para el mismo lado = girar en el lugar
+      aplicarSuave(g, g, g);     // las tres para el mismo lado = girar en el lugar (con rampa en cada una)
       break;
     }
 
@@ -635,7 +755,10 @@ void loop() {
     // termina de acomodarlo arriba de la linea.
     case VOLVER_ATRAS:
       if (ahora - t_fase < 150) { frenar(); break; }
-      atrasControlado(potenciaRetroceso);
+      {
+        int c = correccionDeRumbo();   // para atras = (-p, +p, 0), con rampa en cada rueda
+        aplicarSuave(-potenciaRetroceso + c, +potenciaRetroceso + c, 0 + c);
+      }
       if (sostenido(blancoIzq() || blancoDer() || blancoAdelante(), t_buscando, 15, ahora)
           || ahora - t_fase >= 150 + MS_MAX_RETROCESO) {
         limiteLado = 0;

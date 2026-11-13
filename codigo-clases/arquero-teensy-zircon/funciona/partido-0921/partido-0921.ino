@@ -1,9 +1,84 @@
 /* =====================================================================
    ARQUERO — sigue la pelota de costado y la despeja
    IITA Salta — taller de los martes — Roboliga 2026
-            V E R S I O N   0 9 2 1 i   -   E N   P R U E B A
-   Ultimo cambio: 2026-11-09
+            V E R S I O N   0 9 2 1 k   -   E N   P R U E B A
+   Ultimo cambio: 2026-11-10
    =====================================================================
+
+   📋 LA 0921k (2026-11-10, la noche antes de la Roboliga): la 0921j + LA
+   BARRIDA, una patrulla nueva que REEMPLAZA a la de ahora. Pedido del
+   equipo, textual: "hagamos otra patrulla, cuando pasen 7 segundos el robot
+   va a mover en su eje el motor de atras para su lado derecho y izquierdo
+   constantemente hasta que encuentre la pelota y de ahi por ejemplo el
+   robot esta en el angulo de 43 grados inclinado hacia la derecha y detecto
+   la pelota, entonces que se posicione en el angulo en 0 grados y que se
+   vaya hacia el lado que detecto la pelota (que en este caso seria a la
+   derecha), se mueve hasta que se vea la pelota".
+   Lo que eligieron: en la 0921j (esta, la 0921k); la barrida REEMPLAZA a la
+   patrulla de ahora (la del lateral a los 20 s); gira SOLO CON LA RUEDA DE
+   ATRAS (las dos de adelante frenadas); +-45 grados de a 15 grados.
+   Como quedo (ver "LA BARRIDA" en el panel, cada numero con su "si pasa"):
+     ** 10/11 (despues de probarla), pedidos del equipo:
+        - "que sea 4 seg": MS_SIN_PELOTA_PARA_BARRER 7000 -> 4000.
+        - "en vez de que gire con la rueda de atras que gire con las tres en
+          su eje para que el giro no ocupe tanto lugar": barridaConTresRuedas
+          = true (gira EN EL LUGAR, a PWM_BARRIDA_TRES). Donde abajo dice
+          "rueda de atras", con eso prendido son las TRES.
+        - "despues de despejar retrocede, ve la linea y en ese saltito que
+          hace aumentale 3 cm mas" (solo despues del despeje):
+          MS_EXTRA_EMPUJON_DESPEJE = 70.
+     1. 7 s (hoy 4 s) quieto esperando SIN VER la pelota -> empieza a barrer.
+     2. Gira con la rueda de atras de a 15 grados: +15, +30, +45, -15, -30,
+        -45 y 0, y vuelta a empezar, mientras no la vea. En cada paso
+        FRENA y mira quieto 200 ms (en el 0, medio segundo).
+     3. Si la ve (3 cuadros seguidos): anota de que lado esta DE VERDAD
+        (para donde miraba el robot + donde estaba en la imagen), vuelve a
+        0 grados con la misma rueda de atras, y va DE COSTADO para ese lado
+        hasta verla. Ahi la sigue como siempre (y la despeja como siempre).
+     4. Si en 1,5 s de costado no la ve, vuelve el mismo tiempo para el
+        otro lado (a donde estaba) y vuelve a esperar.
+   La patrulla vieja (patrullarSinPelota) quedo en false y su codigo esta
+   entero. Sin giroscopio no barre. Mientras barre el LED hace DOS
+   destellos cortos por segundo.
+   Si mientras barre lo levantan con la mano o lo empuja un rival, corta
+   ESA barrida, se endereza y a los 7 s barre de nuevo: la barrida nunca
+   queda apagada para todo el partido.
+   La 0921j quedo copiada en respaldos/partido-0921j/ y la 0921i en
+   respaldos/partido-0921i/.
+   El TABLERO maneja la 0921k desde el 12/11 (pestaña PARTIDO: grupo 3 EL
+   DESPEJE y grupo 5 LA BARRIDA; DISENO del tablero, 16.12). La linea
+   #PARTIDO manda los MISMOS campos (cambian version=0921k y el interruptor
+   de patrullarSinPelota, que ahora va en 0); barridaActivada no va en la
+   linea, lo confirma el SELLO.
+
+   📋 LA 0921j (2026-11-10, la noche antes de la Roboliga): la 0921i + EL
+   DESPEJE DE LA ESTRATEGIA 2. Pedido del equipo, textual: "pone el despeje
+   del ultimo programa de la estrategia dos a este". Se copio TODO el
+   despeje de funciona/estrategia-2/estrategia-2.ino (la "2026-11-10d", la
+   que probaron hoy y les gusto), con sus mismos numeros:
+     1. LA IDA mas lenta y mas larga, para llegar igual de lejos:
+        potenciaDespeje 200 -> 160 y msAdelante 533 -> 666 (~50 cm).
+        Y con RAMPA EN CADA MOTOR (rampaEnCadaMotor): cada rueda sube de a
+        poco con TODO lo que le llega (avance + correrse hacia la pelota +
+        el giroscopio). El costado sube en el MISMO tiempo que el avance.
+     2. LA PAUSA (esperar a que quede plano): igual que la 0921i.
+     3. SE ENDEREZA ANTES DE VOLVER (enderezarAntesDeVolver, nuevo): gira en
+        el lugar hasta quedar a 3 grados del rumbo del arranque, frena un
+        ratito, y recien ahi vuelve. Sin giroscopio, se saltea.
+     4. LA VUELTA mas lenta: para atras a 80 (potenciaVueltaDespeje), con la
+        rampa en cada motor, tope 2500 ms (MS_MAX_VUELTA_DESPEJE). Sigue
+        volviendo por la misma diagonal. potenciaRetroceso (110) y
+        MS_MAX_RETROCESO (1500) NO se tocaron: los usan el arranque, la
+        patrulla y la rutina de ir al medio.
+     5. Al llegar a la linea, IGUAL que la 0921i (frena, se endereza, el
+        empujon final, la patrulla, el limite lateral).
+   Ver "EL DESPEJE DE LA ESTRATEGIA 2" en el panel. Todo lo demas, igual
+   que la 0921i. La 0921i quedo copiada en respaldos/partido-0921i/.
+   🚨 EL TABLERO TODAVIA NO MANEJA LA 0921j ("solo el programa, despues el
+   tablero"). La linea #PARTIDO manda los MISMOS campos que la 0921i (solo
+   cambian version=0921j, potenciaDespeje=160 y msAdelante=666), pero el
+   tablero espera la 0921i: no guardar valores con el tablero sobre esta
+   version hasta adaptarlo.
 
    📋 LA 0921i (2026-11-09): la 0921g + LA PATRULLA POR LA LINEA DEL AREA.
    Lo que paso en el partido: la patrulla iba al lateral de la cancha y
@@ -108,10 +183,14 @@
 
    QUE HACE
    El robot se para en su area mirando la cancha, con el arco a la espalda,
-   y NUNCA gira: siempre mira al frente.
+   y NUNCA gira: siempre mira al frente. (0921k: salvo en la BARRIDA, que
+   gira hasta +-45 para buscar la pelota y SIEMPRE vuelve a 0 antes de
+   seguirla o despejar.)
 
         1. Sin pelota a la vista: quieto (y si pasa 10 s sin moverse,
                                   patrulla: ver el punto 5 de arriba).
+                                  0921k: a los 7 s sin verla, BARRE con
+                                  la rueda de atras (ver la 0921k, arriba).
         2. Ve la pelota lejos  -> se corre DE COSTADO para ponerse enfrente
                                   de ella, sin dejar de mirar al frente.
         3. La pelota llega a 30 cm -> DESPEJA: sale ~50 cm, la saca, vuelve
@@ -242,7 +321,7 @@ const unsigned long BAUDIOS = 19200;
 // ---- 🏷️ LA LINEA DE VERSION (2026-11-08, version 0921g) ----
 // Pedido del equipo: "agrega tambien lo de la linea con la version". Al
 // arrancar, si hay una compu escuchando por el USB, el robot dice UN renglon:
-//   #PARTIDO version=0921i sello=fabrica giro=1 umbralBlanco=425 ... interruptores=1111111110101
+//   #PARTIDO version=0921k sello=fabrica giro=1 umbralBlanco=425 ... interruptores=1011111110101
 // Con eso el TABLERO (pestana PARTIDO) confirma que quedo cargado lo que se
 // queria. Se repite cada medio segundo mientras parpadea antes de arrancar,
 // por si la primera no la escucho nadie (cargar.py abre el puerto un rato tarde).
@@ -250,7 +329,7 @@ const unsigned long BAUDIOS = 19200;
 //    nada; con cable, se manda solo ANTES de moverse y no espera a nadie.
 // 🚨 NO ponerle begin() al Serial del USB: el USB del Teensy anda sin eso, y en
 //    algunas versiones begin() espera hasta 2,5 s a que abran el puerto (arrancaria tarde).
-const char* VERSION_PARTIDO = "0921i";
+const char* VERSION_PARTIDO = "0921k";   // 10/11: la 0921j + la BARRIDA (ver el encabezado)
 // La escribe el TABLERO cada vez que guarda valores (fecha y hora, sin espacios).
 // "fabrica" = los valores tal como salieron del taller. A mano no hace falta tocarla.
 // 2026-11-09 (tarde): vuelve a "fabrica". Decia "20261109-092611", que es el
@@ -331,7 +410,11 @@ int   pwmMaxLateral = 160;       // 2026-11-03: 120 -> 140 -> 160, pedido del eq
 const float ZONA_MUERTA_PELOTA = 1.4;   // cm REALES: no perseguir migajas
 
 // ---- despeje ----
-int potenciaDespeje   = 200;
+// 0921j (10/11): 200 -> 160, el de la estrategia 2 (pedido del equipo: "solo
+// el despeje" mas lento). msAdelante sube a 666 para llegar igual de lejos.
+int potenciaDespeje   = 160;
+// 🚨 potenciaRetroceso NO es la vuelta del despeje desde la 0921j (esa es
+// potenciaVueltaDespeje, abajo). Este lo usa el retroceso del ARRANQUE.
 int potenciaRetroceso = 110;
 // La ida tiene que ALCANZAR a la pelota: si el robot dispara a 48 cm y solo
 // avanza 30, frena 18 cm antes y no la toca nunca. Por eso este numero sube
@@ -358,7 +441,10 @@ int potenciaRetroceso = 110;
 // para que quede parejo: dispara a 30 y avanza 50 -> sobran 20 de empuje,
 // igual que antes (20 y 40).
 //        50 cm  ->  (50 + 3,3) x 10 = 533 ms
-int msAdelante        = 533;     // ~50 cm. 2026-11-03: se probo 600 y el equipo lo volvio a 533
+// 2026-11-10 (0921j): 533 -> 666, con potenciaDespeje 160 (la estrategia 2).
+// Es la misma cuenta que la tecnica challenge: a menos fuerza, mas tiempo,
+// para llegar a los mismos ~50 cm. 🚨 umbralCm nunca mas grande que lo que llega la ida.
+int msAdelante        = 666;     // ~50 cm a 160. 2026-11-03: se probo 600 y el equipo lo volvio a 533
 int msAdelanteChico   = 133;     // 10 cm
 // 🚨 2026-09-15 — CANCHA NUEVA, UMBRAL NUEVO. Era 620.
 //
@@ -481,6 +567,8 @@ const unsigned long MS_PAUSA_MEDIO   = 300;     // espera MINIMA entre la ida y 
 // 1200 podia cortarse ANTES de llegar a la linea y dejar al robot adelantado.
 // La ida volvio a 533, pero se dejo en 1500: es solo el tope de seguridad
 // (si ve la linea, frena ahi igual) y la rampa de la vuelta come un poco.
+// 🚨 0921j: la vuelta del DESPEJE ya no usa este (usa MS_MAX_VUELTA_DESPEJE).
+// Este queda para el arranque, la patrulla y la rutina de ir al medio.
 const unsigned long MS_MAX_RETROCESO = 1500;
 
 // ---- 🎯 ESPERAR A QUE QUEDE PLANO ANTES DE VOLVER (2026-11-03) ----
@@ -512,6 +600,8 @@ const unsigned long MS_MAX_ESPERA_PLANO = 800;  // tope: a los 800 ms vuelve igu
 // arrancaba para atras A FONDO, de un tiron. El 20/10 la herramienta midio
 // que el retroceso solo, arrancando quieto y con rampa, se tuerce 2 grados;
 // el que viene pegado a la ida, de 15 a 20 y yendo y viniendo.
+// ⚠️ 0921j: con rampaEnCadaMotor en true la vuelta del despeje va con la
+// rampa de cada motor, y este interruptor no la toca.
 bool rampaAlVolver = true;                 // false = como el 21/09, sin rampa
 
 // ---- 🎯 LA IDA ARRANCA DESDE 70, NO DESDE 0 (2026-11-03) ----
@@ -527,7 +617,62 @@ bool rampaAlVolver = true;                 // false = como el 21/09, sin rampa
 // Si sigue el saltito: subir (80, 90). Si el arranque patina o se tuerce:
 // bajar. 0 = como antes (la rampa desde 0).
 // 0921e: en 0, como la b (el equipo volvio a la b despues de probar la c).
+// ⚠️ 0921j: con rampaEnCadaMotor en true (ver abajo) la ida NO usa la rampa
+// general ni este piso: cada rueda arranca desde 0 con su propia rampa.
+// Se dejan por si se apaga rampaEnCadaMotor.
 int pisoRampaIda = 0;
+
+// ---- 🎯 EL DESPEJE DE LA ESTRATEGIA 2 (0921j, 2026-11-10) ----
+// Pedido del equipo: "pone el despeje del ultimo programa de la estrategia
+// dos a este". Copiado de funciona/estrategia-2/estrategia-2.ino (la
+// "2026-11-10d", la que probaron hoy y les gusto), con los mismos numeros.
+//
+// 🎯 RAMPA EN CADA MOTOR (en la ida, el enderezado y la vuelta del despeje).
+// Lo que vio el equipo con la estrategia 2: "a la hora de despejar se va
+// para la izquierda: un saltito al arrancar", con el robot QUIETO antes de
+// salir. La rampa general sube de a poco SOLO el avance: el correrse hacia
+// la pelota y la correccion del giroscopio llegaban DE GOLPE, y la rueda de
+// atras es la que empuja de costado. Con esto CADA RUEDA sube de a poco con
+// TODO lo que le llega (avance + costado + giroscopio). Bajar es en el acto,
+// y si una rueda cambia de sentido pasa primero por 0. Seguir la pelota de
+// costado NO usa esta rampa.
+//   Si sigue el tiron: bajar PASO_RAMPA_RUEDA (5 = el doble de suave).
+//   Si sale muy lento y no llega a la pelota: subirlo.
+// false = la ida y la vuelta con la rampa general, como la 0921i (los
+// numeros de la ida y de la vuelta de aca son los mismos igual).
+bool rampaEnCadaMotor = true;
+const int PASO_RAMPA_RUEDA = 10;            // cuanto sube cada rueda...
+const unsigned long MS_RAMPA_RUEDA = 10;    // ...cada este tiempo (10 cada 10 ms = de 0 a 160 en 0,16 s)
+// El correrse hacia la pelota (kpPersecucion, PWM_MAX_PERSECUCION) sube en
+// el MISMO tiempo que el avance: asi la direccion no cambia mientras
+// arranca, y no hay tiron de costado al salir.
+
+// 🎯 SE ENDEREZA ANTES DE VOLVER. Despues de la pausa (ya plano), gira en el
+// lugar hasta quedar a GRADOS_DERECHO del rumbo del arranque, frena un
+// ratito y recien ahi vuelve para atras: asi la vuelta sale derecha. (En la
+// estrategia 2: "en el retroceso lo hace chueco".) Sin giroscopio
+// respondiendo se saltea y vuelve directo, como la 0921i.
+bool enderezarAntesDeVolver = true;          // false = vuelve directo despues de la pausa, como la 0921i
+const float GRADOS_DERECHO = 3.0;            // "derecho" = a esto o menos del rumbo del arranque
+const unsigned long MS_TOPE_ENDEREZAR = 1500;   // si no llega en este tiempo, vuelve igual
+// La fuerza del giro: grados de error x KP_RUMBO (5), entre estos dos.
+// Menos de 70 no gira. En la estrategia 2 (10/11): 120 -> 85, pedido del
+// equipo ("al enderezarse se pasa").
+const int PWM_MIN_GIRO = 70;
+const int PWM_MAX_GIRO = 85;
+const unsigned long MS_FRENO_ENDEREZADO = 150;  // despues de enderezarse frena esto, y recien ahi vuelve
+
+// 🎯 LA VUELTA DEL DESPEJE, mas lenta. En la estrategia 2 (10/11): 110 -> 90
+// -> 80, pedido del equipo ("vuelve muy rapido"). Si se traba o hace zigzag:
+// volver a 90.
+// 🚨 Son SOLO de la vuelta del despeje. potenciaRetroceso (110) y
+// MS_MAX_RETROCESO (1500) quedaron como estaban: los usan el retroceso del
+// arranque, la patrulla y la rutina de ir al medio.
+int potenciaVueltaDespeje = 80;
+// Tope de la vuelta (es solo un seguro: frena al ver la linea). A 80 tarda
+// mas en llegar que a 110 (en la estrategia 2 la revision vio que a 90 ya
+// cortaba justo con 1500).
+const unsigned long MS_MAX_VUELTA_DESPEJE = 2500;
 
 // Cuanto se sostiene el freno electrico. Despues se sueltan los motores:
 // mantenerlos cortocircuitados sin necesidad solo calienta el driver.
@@ -561,6 +706,12 @@ int potenciaEmpujon = 100;
 // encontrar la linea del area cambiala a 15". Es una CUENTA (del 18/08, antes
 // de mover los motores): medir con regla si queda a 15 cm de la linea.
 int msEmpujonFinal = 450;
+// 10/11 (0921k), pedido del equipo: "despues de despejar retrocede, ve la
+// linea y en ese saltito que hace aumentale 3 cm mas". SOLO despues del
+// despeje (al arrancar, despues del lateral y al volver al medio sigue
+// msEmpujonFinal solo). Con la cuenta de arriba: 3 cm / 0,041 = ~70 ms.
+//   Si despues del despeje queda muy lejos de la linea: bajar. Muy cerca: subir.
+const unsigned long MS_EXTRA_EMPUJON_DESPEJE = 70;
 const unsigned long MS_ENFRIAMIENTO  = 1500;
 // 2026-09-21: bajado de 10 s a 2 s a pedido del equipo. Con 2 s toda la
 // cuenta queda en parpadeo rapido (el lento era para los primeros 7 s).
@@ -781,7 +932,12 @@ bool empujonDeArranque = false;
 //
 // ⚠️ COSTO: cada patrulla son unos 8 s, y 5 de esos el arco queda
 // descubierto. Si el juez aguanta mas de 10 s quieto, conviene subirlo.
-bool patrullarSinPelota = true;   // 09/11: apagada para el primer partido y prendida otra vez despues ("activa la patrulla la ultima"). Cual patrulla: ver patrullaPorLaLinea (abajo)
+// 🚨 0921k (10/11): EN false. La reemplaza LA BARRIDA (ver "LA BARRIDA",
+// abajo): el equipo eligio que la barrida sea LA patrulla. Con
+// barridaActivada en true esta patrulla (la del lateral y la de la linea del
+// area) NO arranca aunque esto este en true. Su codigo quedo entero: para
+// volver a la de la 0921j, barridaActivada = false y esto en true.
+bool patrullarSinPelota = false;  // 09/11: apagada para el primer partido y prendida otra vez despues ("activa la patrulla la ultima"). Cual patrulla: ver patrullaPorLaLinea (abajo). 0921k: false (ver arriba)
 const unsigned long MS_QUIETO_PARA_PATRULLAR = 20000;   // 09/11: 15000 -> 20000, pedido del equipo ("que inicie a 20")
 
 // ---- 🎯 LA PATRULLA POR LA LINEA DEL AREA (0921i, 2026-11-09) ----
@@ -1005,6 +1161,169 @@ int lecturasDeLateral = 0;
 int ladoDelLateral = 0;                     // -1 = piso el izquierdo, +1 = el derecho
 
 
+// ---- 🎯 LA BARRIDA (0921k, 2026-11-10) ----
+//
+// Pedido del equipo (el textual esta en el encabezado): a los 7 s sin pelota,
+// mover "en su eje el motor de atras" para la derecha y la izquierda hasta
+// encontrarla; despues ponerse en 0 grados e ir de costado para ese lado.
+// REEMPLAZA a la patrulla de la 0921j (patrullarSinPelota quedo en false).
+//
+// 🚨 10/11: AHORA GIRA CON LAS TRES RUEDAS, EN EL LUGAR (barridaConTresRuedas
+// = true, pedido del equipo: "para que el giro no ocupe tanto lugar"). Lo que
+// sigue explica la forma de antes (solo la de atras), que queda con false.
+// El signo es el mismo: las tres en + hacen SUBIR el rumbo (es lo que hace
+// correccionDeRumbo, probado en la cancha).
+//
+// COMO GIRA: SOLO LA RUEDA DE ATRAS. Las dos de adelante quedan FRENADAS
+// (las dos patas en 0 y PWM 255, igual que frenar()), y la de atras empuja
+// de costado. Con las de adelante clavadas el robot no puede irse de
+// costado: lo unico que le queda es GIRAR alrededor de un punto que esta
+// adelante del robot, y la cola se corre. Por eso para volver a 0 se usa el
+// MISMO giro: al deshacer el angulo se deshace tambien el corrimiento de la
+// cola, y el robot vuelve a quedar donde estaba.
+//
+// PARA QUE SE FRENA EN CADA PASO: el delantero midio que la camara, GIRANDO,
+// ve la pelota mas o menos la mitad de las veces; QUIETA, casi siempre.
+//
+// 🧭 PARA QUE LADO GIRA (el signo), sacado del codigo, no a ojo:
+//   a) correccionDeRumbo() y ACOMODANDO giran con las TRES ruedas iguales, y
+//      cuando hace falta que el rumbo SUBA (error = rumboBase - rumbo > 0)
+//      les mandan un numero POSITIVO. Eso esta probado en la cancha desde
+//      agosto (si estuviera al reves, el robot se iria torciendo cada vez
+//      mas en vez de enderezarse). O sea: las tres en + = el rumbo sube =
+//      gira en sentido HORARIO (el BNO055 sube para el lado del reloj).
+//   b) Ir de costado es (fr, fr, -tr) (moverDeCostado): las de adelante para
+//      un lado y la de atras al reves. Ahi el robot no gira (lo poquito que
+//      gira lo corrige el giroscopio).
+//   c) La rueda de atras SOLA con un +, con las de adelante quietas, es la
+//      suma de un pedazo de (a) y un pedazo de (b) al reves:
+//          (0, 0, +1) = 0,36 x (1, 1, 1)  -  0,0072 x (50, 50, -89)
+//      El pedazo de giro (0,36) da POSITIVO: la rueda de atras en + hace
+//      SUBIR el rumbo (gira para la DERECHA), y la cola se va para la
+//      izquierda. Con la de atras en -, al reves.
+//   Esto no depende de si lateralInvertido esta bien: solo de (a) y de que
+//   (b) sea un movimiento de costado. Por eso SIGNO_GIRO_BARRIDA = +1.
+//   Igual, por las dudas, la barrida se CUIDA SOLA:
+//   - Mientras el signo no esta PROBADO (todavia no giro bien con el): si al
+//     girar el rumbo se va GRADOS_AL_REVES_BARRIDA para el lado contrario,
+//     da vuelta el signo y repite el giro.
+//   - Apenas gira GRADOS_AL_REVES_BARRIDA para el lado que se le mando, el
+//     signo queda PROBADO. Desde ahi, si el rumbo se va para atras no es el
+//     signo: es que lo MOVIERON DE AFUERA (lo levantaron con la mano en una
+//     reanudacion, o lo empujo un rival). Entonces NO da vuelta el signo:
+//     corta ESA barrida, se endereza con las tres ruedas (ACOMODANDO) y a
+//     los 7 s barre de nuevo. Ese giro tiene que volver a probar el signo.
+//   - Si en el MISMO giro ya lo dio vuelta y se va para atras otra vez, con
+//     los dos signos fue para atras: tambien lo movieron de afuera. Vuelve
+//     al signo que tenia, no lo cuenta, y corta esa barrida.
+//   - Si en una barrida lo tiene que dar vuelta mas de
+//     MAX_VUELTAS_SIGNO_BARRIDA veces, corta ESA barrida y se endereza.
+//   NUNCA se apaga la barrida para todo el partido: un robot quieto sin
+//   pelota es lo que hizo que el juez lo sacara (ver "PATRULLA: no
+//   quedarse quieto para siempre").
+//   COMO VERIFICARLO EN LA CANCHA: prenderlo sin pelota a la vista, esperar
+//   los 7 s y mirar el PRIMER paso. Tiene que girar para la DERECHA (en el
+//   sentido del reloj, mirandolo desde arriba), con la cola yendose para la
+//   izquierda. Si el primer movimiento es para la izquierda y despues de un
+//   pasito corrige solo para la derecha: el signo esta al reves, cambiar
+//   SIGNO_GIRO_BARRIDA a -1 y volver a cargar.
+//
+// LED: mientras barre (girar, mirar, volver a 0, ir de costado y volver)
+// hace DOS destellos cortos por segundo. No se parece a ninguno de los otros
+// (esperando es lento y parejo; siguiendo, prendido fijo; sin giroscopio,
+// temblando 10 por segundo).
+//
+// 🚨 SIN GIROSCOPIO RESPONDIENDO NO BARRE: se queda quieto esperando, como
+// estaba. Y si el giroscopio se cae a mitad de la barrida, frena y vuelve a
+// esperar.
+bool barridaActivada = true;     // false = sin barrida (y vuelve a mandar patrullarSinPelota)
+
+// Cuanto tiene que pasar quieto ESPERANDO sin ver la pelota para empezar a
+// barrer. Se reinicia cada vez que la ve (ver la pelota lo saca de esperar).
+//   Si el juez dice que esta quieto mucho: bajar (5000).
+//   Si sale a barrer cuando un rival le tapa la pelota un rato: subir (9000).
+const unsigned long MS_SIN_PELOTA_PARA_BARRER = 4000;   // 10/11: 7000 -> 4000, pedido del equipo ("que sea 4 seg")
+
+// Los pasos, en "pasos de GRADOS_PASO_BARRIDA" desde el rumbo del arranque:
+// +15, +30, +45 (derecha), -15, -30, -45 (izquierda), 0, y vuelta a empezar
+// mientras no la vea. (+ = a la derecha, como el rumbo.)
+const int PASOS_BARRIDA[] = { 1, 2, 3, -1, -2, -3, 0 };
+const int CANT_PASOS_BARRIDA = sizeof(PASOS_BARRIDA) / sizeof(PASOS_BARRIDA[0]);
+//   Si la pelota se le escapa entre un paso y otro: bajar (10).
+//   Si cada vuelta tarda demasiado: subir (20).
+const float GRADOS_PASO_BARRIDA = 15.0;
+// Nunca mas que esto para cada lado (aunque alguien ponga un paso de mas).
+const float GRADOS_MAX_BARRIDA = 45.0;
+
+// La fuerza de la rueda de atras al girar. Con rampaEnCadaMotor (prendida)
+// sube de a poco, igual que en el despeje.
+//   Si zumba y no gira (cada paso se corta por el tope): subir (100, 110).
+//   Si se pasa mucho de cada paso o patina: bajar (no menos de ~75: parada
+//   no arranca).
+const int PWM_BARRIDA = 90;
+// 10/11: girar con las TRES ruedas en su eje (en el lugar, ocupa menos
+// lugar). false = solo la rueda de atras, como la primera 0921k.
+bool barridaConTresRuedas = true;
+// La fuerza de cada rueda girando con las tres (como al enderezarse: 70-85).
+//   Si zumba y no gira: subir (85, 90). Si se pasa de cada paso: bajar (no menos de 70).
+const int PWM_BARRIDA_TRES = 80;
+// +1 = la rueda de atras en + hace SUBIR el rumbo (ver "PARA QUE LADO GIRA").
+// (Con las tres ruedas es el mismo signo: las tres en + tambien lo hacen subir.)
+// Si en la cancha el primer paso sale para la izquierda: -1.
+const int SIGNO_GIRO_BARRIDA = +1;
+
+// "Llego al paso" = a esto o menos del objetivo (o lo paso de largo).
+const float GRADOS_TOL_PASO_BARRIDA = 3.0;
+// Tope de cada paso POR CADA 15 GRADOS que tiene que girar, por si no gira
+// (el salto de +45 a -15 son 60 grados: 4 x 1200 = 4,8 s de tope).
+//   Si corta los pasos antes de llegar (gira lento): subir.
+const unsigned long MS_TOPE_PASO_BARRIDA = 1200;
+
+// Cuanto se queda QUIETO mirando en cada paso (ya frenado).
+//   Si pasa por la pelota y no la ve: subir (300).
+//   Si la barrida es muy lenta: bajar (150).
+const unsigned long MS_MIRAR_BARRIDA = 200;
+// En el 0, al terminar cada vuelta, mira un poco mas.
+const unsigned long MS_MIRAR_CENTRO_BARRIDA = 500;
+
+// "La vio" = la pelota en este numero de cuadros SEGUIDOS (~26 por segundo:
+// 3 son ~0,12 s). Un reflejo suelto no alcanza.
+//   Si sale para un lado por un reflejo: subir (4, 5).
+//   Si la tiene enfrente y no reacciona: bajar (2) o subir MS_MIRAR_BARRIDA.
+const int CUADROS_PARA_VER_BARRIDA = 3;
+
+// Volver a 0 despues de verla: hasta quedar a esto o menos del rumbo del
+// arranque. Frena, se asienta y mide; si quedo lejos, reintenta.
+//   Si va y viene buscando el 0: subir (4, 5).
+const float GRADOS_DERECHO_BARRIDA = 3.0;
+const unsigned long MS_ASENTAR_BARRIDA = 300;   // frenado + quieto antes de medir
+const int MAX_REINTENTOS_A_CERO_BARRIDA = 3;
+
+// De costado hacia donde la vio (moverDeCostado: el giroscopio sostiene el
+// rumbo), hasta verla o hasta el tope.
+//   Si no llega a verla antes del tope: subir el tope (2000) o la velocidad.
+//   Si se aleja demasiado del medio del arco: bajar el tope (1000).
+//   No bajar la velocidad de ~75 (parado no arranca).
+const int VEL_COSTADO_BARRIDA = 100;
+const unsigned long MS_TOPE_COSTADO_BARRIDA = 1500;
+// Quieto entre la ida de costado y la vuelta (si la ve aca, tambien la sigue).
+const unsigned long MS_PAUSA_COSTADO_BARRIDA = 300;
+
+// Los cuidados (no son para ajustar, son seguros):
+// - si girando el rumbo se va ESTO para el lado contrario, y el signo
+//   todavia no esta probado, el signo esta al reves: lo da vuelta solo y
+//   sigue. Si ya estaba probado, lo movieron de afuera: corta esa barrida.
+//   Y si gira ESTO para el lado que se le mando, el signo queda probado.
+const float GRADOS_AL_REVES_BARRIDA = 10.0;
+// - si en UNA barrida tiene que darlo vuelta mas de estas veces, algo anda
+//   mal: corta ESA barrida, se endereza con las tres ruedas y a los 7 s
+//   prueba de nuevo (la cuenta vuelve a 0 en cada barrida).
+const int MAX_VUELTAS_SIGNO_BARRIDA = 3;
+// - si se pasa de GRADOS_MAX_BARRIDA + esto (lo empujaron, o se paso de
+//   largo), corta la barrida y se endereza con las tres ruedas (ACOMODANDO).
+const float GRADOS_MARGEN_BARRIDA = 15.0;
+
+
 // ---- estado ----
 enum Fase { APAGADO, ARMANDOSE, ESPERANDO, SIGUIENDO,
             ADELANTE, PAUSA_MEDIO, ATRAS_HASTA_LINEA, FRENANDO,
@@ -1020,12 +1339,37 @@ enum Fase { APAGADO, ARMANDOSE, ESPERANDO, SIGUIENDO,
             LINEA_BUSCAR, LINEA_PUNTA_A, LINEA_PUNTA_B, LINEA_AL_MEDIO,
             LINEA_MIRAR, LINEA_MIRAR_MEDIO,
             // 09/11: volviendo al medio, vio la linea del area.
-            MEDIO_LINEA_AVANZAR, MEDIO_LINEA_AL_MEDIO };
+            MEDIO_LINEA_AVANZAR, MEDIO_LINEA_AL_MEDIO,
+            // 0921j: el despeje de la estrategia 2, enderezarse antes de volver.
+            ENDEREZAR_DESPEJE, FRENO_ENDEREZADO,
+            // 0921k: la barrida (ver "LA BARRIDA").
+            BARRIDA_GIRAR, BARRIDA_MIRAR, BARRIDA_A_CERO, BARRIDA_A_CERO_ASENTAR,
+            BARRIDA_COSTADO, BARRIDA_PAUSA, BARRIDA_VOLVER };
 Fase fase = APAGADO;
 unsigned long t_fase = 0;
 
 // A que paso de la rutina se va cuando termine la pausa entre pasos.
 Fase faseDespuesDePausa = ESPERANDO;
+
+// ---- 0921k: como va la barrida ----
+// Como termino un pedacito de giro (girarHaciaObjetivo).
+enum GiroBarrida { GIRO_SIGUE, GIRO_LLEGO, GIRO_AL_REVES, GIRO_SIN_RUMBO, GIRO_FUERA_DE_LIMITE };
+int   pasoBarrida = 0;                 // en que lugar de PASOS_BARRIDA va
+float objetivoGiro = 0;                // a donde quiere llegar (grados desde rumboBase, + = derecha)
+float relInicioGiro = 0;               // donde estaba al empezar este giro
+int   dirGiro = +1;                    // +1 = tiene que subir el rumbo, -1 = bajarlo
+unsigned long msTopeGiro = 0;          // tope de este giro
+float rumboRelBarrida = 0;             // el ultimo rumbo medido, desde rumboBase
+int   signoGiroBarrida = SIGNO_GIRO_BARRIDA;   // el que se usa (se da vuelta solo si gira al reves)
+int   vueltasSignoBarrida = 0;         // cuantas veces lo dio vuelta EN ESTA barrida
+bool  signoBarridaProbado = false;     // true = ya giro bien con este signo: no se da vuelta mas
+bool  yaLoDioVueltaEnEsteGiro = false; // true = en este giro ya dio vuelta el signo una vez
+int   ladoBarrida = +1;                // para donde esta la pelota: +1 derecha, -1 izquierda
+float anguloPelotaBarrida = 0;         // donde estaba de verdad (grados desde rumboBase)
+int   reintentosACeroBarrida = 0;
+unsigned long msCostadoBarrida = 0;    // cuanto fue de costado (para volver lo mismo)
+Fase  faseTrasPausaBarrida = ESPERANDO;
+unsigned long msPausaBarrida = 0;
 
 int vecesSeguidas = 0;
 
@@ -1128,8 +1472,8 @@ const int COSTADO_MINIMO_UTIL = 20;
 // MISMA diagonal, que es lo que pidio el equipo: si sali torcido para
 // alla, vuelvo torcido para aca y caigo donde arranque.
 int lateralDelDespeje  = 0;
-int pwmAvanceDespeje   = 200;    // puede bajar para dejarle lugar al costado
-unsigned long msIdaDespeje = 533;
+int pwmAvanceDespeje   = 160;    // puede bajar para dejarle lugar al costado (lo pone intentarDespejar)
+unsigned long msIdaDespeje = 666;
 
 
 
@@ -1242,6 +1586,80 @@ int rampa(int objetivo) {
     if (potenciaRampa > objetivo) potenciaRampa = objetivo;
   }
   return potenciaRampa;
+}
+
+// ---- la rampa de CADA motor (0921j, copia de la estrategia 2) ----
+// Ver "EL DESPEJE DE LA ESTRATEGIA 2" en el panel. Solo la usa el despeje.
+int ruedaActual[3] = {0, 0, 0};   // lo que tiene cada rueda ahora
+unsigned long t_rampaRuedas = 0;
+
+// Las tres ruedas a 0: la proxima vez arrancan de nuevo con su rampa.
+void reiniciarRuedas() {
+  ruedaActual[0] = ruedaActual[1] = ruedaActual[2] = 0;
+  t_rampaRuedas = millis();
+}
+
+// Una rueda: sube de a PASO_RAMPA_RUEDA (si `toca`), baja en el acto, y si
+// cambia de sentido pasa primero por 0.
+int pasoRueda(int actual, int objetivo, bool toca) {
+  if (objetivo == 0) return 0;
+  if ((actual > 0 && objetivo < 0) || (actual < 0 && objetivo > 0)) actual = 0;
+  if (abs(objetivo) <= abs(actual)) return objetivo;
+  if (!toca) return actual;
+  int sube = abs(actual) + PASO_RAMPA_RUEDA;
+  if (sube > abs(objetivo)) sube = abs(objetivo);
+  return (objetivo > 0) ? sube : -sube;
+}
+
+// Como aplicar(), pero cada rueda llega a su fuerza con su propia rampa.
+void aplicarSuave(int v1, int v2, int v3) {
+  unsigned long ahora = millis();
+  bool toca = (ahora - t_rampaRuedas >= MS_RAMPA_RUEDA);
+  if (toca) t_rampaRuedas = ahora;
+  ruedaActual[0] = pasoRueda(ruedaActual[0], v1, toca);
+  ruedaActual[1] = pasoRueda(ruedaActual[1], v2, toca);
+  ruedaActual[2] = pasoRueda(ruedaActual[2], v3, toca);
+  aplicar(ruedaActual[0], ruedaActual[1], ruedaActual[2]);
+}
+
+// ---- 0921k: girar SOLO con la rueda de atras (la barrida) ----
+// Las dos de adelante FRENADAS (patas en 0 y PWM 255, igual que frenar()),
+// no sueltas: frenadas no dejan que el robot se vaya de costado, y lo unico
+// que puede hacer es girar. `v3` con signo, como en rueda(): + = pata A alta.
+// Con rampaEnCadaMotor sube de a poco con la rampa de su motor; si no, con
+// la rampa general. Antes de cada giro hay que reiniciar las dos rampas.
+void girarConLaRuedaDeAtras(int v3) {
+  // 10/11: con barridaConTresRuedas, las TRES ruedas iguales = girar EN EL
+  // LUGAR (como al enderezarse). El signo de v3 es el mismo; la fuerza es
+  // PWM_BARRIDA_TRES. aplicar() ya actualiza el reloj de "se movio".
+  if (barridaConTresRuedas) {
+    int g = (v3 > 0) ? PWM_BARRIDA_TRES : ((v3 < 0) ? -PWM_BARRIDA_TRES : 0);
+    if (rampaEnCadaMotor) {
+      aplicarSuave(g, g, g);
+    } else {
+      int p = rampa(abs(g));
+      int v = (g < 0) ? -p : p;
+      aplicar(v, v, v);
+    }
+    return;
+  }
+  digitalWrite(INA1, 0); digitalWrite(INB1, 0); analogWrite(PWM1, 255);
+  digitalWrite(INA2, 0); digitalWrite(INB2, 0); analogWrite(PWM2, 255);
+  int v;
+  if (rampaEnCadaMotor) {
+    unsigned long ahora = millis();
+    bool toca = (ahora - t_rampaRuedas >= MS_RAMPA_RUEDA);
+    if (toca) t_rampaRuedas = ahora;
+    ruedaActual[0] = ruedaActual[1] = 0;
+    ruedaActual[2] = pasoRueda(ruedaActual[2], v3, toca);
+    v = ruedaActual[2];
+  } else {
+    int p = rampa(abs(v3));
+    v = (v3 < 0) ? -p : p;
+  }
+  rueda(INA3, INB3, PWM3, v);
+  // Tambien es moverse (el reloj de aplicar(), que usa la patrulla vieja).
+  if (abs(v) >= PWM_CUENTA_COMO_MOVERSE) t_ultimoMovimiento = millis();
 }
 
 
@@ -1459,6 +1877,19 @@ void avanzarPersiguiendo(int potencia, int lateral) {
   aplicar(+p + fr + c, -p + fr + c, -tr + c);
 }
 
+// 0921j: lo mismo, pero SIN la rampa general: la suma entera (avance +
+// costado + giroscopio) pasa por la rampa de CADA motor (aplicarSuave).
+// Es la ida de la estrategia 2.
+void avanzarPersiguiendoSuave(int potencia, int lateral) {
+  if (lateralInvertido) lateral = -lateral;
+
+  int c  = correccionDeRumbo();
+  int fr = (lateral * LADO_FRENTE)  / 100;
+  int tr = (lateral * LADO_TRASERA) / 100;
+
+  aplicarSuave(+potencia + fr + c, -potencia + fr + c, -tr + c);
+}
+
 void atrasControlado(int potencia) {
   int p = rampa(potencia);
   int c = correccionDeRumbo();
@@ -1605,6 +2036,32 @@ void atrasEnDiagonal(int potencia, int lateral) {
   aplicar(-p + fr + c, +p + fr + c, -tr + c);
 }
 
+// 0921j: la misma diagonal para atras, pero con la rampa de CADA motor
+// (aplicarSuave) en vez de la general. Es la vuelta de la estrategia 2.
+void atrasEnDiagonalSuave(int potencia, int lateral) {
+  if (lateralInvertido) lateral = -lateral;
+
+  int c  = correccionDeRumbo();
+  int fr = (lateral * LADO_FRENTE)  / 100;
+  int tr = (lateral * LADO_TRASERA) / 100;
+
+  aplicarSuave(-potencia + fr + c, +potencia + fr + c, -tr + c);
+}
+
+// 0921j: arranca la vuelta del despeje (despues de la pausa, o despues de
+// enderezarse). Las ruedas (o la rampa general) desde 0, y el giroscopio
+// sin lo acumulado en la ida.
+void empezarVueltaDespeje(unsigned long ahora) {
+  fase = ATRAS_HASTA_LINEA; t_fase = ahora;
+  if (rampaEnCadaMotor) {
+    reiniciarRuedas();
+    reiniciarCorreccion();
+  } else if (rampaAlVolver) {
+    reiniciarRampaMovimiento();   // arrancar para atras de a poco, no de un tiron
+    reiniciarCorreccion();
+  }
+}
+
 // Se llama al terminar de enderezarse, desde las tres salidas de ACOMODANDO.
 void pasarAEsperar() {
   fase = ESPERANDO;
@@ -1725,6 +2182,185 @@ void pasarAEnderezarse() {
 }
 
 
+// ---- 0921k: LA BARRIDA (ver "LA BARRIDA" en el panel) ----
+
+// El LED mientras barre: dos destellos cortos por segundo.
+void ledBarrida(unsigned long ahora) {
+  unsigned long m = ahora % 1000;
+  digitalWrite(LED, (m < 100 || (m >= 200 && m < 300)) ? HIGH : LOW);
+}
+
+// ¿La vio de verdad? CUADROS_PARA_VER_BARRIDA cuadros SEGUIDOS, no un reflejo.
+bool barridaVioLaPelota() {
+  return veLaPelota() && cuadrosConPelota >= CUADROS_PARA_VER_BARRIDA;
+}
+
+// Prepara un giro con la rueda de atras hasta `objetivo` (grados desde
+// rumboBase, + = derecha). Arranca el reloj del giro (t_fase). Devuelve
+// false si el giroscopio no contesta.
+bool empezarGiro(float objetivo, unsigned long ahora) {
+  float r = rumboActual();
+  if (r < 0 || rumboBase < 0) return false;
+  objetivoGiro    = objetivo;
+  relInicioGiro   = diferencia(r, rumboBase);   // + = esta girado a la derecha
+  rumboRelBarrida = relInicioGiro;
+  float falta = objetivoGiro - relInicioGiro;
+  dirGiro = (falta >= 0) ? +1 : -1;
+  // El tope crece con lo que tiene que girar: MS_TOPE_PASO_BARRIDA cada 15 grados.
+  int pasos = (int)ceil(fabs(falta) / GRADOS_PASO_BARRIDA);
+  if (pasos < 1) pasos = 1;
+  msTopeGiro = MS_TOPE_PASO_BARRIDA * (unsigned long)pasos;
+  yaLoDioVueltaEnEsteGiro = false;  // giro nuevo (giroAlReves lo pone en true despues)
+  reiniciarRuedas();              // la rampa de cada motor, desde 0
+  reiniciarRampaMovimiento();     // (o la general, si rampaEnCadaMotor esta en false)
+  t_fase = ahora;
+  return true;
+}
+
+// Un pedacito del giro: se llama en cada vuelta del loop. Mide el rumbo, se
+// fija si llego (o se paso de largo, o se cumplio el tope), si se fue de los
+// limites o si esta girando AL REVES, y si no, empuja con la rueda de atras
+// para el lado que corresponde (ver "PARA QUE LADO GIRA" en el panel).
+GiroBarrida girarHaciaObjetivo(float tolerancia, unsigned long ahora) {
+  float r = rumboActual();
+  if (r < 0 || rumboBase < 0) return GIRO_SIN_RUMBO;
+  float rel = diferencia(r, rumboBase);
+  rumboRelBarrida = rel;
+  if (fabs(rel) > GRADOS_MAX_BARRIDA + GRADOS_MARGEN_BARRIDA) return GIRO_FUERA_DE_LIMITE;
+  // Giro bien para el lado que se le mando: este signo queda PROBADO.
+  if ((rel - relInicioGiro) * dirGiro >= GRADOS_AL_REVES_BARRIDA) signoBarridaProbado = true;
+  // Se fue para el lado CONTRARIO al que se lo mando: o el signo esta al
+  // reves, o lo movieron de afuera (eso lo decide giroAlReves).
+  if ((rel - relInicioGiro) * dirGiro < -GRADOS_AL_REVES_BARRIDA) return GIRO_AL_REVES;
+  float falta = objetivoGiro - rel;
+  if (fabs(falta) <= tolerancia || falta * dirGiro < 0     // llego, o se paso de largo
+      || ahora - t_fase >= msTopeGiro) return GIRO_LLEGO;  // o no gira: sigue igual
+  girarConLaRuedaDeAtras(dirGiro * signoGiroBarrida * PWM_BARRIDA);
+  return GIRO_SIGUE;
+}
+
+// Frena y se queda quieto `ms` (frenado los primeros msFreno). Despues va a
+// `destino`: BARRIDA_VOLVER, o ESPERANDO (se termina la barrida).
+void pausaBarrida(Fase destino, unsigned long ms) {
+  frenar();
+  faseTrasPausaBarrida = destino;
+  msPausaBarrida = ms;
+  fase = BARRIDA_PAUSA; t_fase = millis();
+}
+
+// Arranca el paso numero pasoBarrida de PASOS_BARRIDA.
+void empezarPasoBarrida(unsigned long ahora) {
+  float obj = PASOS_BARRIDA[pasoBarrida] * GRADOS_PASO_BARRIDA;
+  if (obj >  GRADOS_MAX_BARRIDA) obj =  GRADOS_MAX_BARRIDA;   // nunca mas de 45
+  if (obj < -GRADOS_MAX_BARRIDA) obj = -GRADOS_MAX_BARRIDA;
+  fase = BARRIDA_GIRAR;
+  if (!empezarGiro(obj, ahora)) pausaBarrida(ESPERANDO, msFreno);   // sin giroscopio: a esperar
+}
+
+// Sale de ESPERANDO: la barrida desde el primer paso.
+void arrancarBarrida(unsigned long ahora) {
+  cuadrosConPelota = 0;           // los cuadros de "la vio" se cuentan desde aca
+  pasoBarrida = 0;
+  vueltasSignoBarrida = 0;        // el tope de vueltas del signo cuenta POR BARRIDA, no por partido
+  empezarPasoBarrida(ahora);
+}
+
+// Algo raro (se fue de los limites, o no hubo caso con el signo): corta, se
+// endereza con las TRES ruedas (el enderezado de siempre, ACOMODANDO) y
+// vuelve a esperar.
+void cortarBarridaYEnderezar() {
+  frenar();
+  enderezandoEnEspera = true;     // al terminar de enderezarse vuelve a ESPERANDO
+  pasarAEnderezarse();
+}
+
+// Girando, el rumbo se fue para el otro lado. Puede ser que el signo este al
+// reves, o que lo hayan movido de afuera (lo levantaron con la mano en una
+// reanudacion, o lo empujo un rival). Lo que hace (ver "se CUIDA SOLA" en el
+// panel):
+//   - si el signo ya estaba PROBADO: lo movieron. No toca el signo, corta
+//     esta barrida y se endereza. El signo tiene que volver a probarse.
+//   - si en ESTE giro ya lo dio vuelta: con los dos signos fue para atras,
+//     tambien lo movieron. Vuelve al signo que tenia, no cuenta, y corta.
+//   - si no: el signo esta al reves. Lo da vuelta y repite el MISMO giro.
+//     Si en esta barrida ya lo dio vuelta demasiadas veces, corta.
+// Cortar es solo ESTA barrida: a los 7 s esperando, barre de nuevo.
+void giroAlReves(unsigned long ahora) {
+  frenar();
+  if (signoBarridaProbado) {
+    signoBarridaProbado = false;
+    cortarBarridaYEnderezar();
+    return;
+  }
+  if (yaLoDioVueltaEnEsteGiro) {
+    signoGiroBarrida = -signoGiroBarrida;   // el de antes de este giro
+    cortarBarridaYEnderezar();
+    return;
+  }
+  vueltasSignoBarrida++;
+  if (vueltasSignoBarrida > MAX_VUELTAS_SIGNO_BARRIDA) {
+    cortarBarridaYEnderezar();
+    return;
+  }
+  signoGiroBarrida = -signoGiroBarrida;
+  if (!empezarGiro(objetivoGiro, ahora)) { pausaBarrida(ESPERANDO, msFreno); return; }
+  yaLoDioVueltaEnEsteGiro = true;   // despues de empezarGiro, que lo pone en false
+}
+
+// La vio (y el robot esta derecho): a seguirla como siempre (SIGUIENDO, y de
+// ahi el despeje de siempre).
+void barridaASeguir(unsigned long ahora) {
+  reiniciarRampaMovimiento();
+  reiniciarCorreccion();
+  fase = SIGUIENDO; t_fase = ahora;
+}
+
+// Ya volvio a 0 despues de verla. Si la ve, la sigue; si no, va de costado
+// para el lado donde estaba.
+void llegarACeroBarrida(unsigned long ahora) {
+  frenar();
+  // 🚨 El despeje junta sus cuadros DE NUEVO, ya derecho: los que junto
+  // girado no cuentan. Asi nunca despeja torcido.
+  vecesSeguidas = 0;
+  if (barridaVioLaPelota()) { barridaASeguir(ahora); return; }
+  lecturasDeLateral = 0;
+  reiniciarRampaMovimiento();
+  reiniciarCorreccion();
+  fase = BARRIDA_COSTADO; t_fase = ahora;
+}
+
+// La vio barriendo. Donde esta DE VERDAD = para donde mira el robot (rel,
+// grados desde rumboBase) + donde esta en la imagen (atan2(desvio,
+// distancia)). El lado es el signo de esa suma. Ejemplo: el robot girado a
+// +43 (derecha) y la pelota 10 grados a la izquierda en la imagen: +33, a la
+// derecha. Despues vuelve a 0 (sin despejar: nunca despeja torcido).
+void pelotaVistaEnBarrida(unsigned long ahora, float rel) {
+  float enLaImagen = atan2(desvioPelota(), distanciaPelota()) * 180.0 / PI;
+  anguloPelotaBarrida = rel + enLaImagen;
+  ladoBarrida = (anguloPelotaBarrida >= 0) ? +1 : -1;
+  frenar();
+  reintentosACeroBarrida = 0;
+  if (fabs(rel) <= GRADOS_DERECHO_BARRIDA) { llegarACeroBarrida(ahora); return; }   // ya esta en 0
+  fase = BARRIDA_A_CERO;
+  if (!empezarGiro(0, ahora)) pausaBarrida(ESPERANDO, msFreno);
+}
+
+// Yendo de costado: ¿piso el lateral? El MISMO limite que SIGUIENDO (ver
+// "LIMITE LATERAL"): si lo piso, vuelve al medio como siempre. Devuelve true
+// si arranco esa vuelta.
+bool barridaPisoElLateral(int lado) {
+  if (!(volverAlMedioEnElLateral && enderezarActivado && rumboBase >= 0
+        && giroscopoRespondiendo)) return false;
+  if (pisaElLateral(lado)) lecturasDeLateral++;
+  else                     lecturasDeLateral = 0;
+  if (lecturasDeLateral >= LECTURAS_PARA_CREER_LATERAL) {
+    arrancarVueltaDelLateral(lado);
+    return true;
+  }
+  return false;
+}
+
+
 // Adonde ir despues del enderezado. Esta en una funcion y no repetido en
 // cada rama porque hay TRES caminos que salen del enderezado (termino bien,
 // estaba desactivado, o el giroscopio estaba mudo) y los tres tienen que
@@ -1753,6 +2389,7 @@ bool intentarDespejar(unsigned long ahora) {
   fase = ADELANTE; t_fase = ahora;
   reiniciarRampaMovimiento();   // arrancar suave: si patina, se tuerce
   potenciaRampa = pisoRampaIda; // ...pero desde 70: las dos de adelante juntas (03/11)
+  reiniciarRuedas();            // 0921j: con rampaEnCadaMotor, cada rueda arranca desde 0
   reiniciarCorreccion();
   return true;
 }
@@ -1841,6 +2478,14 @@ void avisarLargoLinea() {
 // Lo nuevo (patrullaPorLaLinea, alternarLadoPatrulla, buscarLineaDelAreaAlVolver,
 // MS_AVANCE_10CM, MS_PUNTA_A_PUNTA_FIJO, VEL_LINEA...) NO va en la linea: lo
 // confirma el SELLO, como todo lo que no va (DISENO del tablero, 16.11).
+// 2026-11-10: la 0921j manda los MISMOS campos que la 0921i (solo cambian los
+// valores: version=0921j, potenciaDespeje=160, msAdelante=666). Lo nuevo del
+// despeje (rampaEnCadaMotor, enderezarAntesDeVolver, potenciaVueltaDespeje,
+// MS_MAX_VUELTA_DESPEJE...) NO va en la linea. El tablero todavia no la maneja.
+// 2026-11-10 (0921k): los MISMOS campos otra vez. Cambian version=0921k y el
+// interruptor de patrullarSinPelota (ahora en 0: la reemplaza la barrida). Lo
+// de la barrida (barridaActivada, PWM_BARRIDA, SIGNO_GIRO_BARRIDA...) NO va en
+// la linea. El tablero no maneja esta version.
 void avisarVersion() {
   if (!Serial) return;                 // nadie escuchando (en la cancha): nada
   Serial.print("#PARTIDO version=");            Serial.print(VERSION_PARTIDO);
@@ -2309,7 +2954,15 @@ void loop() {
         fase = SIGUIENDO; t_fase = ahora;
         reiniciarRampaMovimiento();
         reiniciarCorreccion();
-      } else if (patrullarSinPelota && enderezarActivado && rumboBase >= 0
+      } else if (barridaActivada && enderezarActivado
+                 && rumboBase >= 0 && giroscopoRespondiendo
+                 && ahora - t_fase >= MS_SIN_PELOTA_PARA_BARRER) {
+        // 0921k: 7 s esperando sin verla -> LA BARRIDA (reemplaza a la
+        // patrulla). El reloj es t_fase: ver la pelota saca al robot de
+        // ESPERANDO, y al volver arranca de 0. Sin giroscopio no barre.
+        arrancarBarrida(ahora);
+      } else if (patrullarSinPelota && !barridaActivada   // 0921k: con la barrida prendida, esta no arranca
+                 && enderezarActivado && rumboBase >= 0
                  && giroscopoRespondiendo
                  && ahora - t_fase >= MS_SIN_PELOTA_PARA_PATRULLAR
                  && ahora - t_ultimoMovimiento >= MS_QUIETO_PARA_PATRULLAR) {
@@ -2323,6 +2976,115 @@ void loop() {
         // tiene que aprender con el robot QUIETO.
         arrancarPatrulla();
       }
+      break;
+
+    // ---------------- 0921k: LA BARRIDA (ver el panel) ----------------
+    // Gira de a pasos SOLO con la rueda de atras, frena y mira. Si la ve,
+    // vuelve a 0 con la misma rueda y va de costado para ese lado hasta
+    // verla, y ahi la sigue como siempre. Nunca despeja girado.
+
+    case BARRIDA_GIRAR: {           // 1. girar hasta el paso
+      ledBarrida(ahora);
+      GiroBarrida g = girarHaciaObjetivo(GRADOS_TOL_PASO_BARRIDA, ahora);
+      if (g == GIRO_SIN_RUMBO)       { pausaBarrida(ESPERANDO, msFreno); break; }
+      if (g == GIRO_FUERA_DE_LIMITE) { cortarBarridaYEnderezar(); break; }
+      if (g == GIRO_AL_REVES)        { giroAlReves(ahora); break; }
+      // Girando la camara tambien la puede ver (mas o menos la mitad de las veces).
+      if (barridaVioLaPelota())      { pelotaVistaEnBarrida(ahora, rumboRelBarrida); break; }
+      if (g == GIRO_LLEGO) {
+        frenar();
+        fase = BARRIDA_MIRAR; t_fase = ahora;
+      }
+      break;
+    }
+
+    case BARRIDA_MIRAR: {           // 2. frenado y quieto, mirando
+      ledBarrida(ahora);
+      if (ahora - t_fase < msFreno) frenar(); else parar();
+      if (barridaVioLaPelota()) {
+        float r = rumboActual();
+        if (r < 0) { pausaBarrida(ESPERANDO, msFreno); break; }
+        pelotaVistaEnBarrida(ahora, diferencia(r, rumboBase));
+        break;
+      }
+      // En el 0 (el final de cada vuelta) mira un poco mas.
+      unsigned long msMirar = (PASOS_BARRIDA[pasoBarrida] == 0)
+                              ? MS_MIRAR_CENTRO_BARRIDA : MS_MIRAR_BARRIDA;
+      if (ahora - t_fase >= msMirar) {
+        pasoBarrida = (pasoBarrida + 1) % CANT_PASOS_BARRIDA;   // y vuelta a empezar, mientras no la vea
+        empezarPasoBarrida(ahora);
+      }
+      break;
+    }
+
+    case BARRIDA_A_CERO: {          // 3. la vio: volver a 0 con la MISMA rueda de atras
+      ledBarrida(ahora);
+      GiroBarrida g = girarHaciaObjetivo(GRADOS_DERECHO_BARRIDA, ahora);
+      if (g == GIRO_SIN_RUMBO)       { pausaBarrida(ESPERANDO, msFreno); break; }
+      if (g == GIRO_FUERA_DE_LIMITE) { cortarBarridaYEnderezar(); break; }
+      if (g == GIRO_AL_REVES)        { giroAlReves(ahora); break; }
+      if (g == GIRO_LLEGO) {
+        frenar();
+        fase = BARRIDA_A_CERO_ASENTAR; t_fase = ahora;
+      }
+      break;
+    }
+
+    case BARRIDA_A_CERO_ASENTAR: {  // 3b. frenado, quieto, y mide si quedo en 0
+      ledBarrida(ahora);
+      if (ahora - t_fase < msFreno) { frenar(); break; }
+      parar();
+      if (ahora - t_fase < MS_ASENTAR_BARRIDA) break;
+      float r = rumboActual();
+      if (r < 0) { pasarAEsperar(); break; }              // sin giroscopio: a esperar
+      if (fabs(diferencia(r, rumboBase)) > GRADOS_DERECHO_BARRIDA
+          && reintentosACeroBarrida < MAX_REINTENTOS_A_CERO_BARRIDA) {
+        reintentosACeroBarrida++;                         // quedo lejos del 0: otra vez
+        fase = BARRIDA_A_CERO;
+        if (!empezarGiro(0, ahora)) pasarAEsperar();
+        break;
+      }
+      llegarACeroBarrida(ahora);    // derecho (o ya no hay caso): de costado
+      break;
+    }
+
+    case BARRIDA_COSTADO:           // 4. de costado para el lado donde la vio
+      ledBarrida(ahora);
+      if (barridaVioLaPelota()) { barridaASeguir(ahora); break; }   // a seguirla como siempre
+      if (barridaPisoElLateral(ladoBarrida)) break;                 // el limite lateral de siempre
+      moverDeCostado(ladoBarrida * VEL_COSTADO_BARRIDA);            // el giroscopio sostiene el rumbo
+      if (ahora - t_fase >= MS_TOPE_COSTADO_BARRIDA) {
+        msCostadoBarrida = ahora - t_fase;                          // para volver lo mismo
+        pausaBarrida(BARRIDA_VOLVER, MS_PAUSA_COSTADO_BARRIDA);
+      }
+      break;
+
+    case BARRIDA_PAUSA:             // frenado y quieto entre tramo y tramo
+      ledBarrida(ahora);
+      if (ahora - t_fase < msFreno) frenar(); else parar();
+      // Entre la ida y la vuelta de costado esta derecho: si la ve, la sigue.
+      // (Si la pausa termina la barrida, la pelota la mira ESPERANDO.)
+      if (faseTrasPausaBarrida == BARRIDA_VOLVER && barridaVioLaPelota()) {
+        barridaASeguir(ahora); break;
+      }
+      if (ahora - t_fase >= msPausaBarrida) {
+        if (faseTrasPausaBarrida == ESPERANDO) {
+          pasarAEsperar();          // termino la barrida: a esperar (y a los 7 s, otra vez)
+        } else {
+          lecturasDeLateral = 0;
+          reiniciarRampaMovimiento();
+          reiniciarCorreccion();
+          fase = faseTrasPausaBarrida; t_fase = ahora;
+        }
+      }
+      break;
+
+    case BARRIDA_VOLVER:            // 5. no la vio: vuelve el MISMO tiempo, a donde estaba
+      ledBarrida(ahora);
+      if (barridaVioLaPelota()) { barridaASeguir(ahora); break; }
+      if (barridaPisoElLateral(-ladoBarrida)) break;
+      moverDeCostado(-ladoBarrida * VEL_COSTADO_BARRIDA);
+      if (ahora - t_fase >= msCostadoBarrida) pausaBarrida(ESPERANDO, msFreno);
       break;
 
     case SIGUIENDO: {
@@ -2441,7 +3203,19 @@ void loop() {
       // pedia mucho costado, se achicaron LOS DOS JUNTOS para que la
       // direccion siga siendo la calculada. Por eso la ida tambien se
       // estira, para recorrer los mismos centimetros.
-      avanzarPersiguiendo(pwmAvanceDespeje, lateral);
+      if (rampaEnCadaMotor) {
+        // 0921j (la ida de la estrategia 2): el costado sube en el MISMO
+        // tiempo que tardan las ruedas de adelante en llegar al avance
+        // (160 / 10 x 10 ms = 160 ms). Asi la direccion no cambia mientras
+        // arranca, y no hay tiron de costado al salir. Despues, la rampa de
+        // cada motor le pone la suba a todo lo que le llega a cada rueda.
+        unsigned long msSubida = (unsigned long)(pwmAvanceDespeje / PASO_RAMPA_RUEDA) * MS_RAMPA_RUEDA;
+        unsigned long dt = ahora - t_fase;
+        if (msSubida > 0 && dt < msSubida) lateral = (int)((long)lateral * (long)dt / (long)msSubida);
+        avanzarPersiguiendoSuave(pwmAvanceDespeje, lateral);
+      } else {
+        avanzarPersiguiendo(pwmAvanceDespeje, lateral);   // como la 0921i (la rampa general)
+      }
 
       if (ahora - t_fase >= msIdaDespeje) {
         parar(); fase = PAUSA_MEDIO; t_fase = ahora;
@@ -2466,14 +3240,44 @@ void loop() {
              || (ahora - t_fase >= MS_MAX_ESPERA_PLANO);
       }
       if (listo) {
-        fase = ATRAS_HASTA_LINEA; t_fase = ahora;
-        if (rampaAlVolver) {
-          reiniciarRampaMovimiento();   // arrancar para atras de a poco, no de un tiron
+        // 0921j: antes de volver, se endereza (ver "SE ENDEREZA ANTES DE
+        // VOLVER"). Sin giroscopio respondiendo se saltea: vuelve directo.
+        if (enderezarAntesDeVolver && enderezarActivado && rumboBase >= 0
+            && giroscopoRespondiendo) {
+          fase = ENDEREZAR_DESPEJE; t_fase = ahora;
+          reiniciarRuedas();            // el giro tambien arranca con la rampa de cada motor
           reiniciarCorreccion();
+        } else {
+          empezarVueltaDespeje(ahora);  // como la 0921i
         }
       }
       break;
     }
+
+    // 0921j (de la estrategia 2): girar en el lugar hasta quedar mirando
+    // igual que al arrancar, asi la vuelta sale derecha.
+    case ENDEREZAR_DESPEJE: {
+      float r = rumboActual();
+      // Si el giroscopio se cayo justo ahora, no se puede enderezar: vuelve.
+      float e = (r < 0) ? 0 : diferencia(rumboBase, r);
+      if (fabs(e) <= GRADOS_DERECHO || ahora - t_fase >= MS_TOPE_ENDEREZAR) {
+        frenar();                       // y frena un ratito antes de volver
+        fase = FRENO_ENDEREZADO; t_fase = ahora;
+        break;
+      }
+      int g = (int)(e * KP_RUMBO);
+      if (abs(g) < PWM_MIN_GIRO) g = (e > 0) ? PWM_MIN_GIRO : -PWM_MIN_GIRO;
+      if (abs(g) > PWM_MAX_GIRO) g = (e > 0) ? PWM_MAX_GIRO : -PWM_MAX_GIRO;
+      aplicarSuave(g, g, g);     // las tres para el mismo lado = girar en el lugar (con rampa en cada una)
+      break;
+    }
+
+    // 0921j: frena MS_FRENO_ENDEREZADO despues de enderezarse, y recien ahi
+    // vuelve para atras (como la estrategia 2).
+    case FRENO_ENDEREZADO:
+      frenar();
+      if (ahora - t_fase >= MS_FRENO_ENDEREZADO) empezarVueltaDespeje(ahora);
+      break;
 
     case ATRAS_HASTA_LINEA: {
       // 2026-09-08, pedido del equipo: VOLVER POR LA MISMA DIAGONAL.
@@ -2484,22 +3288,34 @@ void loop() {
       // potencia (la ida va a 200 y la vuelta a 110) para que el ANGULO
       // sea el mismo, no solo el sentido. Y va con el signo cambiado,
       // porque se esta desandando el camino.
-      int lateralVuelta = -(lateralDelDespeje * potenciaRetroceso)
+      // 0921j: la vuelta va a potenciaVueltaDespeje (80, la de la estrategia
+      // 2), y la cuenta de la misma diagonal se hace con ESA potencia. Con
+      // rampaEnCadaMotor, cada rueda sube de a poco con todo lo que le llega.
+      int lateralVuelta = -(lateralDelDespeje * potenciaVueltaDespeje)
                           / pwmAvanceDespeje;
-      atrasEnDiagonal(potenciaRetroceso, lateralVuelta);
+      if (rampaEnCadaMotor) atrasEnDiagonalSuave(potenciaVueltaDespeje, lateralVuelta);
+      else                  atrasEnDiagonal(potenciaVueltaDespeje, lateralVuelta);   // la rampa general, como la 0921i
 
       if (algunoDeAtrasVeBlanco()) {
         // FRENAR, no soltar. Antes aca iba parar(), y el robot seguia de
         // largo y se pasaba de la linea: quedaba en un lugar distinto cada
         // vez. Frenando se detiene practicamente donde la vio.
         frenar();
+        // 0921j: la rampa general queda como la dejaba la vuelta de la
+        // 0921i (en 110). Asi el empujon final sale de una a 100, como en
+        // la 0921i, y no arrancando desde 0 (con rampaEnCadaMotor la vuelta
+        // no toca la rampa general, y con false la deja en 80).
+        potenciaRampa = potenciaRetroceso;
         fase = FRENANDO; t_fase = ahora;
         break;
       }
       // Freno de emergencia: un robot que retrocede sin limite se va de la
       // cancha. El codigo 2025 tiene ese bug exacto en el arquero.
-      if (ahora - t_fase >= MS_MAX_RETROCESO) {
+      // 0921j: el tope de la vuelta del despeje es MS_MAX_VUELTA_DESPEJE
+      // (2500: a 80 tarda mas), no MS_MAX_RETROCESO.
+      if (ahora - t_fase >= MS_MAX_VUELTA_DESPEJE) {
         frenar();
+        potenciaRampa = potenciaRetroceso;  // el empujon sale de una, como en la 0921i
         fase = FRENANDO; t_fase = ahora;
       }
       break;
@@ -2579,7 +3395,9 @@ void loop() {
       // Despacio y con rumbo sostenido: la gracia es terminar bien parado,
       // no llegar rapido.
       adelanteControlado(potenciaEmpujon);
-      if (ahora - t_fase >= (unsigned long)msEmpujonFinal) {
+      // 0921k: despues del DESPEJE (no del arranque), 3 cm mas.
+      if (ahora - t_fase >= (unsigned long)msEmpujonFinal
+                            + (empujonDeArranque ? 0UL : MS_EXTRA_EMPUJON_DESPEJE)) {
         // Frenar, no soltar. Es corto: si suelta, la inercia se lleva
         // puesta buena parte de los 10 cm.
         frenar();

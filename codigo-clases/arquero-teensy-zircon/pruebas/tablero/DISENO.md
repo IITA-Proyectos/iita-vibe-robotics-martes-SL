@@ -78,7 +78,7 @@ hay USB) y una pestaña **CANCHA** para preparar una cancha nueva sin internet.
 | **2048..2943** | **TABLERO: el último MOVIMIENTO** | escribe |
 | **2944..3071** | **TABLERO: la última MEDICIÓN DE CANCHA** | escribe |
 | 3072..3583 | **registro de despejes de la 0.1103** (magia `REG1`) | **NUNCA** escribe |
-| 3584..3595 | (2026-11-09) partido **0921i**: el largo de la línea del área que midió solo (magia `LIN1`) | no toca |
+| 3584..3595 | (2026-11-09) partido **0921i** (y la 0921j y la 0921k, igual): el largo de la línea del área que midió solo (magia `LIN1`) | no toca |
 | 3600..3611 | (2026-11-09) `pruebas/medir-ancho-area` (magia `MAA1`) | no toca (la P guarda en 2944..3071) |
 | 3612..4283 | libre | no toca |
 
@@ -139,10 +139,10 @@ delantero mueve las ruedas equivocadas, y al revés.
 | 3 | `RAPIDO_IZQ` | de costado a la izquierda, rápido |
 | 4 | `RAPIDO_DER` | de costado a la derecha, rápido |
 | 5 | `IDA_Y_VUELTA` | rápido a la izquierda y vuelta sin frenar |
-| 6 | `DESPEJE` | el despeje derecho completo del partido, sin pelota |
+| 6 | `DESPEJE` | el despeje derecho completo, sin pelota: el VIEJO, de la 0.1103 (NO el de la 0921k, ver 16.12) |
 | 7 | `UBICARSE` | el arranque del partido: atrás hasta la línea, enderezarse y el poquito |
-| 8 | `SEGUIR` | seguir la pelota de costado como el partido (sin despejar) |
-| 9 | `ATAJAR` | seguir + MIRAR + despejar en diagonal, como el partido |
+| 8 | `SEGUIR` | seguir la pelota de costado como el partido (sin despejar; del lateral vuelve solo por tiempo) |
+| 9 | `ATAJAR` | seguir + MIRAR + despejar, como la 0.1103 (la 0921k no mira); el despeje es el VIEJO, el del 6 |
 | 10 | `IDA` | solo la ida del despeje, frena y se queda (para medir con regla) |
 | L | `LINEA_VERDE` / `LINEA_BLANCO_IZQ` / `LINEA_BLANCO_DER` / `LINEA_GUIADA` | medir los sensores de línea (no mueve) |
 | A | `ANCHO` | medir el ancho / MS_MEDIO_AL_MEDIO (mueve) |
@@ -762,8 +762,10 @@ Se mandan en este orden, con el valor de AHORA entre paréntesis (los textos van
      pausa (`idams <= picoms < atrasms`) → `Se torcio en la PAUSA, frenado al terminar la ida (ahi no
      corrige): probar MS_ESPERA_ANTES_DE_VOLVER de a 25 (ahora 400).` (con `frenarAntesDeVolver = 0`:
      `probar frenarAntesDeVolver = 1`) · si no, en 6/9 con el pico en los primeros 300 ms del
-     retroceso → `Se torcio al ARRANCAR PARA ATRAS: el partido no reinicia la rampa ahi. No hay
-     numero para eso: anotarlo en la bitacora.` · si no, con el pico en una fase `f` → `Se tuerce al
+     retroceso → `Se torcio al ARRANCAR PARA ATRAS: en este despeje VIEJO la vuelta sale sin rampa
+     (la 0921k si la reinicia). No hay numero para eso aca: anotarlo en la bitacora.` (2026-11-12,
+     revisión: antes decía "el partido no reinicia la rampa ahí", y la 0921i y la 0921k SÍ la
+     reinician) · si no, con el pico en una fase `f` → `Se tuerce al
      FRENAR: el freno es igual al del partido, no hay numero para tocar.` · si no → `Corrige flojo y
      se le escapa: subir KP_RUMBO de a 0.5 (ahora 5.0).`
 5. 1 a 5 con `|corr| >= 15`: `Corrigio en promedio N todo el tiempo: de costado tiende a girar solo.
@@ -809,11 +811,11 @@ vuelta mas larga 12 ms` y `Grados: NEGATIVO = a la DERECHA, POSITIVO = a la IZQU
 | 3 | `3   COSTADO  izq  (rápido)` | Como el 1 a pwmMaxLateral (la velocidad tope del seguimiento). | Lugar a la IZQUIERDA. |
 | 4 | `4   COSTADO  der  (rápido)` | Como el 2 a pwmMaxLateral. | Lugar a la DERECHA. |
 | 5 | `5   IDA Y VUELTA  (rápido)` | Rápido a la izquierda y se da vuelta SIN frenar, como cuando la pelota cruza siguiéndola. | Lugar a los DOS costados. |
-| 6 | `6   DESPEJE  (derecho)` | El despeje del partido entero, sin pelota: ida, freno, vuelta hasta la línea, enderezarse y el empujoncito. | Delante de la línea del área, como juega. Lugar adelante (~40 cm). |
+| 6 | `6   DESPEJE VIEJO` | (2026-11-12) ⚠ El despeje VIEJO, copia de la 0.1103 (MÁS viejo que la 0921i): ida con la rampa general, freno, y la vuelta a potenciaRetroceso (110) arranca de un tirón (sin rampa), sin esperar a quedar plano, y corta a los 1200 ms (la 0921i: 1500). Después se endereza y el empujoncito. Con 666 a 160 la vuelta tarda ~1280 ms: puede cortar antes de la línea (NO es umbralBlanco). El de la 0921k es OTRO (rampa en cada motor, se endereza ANTES de volver, vuelta a 80 con tope 2500, 3 cm más de empujoncito): se prueba con el PARTIDO cargado. | Delante de la línea del área, como juega. Lugar adelante (~40 cm). |
 | 7 | `7   UBICARSE  (arranque)` | Lo que hace al prender la batería en el partido: atrás hasta la línea, enderezarse y avanzar el poquito. Acá NO hace la rutina del medio si no ve la línea. | A ~20 cm delante de la línea del área. |
-| 8 | `8   SEGUIR  la pelota` | Sigue la pelota de costado como el partido, sin despejar, durante msSeguir. Si pisa el lateral vuelve al medio como el partido. | En su lugar de juego. Mové la pelota de un lado al otro, a ~40-60 cm. |
-| 9 | `9   ATAJAR  (mirar y despejar)` | Como el partido: la sigue, a distanciaParaMirar frena y MIRA, y sale en diagonal a umbralCm. Si no sale, reintenta. Termina al primer despeje (o a los msSeguir). | En su lugar de juego. Después de la cuenta, tirá la pelota hacia el arco. |
-| 10 | `10  IDA  (para medir)` | Solo la ida del despeje (msPruebaIda), frena y se queda. Para medir con regla cuánto sale. | Cinta en el frente del chasis. Lugar adelante. |
+| 8 | `8   SEGUIR  la pelota` | Sigue la pelota de costado como el partido, sin despejar, durante msSeguir. Si pisa el lateral vuelve al medio (acá solo POR TIEMPO: sin buscar la línea del área como la 0921k). | En su lugar de juego. Mové la pelota de un lado al otro, a ~40-60 cm. |
+| 9 | `9   ATAJAR  (despeje VIEJO)` | (2026-11-12) ⚠ Como la 0.1103, NO como la 0921k: la sigue, a distanciaParaMirar frena y MIRA (la 0921k NO mira; para que acá no mire, medirAntesDeDespejar en 0) y sale a umbralCm (en diagonal con despejeEnDiagonal; la 0921k sale derecho). El despeje es el VIEJO, el mismo del 6. El de la 0921k se prueba con el PARTIDO cargado. Si no sale, reintenta. Termina al primer despeje (o a los msSeguir). | En su lugar de juego. Después de la cuenta, tirá la pelota hacia el arco. |
+| 10 | `10  IDA  (para medir)` | Solo la ida del despeje (msPruebaIda), frena y se queda. Para medir con regla cuánto sale. Con la rampa general (10 cada 10 ms = la de cada motor de fábrica de la 0921k; si cambian PASO_RAMPA_RUEDA o MS_RAMPA_RUEDA, eso acá no se mide). | Cinta en el frente del chasis. Lugar adelante. |
 
 Además, en el texto de cada uno: `⚠ ` + "El rumbo que sostiene es el de cuando termina la cuenta." +
 " Y el cable flojo, o SIN CABLE."
@@ -1932,8 +1934,8 @@ dice su versión y sus valores por el cable al arrancar, y la ventana confirma q
 (`tablero.py --pestana partido`). No carga nada solo.
 
 ### 16.2 La lista (`TABLA_PARTIDO` en `tablero.py`, sección 1b)
-73 filas: `(nombre, declaración, tipo, FÁBRICA, unidad, mín, máx, paso, grupo, qué es, para qué lado,
-atado)`. Tipos: `i` int, `u` unsigned long, `f` float, `b` bool, `l` lado (-1/+1), `v` solo para ver
+73 filas (83 con la 0921i, **112 con la 0921k**: ver 16.11 y 16.12): `(nombre, declaración, tipo, FÁBRICA, unidad,
+mín, máx, paso, grupo, qué es, para qué lado, atado)`. Tipos: `i` int, `u` unsigned long, `f` float, `b` bool, `l` lado (-1/+1), `v` solo para ver
 (`VEL_MEDIO_MEDIR`). FÁBRICA = el texto tal cual en la 0921f (congelada en `respaldos/partido-0921f/`).
 Los mínimos y máximos son SEGUROS (ninguna fuerza pasa de 255). Las variables de estado
 (`msIdaDespeje`, `rumboBase`, los `t_*`...) NO van: las pisa el programa.
@@ -1967,7 +1969,9 @@ OJO (deja, y lo repite al cargar): O1 a O17 (DISENO del 08/11: alcance justo, MS
 msAdelante, pwmMaxLateral > 160, sin límite lateral y rápido, el tope lateral, cambiar lo del movimiento
 o la cámara o un signo o LADO_MEDIO, diagonal SÍ, enderezar NO, sin patrulla, potenciaDespeje ≠ 200,
 asentar < freno, umbral cerca de lo medido, MS_MAX_ADELANTE < msAdelante). NOTA: N1 (con fábrica sale solo
-esta), N2 (no puede pasar con los rangos de hoy), N3.
+esta), N2 (no puede pasar con los rangos de hoy), N3. (2026-11-09: E7, E8, O18 a O22, ver 16.11. 2026-11-12, la 0921k:
+cambian E5 / O14 / O1 (la ida a otra fuerza es una cuenta), O2 (el tope es `MS_MAX_VUELTA_DESPEJE`), O7, O13, N2 y N3, y
+se suman E9, O23 a O25 y N4: ver 16.12. Revisión del 12/11: O26, O27 y N5, y O7 con la rampa de cada motor: 16.12.1.)
 
 ### 16.5 CARGAR (un hilo: `Cargador`, nunca toca tkinter)
 Botón verde **▶ CARGAR EL PARTIDO CON ESTOS VALORES** (y **Cargar el TABLERO**, para MOVIMIENTOS y
@@ -1990,6 +1994,8 @@ Mientras carga, la ventana no le manda nada al robot y no se cierra (la carga qu
 PARTIDO y hace este mismo CARGAR.
 
 ### 16.6 La línea `#PARTIDO` (CONTRATO; la manda el programa de PARTIDO desde la 0921g, NO `tablero.ino`)
+(2026-11-12) La de abajo es la de la 0921g. La 0921i, la 0921j y la 0921k mandan los MISMOS campos en el mismo orden; la de
+fábrica de HOY (0921k) dice `msAdelante=666 potenciaDespeje=160 ... interruptores=1011111110101` (ver 16.12).
 ```
 #PARTIDO version=0921g sello=fabrica giro=1 umbralBlanco=425 CAMARA_POR_CM=2.87 MS_MEDIO_AL_MEDIO=2228 MS_MEDIO_FONDO_POR_TIEMPO=2000 MS_MAX_RETROCESO=1500 msAdelante=533 umbralCm=30.0 umbralDesvio=20.0 potenciaDespeje=200 pwmMinLateral=70 pwmMaxLateral=160 kpLateral=11.50 MS_QUIETO_PARA_PATRULLAR=10000 interruptores=1111111110101
 ```
@@ -2170,3 +2176,210 @@ de fábrica, y que siga haciendo lo que dicen los textos del grupo 5 (la vuelta 
 **Lo que NO se hizo:** la estrategia 2 (después, si el equipo quiere); nada se probó con el robot (el robot tiene
 cargada la estrategia 2: cargar el TABLERO o el PARTIDO desde el tablero la reemplaza); `README.md` y los `.bat` no se
 tocaron.
+
+### 16.12 LA 0921k (2026-11-12)
+
+Pedido del equipo: *"adapta el tablero"* a la **0921k**, la que quedó en `funciona/partido-0921` (sin commitear, CARGADA
+EN EL ROBOT y probada por el equipo el 10/11). El `.ino` del partido **NO se tocó** (ni el SELLO): el tablero se adaptó
+a él. Desde acá la 0921k es la de HOY, y la 0921j, la 0921i y la 0921g son **VERSIÓN ANTERIOR**.
+
+**Qué cambió de versión en versión** (`diff respaldos/partido-0921i` → `respaldos/partido-0921j` → `funciona/partido-0921`):
+
+| Qué | 0921i (09/11) | 0921j (10/11) | 0921k (10/11, la de hoy) |
+|---|---|---|---|
+| la ida del despeje | 200 / 533 ms, rampa general | **160 / 666** (~50 cm igual), **rampa en CADA motor** (`rampaEnCadaMotor`, `PASO_RAMPA_RUEDA` 10 cada `MS_RAMPA_RUEDA` 10 ms) | igual que la 0921j |
+| antes de volver | pausa (esperar plano) | pausa + **se endereza en el lugar** (`enderezarAntesDeVolver`: hasta `GRADOS_DERECHO` 3°, a `PWM_MIN_GIRO` 70 .. `PWM_MAX_GIRO` 85, tope `MS_TOPE_ENDEREZAR` 1500, freno `MS_FRENO_ENDEREZADO` 150) | igual |
+| la vuelta del despeje | a `potenciaRetroceso` 110, tope `MS_MAX_RETROCESO` 1500 | a **`potenciaVueltaDespeje` 80**, tope **`MS_MAX_VUELTA_DESPEJE` 2500** (110 y 1500 quedan para el arranque, ir al medio y la patrulla) | igual |
+| el empujoncito después del despeje | `msEmpujonFinal` 450 | igual | **+ `MS_EXTRA_EMPUJON_DESPEJE` 70** (~3 cm más; al arrancar y después de ir al medio / del límite, NO) |
+| sin pelota | la patrulla al lateral a los 20 s (`patrullarSinPelota` SÍ) | igual | **LA BARRIDA** (`barridaActivada` SÍ): a los `MS_SIN_PELOTA_PARA_BARRER` 4 s gira de a 15° (+15, +30, +45, −15, −30, −45, 0), frena y mira; si la ve vuelve a 0 y va de costado para ese lado. **`patrullarSinPelota` quedó en NO** y la patrulla vieja no arranca con la barrida prendida |
+| `#PARTIDO` | `interruptores=1111111110101` | igual (cambian msAdelante=666 y potenciaDespeje=160) | **`interruptores=1011111110101`** (patrullarSinPelota en 0). Los MISMOS campos |
+
+**Las versiones en `tablero.py`** (1 y 1b): `VERSION_PARTIDO_HOY = "0921k"`; `VERSIONES_PARTIDO_ANTERIORES` = 0921j,
+0921i, 0921g; `ORDEN_VERSIONES = (None, "0921g", "0921i", "0921j", "0921k")`. Cada versión dice qué filas trajo
+(`NUEVOS_EN_LA_0921I` 10, `NUEVOS_EN_LA_0921J` 11, `NUEVOS_EN_LA_0921K` 18, en `NUEVOS_POR_VERSION`) y qué valía distinto
+(`FABRICA_DE_ANTES`: 0921j `patrullarSinPelota` true; 0921i además 200 / 533; 0921g / 0921f además 10000 / 320 / 2000).
+`filas_que_no_tenia(version)` = las filas de las versiones que vinieron después: un archivo 0921j / 0921i / 0921g / 0921f
+se lee, lo que no tiene es un **OJO** (no un ERROR) que dice qué trajo cada una, y esas filas quedan grises.
+`fabrica_de` y `cambiados_por_la_version` usan eso: "Volver a como estaba" desde una copia de la 0921i NO vuelve
+200 / 533 ni la patrulla SÍ (lo cambió la versión, no alguien con el tablero).
+
+**La línea `#PARTIDO`** (16.6, CONTRATO): **no cambia de campos**. `LINEA_PARTIDO_FABRICA` es la de la 0921k:
+```
+#PARTIDO version=0921k sello=fabrica giro=1 umbralBlanco=425 CAMARA_POR_CM=2.87 MS_MEDIO_AL_MEDIO=2228 MS_MEDIO_FONDO_POR_TIEMPO=2000 MS_MAX_RETROCESO=1500 msAdelante=666 umbralCm=30.0 umbralDesvio=20.0 potenciaDespeje=160 pwmMinLateral=70 pwmMaxLateral=160 kpLateral=11.50 MS_QUIETO_PARA_PATRULLAR=20000 interruptores=1011111110101
+```
+(y quedan `LINEA_PARTIDO_0921J`, `LINEA_PARTIDO_0921I` y `LINEA_PARTIDO_0921G` para la autoprueba). Lo nuevo de la
+0921j y de la 0921k (la barrida, la rampa, la vuelta) **NO va en la línea**: lo confirma el `SELLO`, como todo lo que
+no va. ⚠ Con eso, si alguien cambia `barridaActivada` A MANO en el Arduino IDE sin tocar el SELLO, el tablero no se
+entera. Mandarla en la línea pediría cambiar `avisarVersion()` del `.ino` del partido: NO se hizo (no se toca).
+El contrato con `tablero.ino` (sección 2) tampoco cambia: `FECHA_CONTRATO` sigue `2026-11-09`.
+
+**La pestaña PARTIDO** (112 filas). Los grupos ahora son 7:
+
+| Grupo | Qué cambió |
+|---|---|
+| 1 · LA CANCHA | `MS_MAX_RETROCESO`: ya NO es el tope de la vuelta del despeje (es del arranque, ir al medio y la vuelta del límite); el máximo baja de 2500 a **2000** (el 2500 era por la vuelta del despeje; al arrancar, 2000 a 110 ya es ~1 m para atrás). `MS_MEDIO_AL_MEDIO`: la patrulla al lateral, solo sin barrida |
+| 2 · INTERRUPTORES | `rampaAlVolver` gris con `rampaEnCadaMotor` SÍ; `empujonFinal` nombra los 3 cm de más |
+| 3 · EL DESPEJE | en el orden en que despeja, con subtítulos: Cuándo sale · La IDA (`msAdelante` 666, `potenciaDespeje` 160, **`rampaEnCadaMotor`**, **`PASO_RAMPA_RUEDA`**, persecución, `pisoRampaIda`) · La PAUSA · **Se ENDEREZA ANTES DE VOLVER** (`enderezarAntesDeVolver`, `GRADOS_DERECHO`, `PWM_MIN_GIRO`, `PWM_MAX_GIRO`, `MS_TOPE_ENDEREZAR`, `MS_FRENO_ENDEREZADO`) · **La VUELTA** (`potenciaVueltaDespeje`, `MS_MAX_VUELTA_DESPEJE`) · El freno y el EMPUJONCITO (+ **`MS_EXTRA_EMPUJON_DESPEJE`**) · Del ARRANQUE (`potenciaRetroceso`, que ya no es la vuelta) |
+| 4 · SEGUIR | igual |
+| **5 · LA BARRIDA** (nuevo) | `barridaActivada`, `MS_SIN_PELOTA_PARA_BARRER`, `barridaConTresRuedas`, `PWM_BARRIDA_TRES`, `PWM_BARRIDA`, `GRADOS_PASO_BARRIDA`, `GRADOS_MAX_BARRIDA`, `MS_MIRAR_BARRIDA`, `CUADROS_PARA_VER_BARRIDA`, `VEL_COSTADO_BARRIDA`, `MS_TOPE_COSTADO_BARRIDA` |
+| 6 · LA PATRULLA VIEJA Y EL LÍMITE LATERAL | era el 5. `patrullarSinPelota` de fábrica en NO, y TODA la patrulla gris con la barrida; lo que sigue valiendo: la vuelta al medio con la línea del área (ir al medio y el límite lateral), el ancho del área y el límite |
+| 7 · AVANZADO | + `MS_RAMPA_RUEDA` (La rampa de cada motor) y La barrida: `MS_MIRAR_CENTRO_BARRIDA`, `GRADOS_TOL_PASO_BARRIDA`, `MS_TOPE_PASO_BARRIDA`, `GRADOS_DERECHO_BARRIDA`, `MS_ASENTAR_BARRIDA`, `MS_PAUSA_COSTADO_BARRIDA`. `PWM_CUENTA_COMO_MOVERSE` gris sin la patrulla vieja |
+
+**Quedan FIJOS en el `.ino`** (no van en la tabla, `FIJOS_DE_LA_0921K`; la autoprueba controla que sigan ahí): el
+arreglo `PASOS_BARRIDA {1, 2, 3, -1, -2, -3, 0}` (pedido: no exponerlo), `SIGNO_GIRO_BARRIDA` (+1, escrito con el "+":
+la barrida se lo da vuelta SOLA si gira al revés, y en la cancha giró bien) y los seguros que el `.ino` dice "no son
+para ajustar": `GRADOS_AL_REVES_BARRIDA` 10, `MAX_VUELTAS_SIGNO_BARRIDA` 3, `GRADOS_MARGEN_BARRIDA` 15 y
+`MAX_REINTENTOS_A_CERO_BARRIDA` 3.
+
+**Los rangos (SEGUROS):** de movimiento no menos de 70 (`potenciaVueltaDespeje`, `PWM_MIN_GIRO`, `PWM_MAX_GIRO`,
+`PWM_BARRIDA_TRES`) y 75 donde el `.ino` dice "parado no arranca" (`PWM_BARRIDA`, `VEL_COSTADO_BARRIDA`); ninguna fuerza
+pasa de 255 (en la práctica 150). Giros de la barrida: `GRADOS_PASO_BARRIDA` 10..30, `GRADOS_MAX_BARRIDA` 15..60,
+`GRADOS_TOL_PASO_BARRIDA` 1..4 (siempre menos que la mitad del paso), `GRADOS_DERECHO_BARRIDA` 1..6.
+`PASO_RAMPA_RUEDA` **5**..30 y `MS_RAMPA_RUEDA` 5..**20** (con 0 no sube nunca o se divide por 0; la revisión subió el
+mínimo del paso de 2 a 5 y bajó el máximo del tiempo de 30 a 20, ver 16.12.1). `MS_SIN_PELOTA_PARA_BARRER`
+2000..20000. `MS_MAX_VUELTA_DESPEJE` 1000..3500. `MS_EXTRA_EMPUJON_DESPEJE` 0..300.
+
+**Las grises** (`SE_USA_SI_PARTIDO`, con `barrida()`, `patrulla_vieja()`, `enderezar_antes_de_volver()` y
+`usa_la_rampa_de_cada_motor()`, que hacen la cuenta del `.ino`): la patrulla vieja entera (`patrullarSinPelota`,
+`MS_QUIETO_PARA_PATRULLAR`, `MS_SIN_PELOTA_PARA_PATRULLAR`, `patrullaPorLaLinea`, `patrullaPorElLateral`,
+`alternarLadoPatrulla`, lo de la línea, `PWM_CUENTA_COMO_MOVERSE`) con `barridaActivada` SÍ (`patrullarSinPelota &&
+!barridaActivada`); `CUADROS_PARA_CORTAR_PATRULLA` solo sin patrulla Y sin límite lateral (también corta la vuelta del
+límite: `patrullando = true` en `LATERAL_AL_MEDIO`); `pisoRampaIda` y `rampaAlVolver` con `rampaEnCadaMotor` SÍ;
+`PASO_RAMPA_RUEDA` / `MS_RAMPA_RUEDA` si no los usa nadie (enderezarse antes de volver los usa SIEMPRE: `aplicarSuave`);
+lo de enderezarse con `enderezarAntesDeVolver` NO (o sin giroscopio); `PWM_BARRIDA` con tres ruedas y `PWM_BARRIDA_TRES`
+con una; toda la barrida sin barrida; `MS_EXTRA_EMPUJON_DESPEJE` sin `empujonFinal`. Lo que falta en un archivo de
+antes cuenta como NO si es de una versión nueva (sin `barridaActivada` = sin barrida).
+
+**Las reglas** (16.4) que cambian o son nuevas:
+- **E5 / O14 / O1, cuánto llega la ida:** `cm_de_la_ida(ms, fuerza) = ms × fuerza/200 / 10 − 3,3`. A 200 es lo MEDIDO
+  el 04/08 y no llegar a umbralCm es **E5** (ERROR, como antes). A otra fuerza es una CUENTA (la misma con la que la
+  0921j pasó de 533 a 200 a 666 a 160: 50 cm) y no llegar es **O14** (OJO: "según la cuenta no la toca, medilo"). Antes
+  O14 saltaba siempre que la fuerza no era 200: con la 0921k (160) hubiera salido siempre. **O1** (llega justo) a
+  cualquier fuerza. La raya de la PELOTA, el aviso de MOVIMIENTOS, el "≈ cm" de `msAdelante` y PASAR A PARTIDO usan la
+  misma cuenta.
+- **O2, el tope de la vuelta del despeje:** desde la 0921j es `MS_MAX_VUELTA_DESPEJE < 1,32 × msAdelante × potenciaDespeje
+  / potenciaVueltaDespeje` (1,32 = 2,4 × 110/200: lo medido a 200 / 110, proporcional; a 160 / 80 pide ~1760 ms; a 90 da
+  ~1560, y la estrategia 2 vio que "a 90 ya cortaba justo con 1500"). Un archivo sin esas filas (0921i o anterior):
+  la de antes (`MS_MAX_RETROCESO < 2,4 × msAdelante`).
+- **O7:** cambiar la fuerza o la rampa QUE USA LA IDA (con `rampaEnCadaMotor` SÍ: `PASO_RAMPA_RUEDA`, `MS_RAMPA_RUEDA`;
+  con NO: `RAMPA_MOV_PASO`, `pisoRampaIda`; o la llave misma) → msAdelante llega a otro lado.
+- **O13:** solo sin barrida Y sin patrulla ("quieto para siempre"). **N3** solo con la patrulla vieja. **N2** solo con
+  `rampaEnCadaMotor` NO. O11 nombra la barrida y el enderezarse antes de volver. O18-O21 siguen con la patrulla por la
+  línea, que con la barrida no arranca.
+- Nuevas: **E9** `PWM_MIN_GIRO > PWM_MAX_GIRO` (ERROR) · **O23** con la barrida, 3 × `GRADOS_PASO_BARRIDA` <
+  `GRADOS_MAX_BARRIDA` (los pasos no llegan: con 10 barre solo ±30) · **O24** barrida sin límite lateral (yendo de
+  costado tampoco frena en el lateral) · **O25** `MS_ASENTAR_BARRIDA < msFreno` · **N4** (nota) `patrullarSinPelota` SÍ
+  con la barrida prendida no hace nada.
+- De la revisión (16.12.1): **O26** (la ida pasa más de la mitad SUBIENDO), **O27** (los giros arrancan con una rampa
+  muy lenta) y **N5** (3 × `GRADOS_PASO_BARRIDA` pasa `GRADOS_MAX_BARRIDA`: el último paso se recorta). O7 con la rampa
+  de cada motor ya no manda a medir a CANCHA.
+- Con la fábrica de la 0921k sale **solo la N1**, como antes. Confirmar: apagar `barridaActivada` (de fábrica quedaría
+  QUIETO).
+
+**El DESPEJE de MOVIMIENTOS (`tablero.ino`, mov. 6): se dejó el VIEJO, y lo dice.** Las dos opciones eran copiar el
+despeje de la 0921k a `tablero.ino` o avisar. Se eligió avisar porque es lo más seguro para la competencia: copiarlo
+era código NUEVO que mueve el robot (la rampa de cada motor, enderezarse, la vuelta) sin poder probarlo con el robot,
+más un cambio del contrato por el cable en los dos lados (números nuevos en `#V`/`#DEF`/`ajustes[]`, `FECHA_CONTRATO`
+nueva: el tablero que tenga cargado el robot dejaría de entenderse con la ventana hasta recargarlo). El despeje de la
+0921k ya lo probó el equipo con el PARTIDO cargado, que es donde se juega. Entonces:
+- MOVIMIENTOS 6 se llama **"6 DESPEJE VIEJO"**, y su texto dice qué hace (ida con la rampa general, vuelta a
+  `potenciaRetroceso` 110, sin enderezarse antes) y que el de la 0921k se prueba con el PARTIDO cargado y se ajusta en
+  PARTIDO grupo 3. `tablero.ino` cambió SOLO comentarios y textos (la ayuda `!6 DESPEJE el despeje VIEJO
+  (0.1103)...`, y en la revisión la ayuda del `!9` y un consejo): se porta igual.
+- (Revisión) MOVIMIENTOS **9 ATAJAR** termina en el MISMO despeje viejo: ahora se llama **"9 ATAJAR (despeje VIEJO)"**
+  y dice que es como la 0.1103 (la 0921k no MIRA, no tiene `medirAntesDeDespejar`, y sale derecho). Ver 16.12.1.
+- MOVIMIENTOS 10 (IDA) y CANCHA paso 5 siguen sirviendo para `msAdelante`: derecho y sin pelota, la rampa general (10
+  cada 10 ms) sube igual que la de cada motor de la 0921k (10 cada 10 ms). Miden a la `potenciaDespeje` del PARTIDO:
+  (revisión) IDA se la manda antes (`=potenciaDespeje 160`), como ya hacía con `frenarAntesDeVolver 0`, y cada ida
+  guarda la fuerza con que corrió (16.12.1). Para los demás números, "Volver a los números del PARTIDO (0921)". PASAR A
+  PARTIDO calcula "lo de hoy" con la cuenta a 160. El paso 5 suma un botón con la ida de HOY del archivo ("IDA 666
+  ms") al lado de 250 / 383 / 500.
+
+**Otros textos:** CARGAR EL PARTIDO dice "a los ~3 s retrocede" (era 2 s: la 0921i cuenta `MS_AVISO_ARMADO` 3000 desde
+que se prende); el 2c dice que la vuelta con la línea se ve al arrancar o con el límite lateral (ya no hay patrulla al
+lateral); REVISAR A OJO pregunta por `MS_SIN_PELOTA_PARA_BARRER` (no `MS_QUIETO_PARA_PATRULLAR`) y nombra los 3 cm de más.
+
+**La autoprueba** suma (OK con 5237 verificaciones): la tabla de la 0921k (112 filas, los de fábrica de las 29 nuevas, los
+grupos y su orden, los rangos seguros, lo que se rechaza y lo que no, que cada fila nueva tenga sus textos y que "para
+qué lado" diga lo del `.ino`), las grises en cada combinación (barrida SÍ/NO, tres ruedas, rampa en cada motor,
+enderezarse, empujonFinal, límite lateral), E5/O14/O1/O2/O7/O13/N3 y E9/O23/O24/O25/N4, MOVIMIENTOS 6 diciendo VIEJO
+(y que `tablero.ino` siga sin el despeje de la 0921k), el botón de la ida de hoy (666) en CANCHA 5, las versiones (0921j, 0921i y 0921g
+como ANTERIOR: su línea, su fábrica, sus filas, archivos sintéticos de cada una, "volver a como estaba" desde copias de
+la 0921g y la 0921i), los respaldos de `respaldos/partido-0921f`, `-0921i` y `-0921j` (solo leídos: cada uno es la
+fábrica de su versión menos lo que no tenía), y sobre el partido de verdad, **solo leído**: que sea la 0921k, que con
+`sello=fabrica` tenga los valores de la tabla (también los 29 nuevos y 160 / 666 / patrulla NO), que su `#PARTIDO` sea
+`LINEA_PARTIDO_FABRICA`, que siga haciendo lo que dicen los textos de los grupos 3 y 5 (la vuelta a
+`potenciaVueltaDespeje` con `MS_MAX_VUELTA_DESPEJE`, sin `MS_MAX_RETROCESO`; la rampa; enderezarse; la barrida y sus
+números; la patrulla vieja apagada con la barrida; los 3 cm solo después del despeje) y que los FIJOS sigan en el `.ino`.
+
+**Lo que NO se hizo / queda:**
+- Nada se probó con el robot (el robot tiene cargada la 0921k; cargar el TABLERO la reemplaza, y después hay que
+  CARGAR EL PARTIDO).
+- El encabezado del `.ino` de la 0921k sigue diciendo "EL TABLERO NO MANEJA LA 0921k... No guardar valores con el
+  tablero sobre esta version": ya no es cierto, pero ese archivo no se toca. Cambiarlo cuando se pueda (sin tocar
+  valores: si el SELLO sigue en `fabrica`, la autoprueba controla que los valores sean los de la tabla).
+- `README.md` y los `.bat` no se tocaron.
+
+#### 16.12.1 Arreglos de la revisión de la 0921k (2026-11-12, a la noche)
+
+La revisión encontró 5 cosas (todas "conviene arreglar"). Ninguna tocó `funciona/partido-0921` (sha256 `48d26fcf…`
+igual antes y después) ni el contrato por el cable (`FECHA_CONTRATO` sigue `2026-11-09`; `tablero.ino` cambió solo
+textos).
+
+1. **La rampa de cada motor dejaba valores "seguros" con los que la ida no sale.** Con `PASO_RAMPA_RUEDA` 2 y
+   `MS_RAMPA_RUEDA` 30 (los dos dentro del rango) la rueda llegaba a 44 a los 666 ms (nunca a 70: no arranca), y la
+   barrida con tres ruedas recién llegaba a 80 a los 1200 ms, justo el tope de cada paso. El "≈ 50 cm" no se movía y,
+   una vez guardado, ninguna regla avisaba (O7 usa `cambio()`). Arreglo:
+   - Rangos: `PASO_RAMPA_RUEDA` **5**..30 (5 = "el doble de suave" del `.ino`) y `MS_RAMPA_RUEDA` 5..**20**.
+   - **O26** (OJO, sin `cambio()`: sale también ya guardado): la ida tarda `ms_de_subida(fuerza, paso, ms) =
+     ⌈fuerza / paso⌉ × ms` en llegar a su fuerza; si `2 × eso > msAdelante` (más de la mitad SUBIENDO) avisa que llega
+     bastante menos que la cuenta. Con `rampaEnCadaMotor` SÍ mira `PASO_RAMPA_RUEDA` / `MS_RAMPA_RUEDA` (y dice que CANCHA
+     paso 5 NO lo ve: `tablero.ino` mide con la rampa general); con NO, `RAMPA_MOV_PASO` cada 10 ms desde `pisoRampaIda`.
+     De fábrica: 160 ms de 666, no sale. Con 5 y 20: 640 de 666, sale.
+   - **O27** (OJO, sin `cambio()`): los GIROS arrancan de 0 con la rampa. Enderezarse antes de volver (siempre
+     `aplicarSuave`): `2 × subida a PWM_MIN_GIRO > MS_TOPE_ENDEREZAR`. Cada paso de la barrida (con la rampa de cada
+     motor si `rampaEnCadaMotor` SÍ, si no la general): `2 × subida a PWM_BARRIDA_TRES (o PWM_BARRIDA) ≥
+     MS_TOPE_PASO_BARRIDA`. Pinta las filas de la rampa, la fuerza y el tope.
+   - **O7** con `PASO_RAMPA_RUEDA` / `MS_RAMPA_RUEDA` ya no dice "medilo en CANCHA paso 5" (no lo ve): dice probarlo
+     con el PARTIDO cargado o volver a 10 y 10. Con la fuerza o la rampa general, como antes.
+   - El ATADO de `PASO_RAMPA_RUEDA` y `MS_RAMPA_RUEDA` nombra la barrida, O26 y O27, y que el "≈ cm" no cuenta la rampa.
+2. **MOVIMIENTOS 9 ATAJAR decía "Como el partido"** y termina en el mismo despeje viejo del 6 (y frena a MIRAR: la
+   0921k no mira; "Volver a los números del PARTIDO" no apaga `medirAntesDeDespejar` porque el partido no lo tiene).
+   Ahora: botón `9   ATAJAR  (despeje VIEJO)`, título "...: el de la 0.1103, NO el de la 0921k", y el texto empieza
+   "⚠ Como la 0.1103, NO como la 0921k" (cómo apagar la mirada: `medirAntesDeDespejar` en 0). El 8 SEGUIR dice que del
+   lateral vuelve SOLO POR TIEMPO (`tablero.ino` no tiene `buscarLineaDelAreaAlVolver`). Mismos textos en el
+   encabezado de `tablero.ino`, su ayuda (`!9`), y en 2.2 y 4.6 de acá.
+3. **GRADOS_PASO_BARRIDA: "Cada vuelta tarda demasiado → SUBIR (20)" no acelera nada.** `PASOS_BARRIDA` es fijo
+   ({1, 2, 3, −1, −2, −3, 0}) y `empezarPasoBarrida` recorta a ±`GRADOS_MAX_BARRIDA`: con 15 o con 20 son 7 paradas y
+   180° (con 20, el tercer paso es un saltito de 5°). Ahora la fila dice que para apurar la vuelta NO es esto (bajar
+   `MS_MIRAR_BARRIDA` o subir `PWM_BARRIDA_TRES`), y `GRADOS_MAX_BARRIDA` dice subir los DOS (para 60, paso 20).
+   Nota nueva **N5**: con la barrida, si `3 × paso > máximo`, dice cómo quedan los pasos y que la vuelta no es más
+   rápida. ⚠ El comentario del `.ino` de la 0921k (línea ~1252, "Si cada vuelta tarda demasiado: subir (20)") tiene el
+   mismo error: queda mal, porque ese archivo no se toca.
+4. **CANCHA 5 / PASAR A PARTIDO podía proponer un `msAdelante` medido a fuerza 200** (el TABLERO arranca con 200
+   compilado) para la 0921k, que sale a 160 (con 533 a 160, ~39 cm). Arreglo, solo en `tablero.py`:
+   - `_ida` manda antes `=potenciaDespeje <la de PARTIDO>` si el robot tiene otra (y entra en 140..230), como ya hacía
+     con `=frenarAntesDeVolver 0`. "La de PARTIDO" = `_fuerza_ida_de_partido()`: el archivo con el editor encima (como
+     `_vel_linea_de_partido` del paso 7).
+   - Cada ida guarda la fuerza con que CORRIÓ: `[ms, cm, fuerza]`, con `_con_que_corrio` (la de `#USADOS` si la
+     cambiaron, si no la de `#DEF`). La hoja la anota: `ida = ms=250 cm=? fuerza=160`, `medida = ms=250 cm=19
+     fuerza=160`, y junto al sugerido `[DESPEJE] fuerza = 160` (como `[AREA] vel`).
+   - La recta del paso 5 y PASAR A PARTIDO usan SOLO las idas a esa fuerza (`ida_vale`; una ida sin fuerza, de antes,
+     no vale; sin PARTIDO leído valen todas). Las otras: aviso amarillo "esas NO cuentan" en el paso 5, y en PASAR la
+     fila de `msAdelante` sale en rojo, sin poder tildarla (`no_va`). De una hoja: si dice otra `fuerza`, `no_va`; si no
+     dice ninguna, sin tildar y avisa a qué fuerza vale.
+5. **El texto de MOVIMIENTOS 6 decía "como la 0921i"**, y el despeje de `tablero.ino` es más viejo: la 0921i espera a
+   quedar plano, vuelve con rampa y corta a los 1500; el 6 frena `MS_ESPERA_ANTES_DE_VOLVER`, vuelve de un tirón y
+   corta a los 1200. Ahora el texto lo dice, y que con 666 a 160 la vuelta (a 110) tarda ~1280 ms y puede cortar antes
+   de la línea sin que sea `umbralBlanco`. Además: aviso naranja en MOVIMIENTOS 6 y 9 cuando
+   `1,32 × msAdelante × potenciaDespeje / potenciaRetroceso > 1200` (`_vuelta_del_despeje_viejo`), y al explicar un 6 / 9
+   que no vio la línea, la frase "es eso, NO umbralBlanco". El consejo del robot "el partido no reinicia la rampa ahí"
+   (falso para la 0921i y la 0921k) ahora dice "en este despeje VIEJO la vuelta sale sin rampa (la 0921k si la
+   reinicia)", igual en `tablero.ino`, en el robot de mentira y en 4.5.
+
+**La autoprueba** suma (OK con 5261 verificaciones): los rangos nuevos y lo que se rechaza, `ms_de_subida`, O26 (también
+ya guardado, con la rampa general, y que no salga de fábrica ni en la 0921i), O27 (barrida y enderezarse, y que no
+salga sin ellos), el texto de O7, N5 (20 → saltito de 5°, 30 → un paso que no gira), los textos de
+`GRADOS_PASO_BARRIDA` / `GRADOS_MAX_BARRIDA` y de MOVIMIENTOS 6, 8 y 9, el aviso y la frase del 6 / 9 con 666 a 160, y en
+la ventana de mentira: IDA manda `=potenciaDespeje 160` antes, las idas guardan la fuerza (y la hoja también), unas idas
+a 200 no entran en la recta ni en PASAR, una ida sin fuerza no vale, y una hoja medida a 200 no pasa.

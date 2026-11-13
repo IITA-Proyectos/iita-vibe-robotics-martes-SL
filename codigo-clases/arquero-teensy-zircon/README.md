@@ -107,7 +107,9 @@ al robot de frente en vez de desde el robot. La tabla de arriba es lo medido. Ve
 
 | Programa | Qué hace |
 |---|---|
-| [`partido-0921/`](funciona/partido-0921/) | ⭐ **EL QUE SE USA PARA JUGAR (desde el 03/11).** El programa de los amistosos del 21/09, que el equipo vio "mucho más confiable", con los cambios del 03/11: costado 160/70, margen 20 cm, sin predicción, espera de plano y rampa al volver, corrección por cámara en la ida, límite lateral, patrulla e ir al medio al arrancar. Desde el 08/11 es la **0921g**: igual que la 0921f, más una línea por el cable al arrancar con la versión y los valores, para que el tablero confirme qué quedó cargado. **Se cambia y se carga con [`PARTIDO.bat`](PARTIDO.bat)** (el tablero en la pestaña PARTIDO). Ver las bitácoras del [03/11](bitacora/2026-11-03-el-programa-del-21-09-vuelve-a-la-cancha.md) y del [08/11](bitacora/2026-11-08-la-tecnica-challenge-y-el-tablero-con-la-pestana-partido.md) |
+| [`partido-0921/`](funciona/partido-0921/) | ⭐ **ESTRATEGIA 1, EL QUE SE USA PARA JUGAR (desde el 03/11).** El programa de los amistosos del 21/09, que el equipo vio "mucho más confiable", con los cambios del 03/11 (costado 160/70, margen 20 cm, sin predicción, espera de plano, límite lateral, ir al medio al arrancar). Desde el 10/11 es la **0921k**: arranca a los 3 s, el despeje de la estrategia 2 (160 durante 666 ms con rampa en cada motor, se endereza antes de volver y vuelve a 80) y **la barrida** en vez de la patrulla (a los 4 s sin pelota gira en el lugar con las tres ruedas, de a 15° hasta ±45°). Manda una línea por el cable con la versión, para que el tablero confirme qué quedó cargado. **Se cambia y se carga con [`PARTIDO.bat`](PARTIDO.bat)**, o se carga con [`ELEGIR-ESTRATEGIA.bat`](ELEGIR-ESTRATEGIA.bat) (1). Ver las bitácoras del [03/11](bitacora/2026-11-03-el-programa-del-21-09-vuelve-a-la-cancha.md), [09/11](bitacora/2026-11-09-la-patrulla-por-la-linea-y-la-estrategia-2.md) y [10/11 al 13/11](bitacora/2026-11-10-el-despeje-nuevo-la-barrida-y-elegir-estrategia.md) |
+| [`estrategia-2/`](funciona/estrategia-2/) | **ESTRATEGIA 2** (09/11): el arquero se mueve solo de costado **con los sensores de atrás arriba de la línea del área**, para no alejarse del arco. Versión B, 2026-11-10d: costado 130, despeje 160 con rampa en cada motor, espera a quedar plano, se endereza y vuelve a 80. No tiene patrulla ni tablero. Se carga con [`ELEGIR-ESTRATEGIA.bat`](ELEGIR-ESTRATEGIA.bat) (2). Tiene 3 problemas conocidos sin arreglar (bitácora del 09/11, §4) |
+| [`../respaldos/partido-0921i/`](respaldos/partido-0921i/), [`../respaldos/partido-0921j/`](respaldos/partido-0921j/) | 🧊 Copias exactas de la 0921i (09/11, patrulla a los dos laterales) y de la 0921j (10/11, la i + el despeje de la estrategia 2). No se tocan |
 | [`partido-0921h/`](funciona/partido-0921h/) | La 0921f con **la patrulla para los dos lados** (una al izquierdo, la siguiente al derecho). 08/11, sin probar. El tablero no la maneja |
 | [`partido-0921c/`](funciona/partido-0921c/), [`partido-0921d/`](funciona/partido-0921d/) | Versiones intermedias del 03/11, guardadas para comparar. La **d** es la última que se probó en cancha |
 | [`../respaldos/partido-0921f/`](respaldos/partido-0921f/) | 🧊 Copia exacta de la 0921f (la del 03/11). No se toca |
@@ -118,6 +120,15 @@ al robot de frente en vez de desde el robot. La tabla de arriba es lo medido. Ve
 | [`despeje-pelota/`](funciona/despeje-pelota/) | Solo el despeje, sin seguimiento. Más simple para probar de a una cosa |
 
 ## Cargar un programa
+
+**Lo más fácil para jugar: [`ELEGIR-ESTRATEGIA.bat`](ELEGIR-ESTRATEGIA.bat)** (13/11). Doble clic,
+escribir **1** (la estrategia 1, el programa de juego: `funciona/partido-0921`) o **2** (la estrategia 2,
+el arquero sobre la línea del área: `funciona/estrategia-2`), y después **S** para cargar. Enter solo o
+**0** sale sin cargar nada. Antes de cargar mira que el robot enchufado sea el arquero y que no haya
+ningún Teensy en MODO CARGA (con `tablero.py --quien`, como el tablero), compila sin tocar el robot,
+mira de nuevo y recién ahí carga con `cargar.py`. Carga lo que haya en esa carpeta (con los cambios
+del tablero, si los hay). 🚨 El robot arranca solo apenas termina de cargar: batería apagada. Para
+probar la ventana sin cargar nada: `ELEGIR-ESTRATEGIA.bat --sin-cargar`.
 
 Cada carpeta trae su `platformio.ini`, y el `.ino` se llama igual que la carpeta para que también
 se abra tal cual con el **Arduino IDE** (Placa → Teensy 4.1).

@@ -15,16 +15,22 @@ QUÉ TIENE
   MOVIMIENTOS  los 10 movimientos del arquero, copiados del programa de
                PARTIDO 0.1103 (con MIRAR ANTES DE SALIR): cambia sus
                números SIN recargar el robot y dice si salió derecho
-               (con gráfico). Se pueden probar SIN CABLE.
+               (con gráfico). Se pueden probar SIN CABLE. (2026-11-12) El
+               6 es el DESPEJE VIEJO: el de la 0921k (rampa en cada motor,
+               enderezarse antes de volver, vuelta a 80) NO está acá. El
+               9 ATAJAR termina en ese mismo despeje viejo (y MIRA: la
+               0921k no mira).
   CANCHA       preparar una cancha nueva SIN internet: la línea, el ancho,
                el fondo, la cámara, cuánto sale el despeje y los signos.
                Da la línea exacta para copiar al PANEL DE CONTROL y anota
                todo en una HOJA DE CANCHA (canchas/AAAA-MM-DD_nombre.txt).
   PARTIDO      (2026-11-08) los valores del programa con el que JUEGAN
-               (funciona\partido-0921, la 0921i desde el 09/11: la 0921g +
-               la patrulla a los DOS laterales, la vuelta al medio con la
-               línea del área, arrancar a los 3 s y la patrulla por la línea
-               del área, escrita pero APAGADA; grupo 5 · LA PATRULLA): arriba
+               (funciona\partido-0921, la 0921k desde el 12/11: la 0921i +
+               el despeje de la estrategia 2 (la 0921j: 160 / 666, rampa en
+               cada motor, se endereza antes de volver, vuelta a 80) + LA
+               BARRIDA en vez de la patrulla (grupo 5) + 3 cm más de
+               empujoncito después del despeje. La 0921j, la 0921i y la 0921g
+               se entienden como VERSIÓN ANTERIOR): arriba
                lo de cada cancha (los sensores, el tamaño), abajo lo demás. Se cambian, se
                guardan (con copia) y se CARGAN al robot con un botón; el
                robot confirma con su línea #PARTIDO. También "Cargar el
@@ -102,7 +108,7 @@ TRANSPORTE
   Las 28 etiquetas: HOLA S V DEF OK ERROR GIRO CUENTA INICIO PASO FRENO M
   MIRE R USADOS CONSEJO FIN REPITE GUARDADO LIN ANCHO FONDO CAM MEDIO PANEL
   FINPANEL AREA PARTIDO (AREA desde el 09/11; la PARTIDO la manda el programa de PARTIDO, desde la
-  0921g, al arrancar: NO tablero.ino; la 0921i la manda igual). Otra = DESCONOCIDA. Otra #ETIQUETA adentro del renglón = ROTA.
+  0921g, al arrancar: NO tablero.ino; la 0921i, la 0921j y la 0921k la mandan igual). Otra = DESCONOCIDA. Otra #ETIQUETA adentro del renglón = ROTA.
   El robot habla solo si hay alguien escuchando (if (Serial)), y MIENTRAS
   SE MUEVE NO MANDA NADA (salvo #PASO de A e I, con el robot frenado).
 
@@ -160,11 +166,12 @@ ROBOT -> PC (ejemplos exactos)
   #AREA ok= error= ms= izq= vel= umbral= desvio= rampa=   (ok PRIMERO, rampa
      ÚLTIMO; ms = de costado a costado del área = MS_PUNTA_A_PUNTA_FIJO, a vel)
   #PANEL <declaración del panel> nombre = valor;  ...  #FINPANEL
-  #PARTIDO version=0921i sello=fabrica giro=1 umbralBlanco=425 ... interruptores=1111111110101
+  #PARTIDO version=0921k sello=fabrica giro=1 umbralBlanco=425 ... interruptores=1011111110101
      (la manda el programa de PARTIDO al arrancar, cada 1/2 s mientras
      parpadea; version PRIMERO e interruptores ÚLTIMO. DISENO sección 16.
-     La 0921i manda los MISMOS campos que la 0921g; una 0921g se entiende
-     igual y se dice "versión ANTERIOR". DISENO 16.11.)
+     La 0921i, la 0921j y la 0921k mandan los MISMOS campos que la 0921g;
+     una 0921j, 0921i o 0921g se entiende igual y se dice "versión
+     ANTERIOR". DISENO 16.11 y 16.12.)
 
 SECUENCIAS
   (a) normal: >>> -> #CUENTA... -> #INICIO -> (silencio) -> #M... -> (#MIRE en
@@ -273,13 +280,15 @@ ETIQUETAS = ("HOLA", "S", "V", "DEF", "OK", "ERROR", "GIRO", "CUENTA", "INICIO",
              "M", "MIRE", "R", "USADOS", "CONSEJO", "FIN", "REPITE", "GUARDADO",
              "LIN", "ANCHO", "FONDO", "CAM", "MEDIO", "PANEL", "FINPANEL",
              "AREA",             # (2026-11-09) el ancho del área (la P), para la patrulla
-             "PARTIDO")          # la #PARTIDO la manda el programa de PARTIDO (0921g, 0921i), NO tablero.ino
+             "PARTIDO")          # la #PARTIDO la manda el programa de PARTIDO (0921g a 0921k), NO tablero.ino
 # ---- la línea de versión del partido (0921g, 2026-11-08). Es un CONTRATO con
 # avisarVersion() del .ino: version PRIMERO e interruptores ÚLTIMO (si no, el
 # renglón vino cortado). Si se agrega un campo, va antes de interruptores y
 # se agrega también allá. (2026-11-09) La 0921i manda EXACTAMENTE los mismos
 # campos que la 0921g: lo nuevo de la patrulla por la línea NO va en la línea
-# (lo confirma el SELLO, como todo lo que no va).
+# (lo confirma el SELLO, como todo lo que no va). (2026-11-12) La 0921j y la
+# 0921k, también los mismos: lo nuevo del despeje y de la barrida
+# (barridaActivada...) NO va en la línea, lo confirma el SELLO.
 CAMPOS_PARTIDO = ("version", "sello", "giro", "umbralBlanco", "CAMARA_POR_CM", "MS_MEDIO_AL_MEDIO",
                   "MS_MEDIO_FONDO_POR_TIEMPO", "MS_MAX_RETROCESO", "msAdelante", "umbralCm", "umbralDesvio",
                   "potenciaDespeje", "pwmMinLateral", "pwmMaxLateral", "kpLateral", "MS_QUIETO_PARA_PATRULLAR",
@@ -290,28 +299,51 @@ ORDEN_INTERRUPTORES = ("volverAlMedioEnElLateral", "patrullarSinPelota", "patrul
                        "irAlMedioSiNoHayLinea", "avanzarAlUbicarse", "perseguirEnElDespeje",
                        "esperarPlanoAntesDeVolver", "rampaAlVolver", "empujonFinal", "despejeEnDiagonal",
                        "enderezarActivado", "lateralInvertido", "camaraYInvertida")
-# ---- las versiones del programa de partido (2026-11-09) ----
-# La que maneja ESTE tablero (la de funciona/partido-0921, subida en ebb5518):
-# la 0921i = la 0921g + la patrulla al lateral A LOS DOS LADOS (de la 0921h) +
-# la VUELTA AL MEDIO CON LA LÍNEA DEL ÁREA + arrancar a los 3 s de prenderlo +
-# el empujoncito de 15 cm + LA PATRULLA POR LA LÍNEA DEL ÁREA (escrita, pero
-# APAGADA: patrullaPorLaLinea = false) + MS_QUIETO_PARA_PATRULLAR 20000.
+# ---- las versiones del programa de partido (2026-11-09; 2026-11-12: la 0921k) ----
+# La que maneja ESTE tablero (la de funciona/partido-0921 el 12/11, la que el
+# equipo cargó y probó): la 0921k =
+#   la 0921i (la 0921g + la patrulla al lateral A LOS DOS LADOS + la VUELTA AL
+#   MEDIO CON LA LÍNEA DEL ÁREA + arrancar a los 3 s de prenderlo + el
+#   empujoncito de 15 cm + la patrulla por la línea del área, APAGADA)
+#   + la 0921j: EL DESPEJE DE LA ESTRATEGIA 2 (potenciaDespeje 200 -> 160,
+#     msAdelante 533 -> 666, la rampa en CADA motor, se endereza ANTES de
+#     volver, la vuelta a potenciaVueltaDespeje 80 con tope 2500)
+#   + LA BARRIDA en vez de la patrulla (barridaActivada; patrullarSinPelota
+#     quedó en false) + MS_EXTRA_EMPUJON_DESPEJE (3 cm más, solo después del
+#     despeje).
 # (2026-11-09, a la tarde) Ojo: a la mañana del 09/11 hubo OTRA "0921i" (con
 # la patrulla por la línea PRENDIDA y 15000) que se cambió sin cambiarle el
-# nombre. Lo que vale es la de ebb5518: son los de fábrica de TABLA_PARTIDO.
-VERSION_PARTIDO_HOY = "0921i"
+# nombre. La 0921i que vale es la de ebb5518 (respaldos/partido-0921i).
+VERSION_PARTIDO_HOY = "0921k"
 # Las ANTERIORES que también dicen su #PARTIDO (con los MISMOS campos): se
 # entienden igual y la ventana dice "versión ANTERIOR" (para jugar con la de
 # hoy: CARGAR EL PARTIDO). Qué valía cada una de fábrica: FABRICA_DE_ANTES (1b).
 VERSIONES_PARTIDO_ANTERIORES = {
+    "0921j": "la del 10/11: el despeje de la estrategia 2, pero SIN la barrida (patrulla al lateral a los "
+             "20 s) y sin los 3 cm de más del empujoncito",
+    "0921i": "la del 09/11: el despeje viejo (200 / 533, vuelta a 110 sin enderezarse antes) y la patrulla al lateral "
+             "a los 20 s",
     "0921g": "la del 08/11: patrulla siempre al lateral izquierdo, sin la vuelta con la línea del área, empujoncito "
              "de 10 cm y patrulla a los 10 s",
 }
-LINEA_PARTIDO_FABRICA = ("#PARTIDO version=0921i sello=fabrica giro=1 umbralBlanco=425 CAMARA_POR_CM=2.87 "
-                         "MS_MEDIO_AL_MEDIO=2228 MS_MEDIO_FONDO_POR_TIEMPO=2000 MS_MAX_RETROCESO=1500 msAdelante=533 "
-                         "umbralCm=30.0 umbralDesvio=20.0 potenciaDespeje=200 pwmMinLateral=70 pwmMaxLateral=160 "
-                         "kpLateral=11.50 MS_QUIETO_PARA_PATRULLAR=20000 interruptores=1111111110101")
-# La de la 0921g (la ANTERIOR), tal cual la decía de fábrica: la usa la autoprueba.
+# De la más vieja a la más nueva (None = la 0921f, que no dice su versión).
+ORDEN_VERSIONES = (None, "0921g", "0921i", "0921j", "0921k")
+LINEA_PARTIDO_FABRICA = ("#PARTIDO version=0921k sello=fabrica giro=1 umbralBlanco=425 CAMARA_POR_CM=2.87 "
+                         "MS_MEDIO_AL_MEDIO=2228 MS_MEDIO_FONDO_POR_TIEMPO=2000 MS_MAX_RETROCESO=1500 msAdelante=666 "
+                         "umbralCm=30.0 umbralDesvio=20.0 potenciaDespeje=160 pwmMinLateral=70 pwmMaxLateral=160 "
+                         "kpLateral=11.50 MS_QUIETO_PARA_PATRULLAR=20000 interruptores=1011111110101")
+# Los interruptores de fábrica de la 0921k (patrullarSinPelota, el 2do, en 0) y de las anteriores.
+INTERRUPTORES_FABRICA = "1011111110101"
+INTERRUPTORES_ANTES = "1111111110101"
+# Las ANTERIORES, tal cual las decían de fábrica: las usa la autoprueba.
+LINEA_PARTIDO_0921J = ("#PARTIDO version=0921j sello=fabrica giro=1 umbralBlanco=425 CAMARA_POR_CM=2.87 "
+                       "MS_MEDIO_AL_MEDIO=2228 MS_MEDIO_FONDO_POR_TIEMPO=2000 MS_MAX_RETROCESO=1500 msAdelante=666 "
+                       "umbralCm=30.0 umbralDesvio=20.0 potenciaDespeje=160 pwmMinLateral=70 pwmMaxLateral=160 "
+                       "kpLateral=11.50 MS_QUIETO_PARA_PATRULLAR=20000 interruptores=1111111110101")
+LINEA_PARTIDO_0921I = ("#PARTIDO version=0921i sello=fabrica giro=1 umbralBlanco=425 CAMARA_POR_CM=2.87 "
+                       "MS_MEDIO_AL_MEDIO=2228 MS_MEDIO_FONDO_POR_TIEMPO=2000 MS_MAX_RETROCESO=1500 msAdelante=533 "
+                       "umbralCm=30.0 umbralDesvio=20.0 potenciaDespeje=200 pwmMinLateral=70 pwmMaxLateral=160 "
+                       "kpLateral=11.50 MS_QUIETO_PARA_PATRULLAR=20000 interruptores=1111111110101")
 LINEA_PARTIDO_0921G = ("#PARTIDO version=0921g sello=fabrica giro=1 umbralBlanco=425 CAMARA_POR_CM=2.87 "
                        "MS_MEDIO_AL_MEDIO=2228 MS_MEDIO_FONDO_POR_TIEMPO=2000 MS_MAX_RETROCESO=1500 msAdelante=533 "
                        "umbralCm=30.0 umbralDesvio=20.0 potenciaDespeje=200 pwmMinLateral=70 pwmMaxLateral=160 "
@@ -612,10 +644,22 @@ MOVIMIENTOS = [
          lugar="Lugar a los DOS costados.",
          numeros=["pwmMaxLateral", "msCostado", "LADO_TRASERA", "KP_RUMBO", "KI_RUMBO",
                   "MAX_CORRECCION_RUMBO", "RAMPA_MOV_PASO"]),
-    dict(n=6, nombre="DESPEJE", tipo="despeje", boton="6   DESPEJE  (derecho)",
-         titulo="6 · DESPEJE derecho (el del partido, sin pelota)",
-         que_hace="El despeje del partido entero, sin pelota: ida, freno, vuelta hasta la línea, "
-                  "enderezarse y el empujoncito.",
+    # (2026-11-12) Es el despeje VIEJO (el de la 0.1103, MÁS viejo que la 0921i),
+    # y se dice: el de la 0921k (la de jugar) es otro. Se decidió NO copiarlo a
+    # tablero.ino la víspera del partido (código que mueve el robot sin probar
+    # y un cambio del contrato por el cable): DISENO 16.12. (Revisión: NO es
+    # "como la 0921i": la 0921i espera a quedar plano, vuelve con rampa y corta
+    # a los 1500; este frena 400 ms, vuelve de un tirón y corta a los 1200.)
+    dict(n=6, nombre="DESPEJE", tipo="despeje", boton="6   DESPEJE VIEJO",
+         titulo="6 · DESPEJE VIEJO derecho (el de la 0.1103, sin pelota): NO es el de la 0921k",
+         que_hace="⚠ Es el despeje VIEJO, copia de la 0.1103 (MÁS viejo que la 0921i): ida con la rampa general, "
+                  "freno, y la vuelta a potenciaRetroceso (110) arranca de un tirón (sin rampa), sin esperar a "
+                  "quedar plano, y corta a los 1200 ms (la 0921i: 1500) aunque no vea la línea. Después se "
+                  "endereza y el empujoncito. Con los números del PARTIDO (666 a 160) la vuelta tarda ~1280 ms: "
+                  "puede cortar antes de la línea, y eso NO es umbralBlanco. El de la 0921k (la de jugar) es OTRO: "
+                  "rampa en cada motor, se endereza ANTES de volver, vuelve a potenciaVueltaDespeje (80) con tope "
+                  "2500 y el empujoncito tiene 3 cm más. Ese se prueba con el PARTIDO cargado, y se ajusta en la "
+                  "pestaña PARTIDO (grupo 3).",
          lugar="Delante de la línea del área, como juega. Lugar adelante (~40 cm).",
          numeros=["potenciaDespeje", "msAdelante", "frenarAntesDeVolver", "MS_ESPERA_ANTES_DE_VOLVER",
                   "potenciaRetroceso", "msFreno", "empujonFinal", "potenciaEmpujon", "msEmpujonFinal",
@@ -630,17 +674,23 @@ MOVIMIENTOS = [
     dict(n=8, nombre="SEGUIR", tipo="seguir", boton="8   SEGUIR  la pelota",
          titulo="8 · SEGUIR la pelota de costado",
          que_hace="Sigue la pelota de costado como el partido, sin despejar, durante msSeguir. Si "
-                  "pisa el lateral vuelve al medio como el partido.",
+                  "pisa el lateral vuelve al medio (acá solo POR TIEMPO: sin buscar la línea del área como la "
+                  "0921k).",
          lugar="En su lugar de juego. Mové la pelota de un lado al otro, a ~40-60 cm.",
          numeros=["kpLateral", "pwmMinLateral", "pwmMaxLateral", "ZONA_MUERTA_PELOTA",
                   "predecirTrayectoria", "msAnticipacionSeguir", "volverAlMedioEnElLateral",
                   "LADO_TRASERA", "msSeguir", "KP_RUMBO", "KI_RUMBO"]),
-    dict(n=9, nombre="ATAJAR", tipo="atajar", boton="9   ATAJAR  (mirar y despejar)",
-         titulo="9 · ATAJAR (seguir, MIRAR y despejar en diagonal)",
-         que_hace="Como el partido: la sigue, a distanciaParaMirar frena y MIRA, y sale en diagonal "
-                  "a umbralCm. Si no sale, reintenta. Termina al primer despeje (o a los msSeguir). "
-                  "Ojo: si lo frenás con PARAR, el robot guarda ESTE (NO_VALE) y el anterior ya no se "
-                  "puede pedir con r.",
+    # (2026-11-12, revisión) Como el 6: es de la 0.1103 y su despeje es el VIEJO.
+    # La 0921k no MIRA (no tiene medirAntesDeDespejar: "Volver a los números del
+    # PARTIDO" no lo apaga) y sale derecho (despejeEnDiagonal = false).
+    dict(n=9, nombre="ATAJAR", tipo="atajar", boton="9   ATAJAR  (despeje VIEJO)",
+         titulo="9 · ATAJAR (seguir, MIRAR y despejar): el de la 0.1103, NO el de la 0921k",
+         que_hace="⚠ Como la 0.1103, NO como la 0921k: la sigue, a distanciaParaMirar frena y MIRA (la 0921k "
+                  "NO mira; para que acá no mire, medirAntesDeDespejar en 0) y sale a umbralCm (en diagonal con "
+                  "despejeEnDiagonal; la 0921k sale derecho). El despeje es el VIEJO, el mismo del 6: vuelve a 110 "
+                  "sin enderezarse antes. El de la 0921k se prueba con el PARTIDO cargado. Si no sale, reintenta. "
+                  "Termina al primer despeje (o a los msSeguir). Ojo: si lo frenás con PARAR, el robot guarda ESTE "
+                  "(NO_VALE) y el anterior ya no se puede pedir con r.",
          lugar="En su lugar de juego. Después de la cuenta, tirá la pelota hacia el arco.",
          numeros=["umbralCm", "umbralDesvio", "distanciaParaMirar", "medirAntesDeDespejar",
                   "MS_ASENTAR_MIRADA", "MS_MIRAR", "MS_MAX_MIRANDO", "MS_DESCANSO_MIRADA",
@@ -649,7 +699,10 @@ MOVIMIENTOS = [
     dict(n=10, nombre="IDA", tipo="ida", boton="10  IDA  (para medir)",
          titulo="10 · IDA (solo la ida del despeje, para medir)",
          que_hace="Solo la ida del despeje (msPruebaIda) y se queda donde llegó (con frenarAntesDeVolver 1 "
-                  "frena; con 0 suelta, como la 0921). Para medir con regla cuánto sale.",
+                  "frena; con 0 suelta, como la 0921). Para medir con regla cuánto sale. Sale con la rampa "
+                  "general: derecho y sin pelota, sube igual que la rampa en cada motor de la 0921k (las dos "
+                  "suben 10 cada 10 ms; si en PARTIDO cambian PASO_RAMPA_RUEDA o MS_RAMPA_RUEDA, ya no: eso acá "
+                  "no se mide), pero a la potenciaDespeje que tiene el ROBOT (la 0921k: 160).",
          lugar="Cinta en el frente del chasis. Lugar adelante.",
          numeros=["msPruebaIda", "potenciaDespeje", "frenarAntesDeVolver"]),
 ]
@@ -677,12 +730,12 @@ ESTADOS_GIRO = {
 #  cambiar los valores y cargarlo con esos nuevos de forma rápida". Arriba lo
 #  fundamental (los sensores y el tamaño de la cancha) y abajo lo demás.
 #  De ESTA tabla sale todo (como de TABLA): las filas, los rangos, los de
-#  fábrica y la autoprueba. "Fábrica" = el texto TAL CUAL en la 0921i del
-#  09/11 (la de ebb5518) = la 0921f congelada en respaldos/ con lo que cambió
-#  la versión (FABRICA_DE_ANTES, abajo: MS_QUIETO_PARA_PATRULLAR 10000 -> 20000,
-#  msEmpujonFinal 320 -> 450, MS_AVISO_ARMADO 2000 -> 3000) y las 10 filas
-#  que la 0921g no tenía (NUEVOS_EN_LA_0921I: la patrulla y la vuelta con la
-#  línea del área).
+#  fábrica y la autoprueba. "Fábrica" = el texto TAL CUAL en la 0921k del
+#  10/11 (la que el equipo cargó y probó; sin commitear el 12/11) = la 0921f
+#  congelada en respaldos/ con lo que cambió cada versión (FABRICA_DE_ANTES,
+#  abajo) y las filas que cada versión trajo (NUEVOS_EN_LA_0921I: la patrulla
+#  y la vuelta con la línea del área; NUEVOS_EN_LA_0921J: el despeje de la
+#  estrategia 2; NUEVOS_EN_LA_0921K: la barrida y los 3 cm de más).
 #    (nombre, declaración en el .ino, tipo, FÁBRICA, unidad, mínimo, máximo,
 #     paso, grupo, qué es, para qué lado, atado)
 #    tipo: "i" int · "u" unsigned long · "f" float · "b" bool · "l" lado (-1/+1)
@@ -701,14 +754,15 @@ TABLA_PARTIDO = (
      "Con CANCHA medida: ojo si queda a menos de 80 del peor verde o del peor blanco. Copias a mano en otras "
      "pruebas: " + COPIAS_A_MANO["umbralBlanco"] + "."),
     ("MS_MEDIO_AL_MEDIO", _CUL, "u", "2228", "ms", 500, 3200, 10, "cancha",
-     "Cuánto va de costado, a fuerza 100, desde el lateral IZQUIERDO hasta el medio. Lo usan ir al medio, la "
-     "patrulla al lateral y el límite lateral. (0921i) Con buscarLineaDelAreaAlVolver SÍ, si en la vuelta ve la "
-     "línea del área, corta ahí y sigue con la mitad de MS_PUNTA_A_PUNTA_FIJO (grupo 5).",
+     "Cuánto va de costado, a fuerza 100, desde el lateral IZQUIERDO hasta el medio. Lo usan ir al medio (al "
+     "arrancar sin ver la línea) y el límite lateral (también yendo de costado en la barrida); la patrulla al "
+     "lateral, solo si se apaga la barrida. (0921i) Con buscarLineaDelAreaAlVolver SÍ, si en la vuelta ve la "
+     "línea del área, corta ahí y sigue con la mitad de MS_PUNTA_A_PUNTA_FIJO (grupo 6).",
      "No llega al medio (queda del lado del lateral del que salió) → SUBIR. Se pasa del medio → BAJAR. "
-     "Miralo en ir al medio o la patrulla: salen del lateral de LADO_MEDIO (−1 = el IZQUIERDO, la izquierda "
-     "del robot mirando para donde mira él). El límite lateral sale del que pisó. Se mide: CANCHA paso 2, y se "
+     "Miralo en ir al medio: sale del lateral de LADO_MEDIO (−1 = el IZQUIERDO, la izquierda del robot mirando "
+     "para donde mira él). El límite lateral sale del que pisó. Se mide: CANCHA paso 2, y se "
      "comprueba en el 2c (solo por tiempo). Si en el partido corta en la línea del área y AHÍ queda corrido, no es "
-     "esto: es MS_PUNTA_A_PUNTA_FIJO (grupo 5).",
+     "esto: es MS_PUNTA_A_PUNTA_FIJO (grupo 6).",
      "ATADO a VEL_MEDIO_MEDIR (100), LADO_TRASERA, RAMPA_MOV_PASO y el rumbo: si se toca uno, medirlo de nuevo. "
      "Desde el lateral DERECHO daba 2331."),
     ("MS_MEDIO_FONDO_POR_TIEMPO", _CUL, "u", "2000", "ms", 500, 4000, 100, "cancha",
@@ -717,13 +771,18 @@ TABLA_PARTIDO = (
      "No llega a apoyarse en el fondo → SUBIR. Se queda empujando la rampa → BAJAR. Se mide: CANCHA paso 3 "
      "(lo que tarda + 0,5 s).",
      "A fuerza 110 hace 1 cm cada 18 a 24 ms."),
-    ("MS_MAX_RETROCESO", _CUL, "u", "1500", "ms", 800, 2500, 100, "cancha",
-     "Tope de TODOS los retrocesos hasta la línea del área: la vuelta del despeje, el del arranque y el último "
-     "paso de ir al medio. Si ve la línea antes, frena ahí.",
-     "La vuelta se corta antes de la línea y queda adelantado → SUBIR. Al arrancar sin línea se va contra el "
-     "arco → BAJAR.",
-     "Ojo si es menos que 2,4 × msAdelante: la vuelta, a 110, es unas 2,4 veces más lenta que la ida a 200. "
-     "Atado a potenciaRetroceso."),
+    # (2026-11-12) Desde la 0921j la vuelta del DESPEJE tiene su propio tope
+    # (MS_MAX_VUELTA_DESPEJE, grupo 3): este queda para el arranque, el último
+    # paso de ir al medio (y del límite lateral) y la patrulla vieja. Por eso
+    # el máximo baja de 2500 a 2000: el 2500 era para que la vuelta del despeje
+    # (2,4 × msAdelante) no se cortara; al arrancar, 2000 a 110 ya son ~1 m para atrás.
+    ("MS_MAX_RETROCESO", _CUL, "u", "1500", "ms", 800, 2000, 100, "cancha",
+     "Tope del retroceso hasta la línea del área AL ARRANCAR, y del último paso de ir al medio y de la vuelta del "
+     "límite lateral. Si ve la línea antes, frena ahí. (Desde la 0921j la vuelta del DESPEJE NO usa este: usa "
+     "MS_MAX_VUELTA_DESPEJE, grupo 3.)",
+     "Al arrancar no llega a ver la línea y sale a buscar el medio sin necesidad → SUBIR. Al arrancar sin línea se "
+     "va contra el arco → BAJAR.",
+     "Atado a potenciaRetroceso (a 110 hace 1 cm cada 18 a 24 ms)."),
     ("MS_MEDIO_ADELANTE", _CUL, "u", "943", "ms", 300, 1500, 50, "cancha",
      "Ir al medio, paso 4: cuánto avanza desde el fondo para salir del área (~50 cm a fuerza 110).",
      "El área de esta cancha es más honda y queda adentro → SUBIR.",
@@ -741,10 +800,10 @@ TABLA_PARTIDO = (
      "2,87: ojo si cambia."),
     # ---- 2 · INTERRUPTORES (en bool, "para qué lado" dice qué pasa con NO) ----
     ("volverAlMedioEnElLateral", "bool", "b", "true", "", None, None, None, "interruptores",
-     "LÍMITE LATERAL: siguiendo la pelota, si pisa la línea del costado frena, vuelve al medio (~2,7 s sin mirar "
-     "la pelota) y retrocede a la línea del área.",
+     "LÍMITE LATERAL: siguiendo la pelota (y, desde la 0921k, yendo de costado en la BARRIDA), si pisa la línea "
+     "del costado frena, vuelve al medio (~2,7 s sin mirar la pelota) y retrocede a la línea del área.",
      "NO = sin límite, como el 21/09: se puede ir de largo y chocar la madera.",
-     "Necesita giroscopio. Ojo si NO y pwmMaxLateral 150 o más."),
+     "Necesita giroscopio. Ojo si NO y pwmMaxLateral 150 o más, o con la barrida."),
     ("irAlMedioSiNoHayLinea", "bool", "b", "true", "", None, None, None, "interruptores",
      "IR AL MEDIO AL ARRANCAR: si al ubicarse no encuentra la línea del área, hace la rutina (lateral, fondo, "
      "lateral, medio, área).",
@@ -763,27 +822,31 @@ TABLA_PARTIDO = (
      "Al terminar la ida espera a que el giroscopio diga que quedó PLANO (no hamacándose) y recién ahí vuelve.",
      "NO = espera MS_PAUSA_MEDIO justo y vuelve.",
      "Atado a MS_PAUSA_MEDIO, MS_MAX_ESPERA_PLANO, GRADOS_PLANO y MS_PLANO_SOSTENIDO."),
+    # (2026-11-12) Con rampaEnCadaMotor SÍ (la 0921k) la vuelta del despeje va
+    # con la rampa de cada motor y esto NO se usa (empezarVueltaDespeje).
     ("rampaAlVolver", "bool", "b", "true", "", None, None, None, "interruptores",
-     "La vuelta del despeje arranca suave (con rampa), no de un tirón.",
+     "La vuelta del despeje arranca suave con la rampa GENERAL, no de un tirón. Solo con rampaEnCadaMotor = NO "
+     "(grupo 3): con SÍ (así viene la 0921k) la vuelta sube con la rampa de cada motor y esto no se usa.",
      "NO = como el 21/09 (el 20/10 se midió que así se tuerce 15 a 20°).",
-     ""),
+     "Gris si rampaEnCadaMotor = SÍ."),
     ("empujonFinal", "bool", "b", "true", "", None, None, None, "interruptores",
-     "Al volver del despeje y enderezarse, avanza el poquito para no quedar pegado a la línea.",
+     "Al volver del despeje y enderezarse, avanza el poquito para no quedar pegado a la línea (msEmpujonFinal + "
+     "MS_EXTRA_EMPUJON_DESPEJE, los 3 cm de más de la 0921k).",
      "NO = se queda sobre la línea.",
-     "Atado a potenciaEmpujon y msEmpujonFinal."),
+     "Atado a potenciaEmpujon, msEmpujonFinal y MS_EXTRA_EMPUJON_DESPEJE."),
     ("despejeEnDiagonal", "bool", "b", "false", "", None, None, None, "interruptores",
      "⚠ ESCRITO Y SIN PROBAR. SÍ = calcula un ángulo y sale en diagonal; si la cuenta dice que no llega, NO sale.",
      "NO = sale derecho (como hoy).",
      "Atado a rendimientoCostado y a AVANZADO › Diagonal."),
-    # ---- 3 · EL DESPEJE ----
+    # ---- 3 · EL DESPEJE (2026-11-12: con lo de la 0921j, en el orden en que lo hace) ----
+    # El despeje de la 0921k = el de la estrategia 2 (la 0921j): la ida más
+    # lenta y más larga con la rampa en CADA motor, la pausa de siempre, se
+    # endereza ANTES de volver, la vuelta a potenciaVueltaDespeje con su propio
+    # tope, y el empujoncito con 3 cm más (MS_EXTRA_EMPUJON_DESPEJE, 0921k).
     ("umbralCm", "float", "f", "30.0", "cm", 15, 45, 1, "despeje",
      "Sale a despejar cuando la pelota está a esto o menos.",
      "Que salga antes → SUBIR. Que la espere más cerca → BAJAR.",
-     "ATADO a msAdelante: la ida tiene que llegar MÁS LEJOS que esto."),
-    ("msAdelante", "int", "i", "533", "ms", 200, 800, 10, "despeje",
-     "Cuánto dura la ida. 533 ≈ 50 cm a fuerza 200 (cm ≈ ms/10 − 3,3, medido el 04/08).",
-     "No llega a tocar la pelota → SUBIR de a 20. Deja el arco muy solo → BAJAR. Se mide: CANCHA paso 5.",
-     "ATADO a umbralCm, a potenciaDespeje (la cuenta de cm es a 200) y a MS_MAX_RETROCESO."),
+     "ATADO a msAdelante y potenciaDespeje: la ida tiene que llegar MÁS LEJOS que esto."),
     ("umbralDesvio", "float", "f", "20.0", "cm", 3, 30, 1, "despeje",
      "Y al costado tiene que estar a esto o menos para salir.",
      "Sale de gusto y deja el arco solo → BAJAR (10 o 12). Duda y no sale → SUBIR.",
@@ -793,24 +856,53 @@ TABLA_PARTIDO = (
      "lo dispara).",
      "Sale por reflejos naranjas → SUBIR. Sale tarde → BAJAR.",
      "La cámara manda unos 26 cuadros por segundo."),
-    ("potenciaDespeje", "int", "i", "200", "fuerza", 140, 230, 10, "despeje",
-     "Fuerza de la ida.",
-     "Más = sale más rápido.",
-     "msAdelante se calculó a 200. Con persecución, la rueda más cargada recibe esto + el volantazo + la "
-     "corrección: pasado 255 se queda corta."),
-    ("potenciaRetroceso", "int", "i", "110", "fuerza", 80, 150, 10, "despeje",
-     "Fuerza de la vuelta hasta la línea (y del retroceso al arrancar).",
-     "Más = vuelve antes, pero frena más pasado de la línea.",
-     "Atado a MS_MAX_RETROCESO."),
+    ("msAdelante", "int", "i", "666", "ms", 200, 800, 10, "despeje",
+     "Cuánto dura la ida. 666 a fuerza 160 ≈ 50 cm (0921j, el despeje de la estrategia 2: a fuerza 200 eran 533). "
+     "Medido el 04/08 a 200: cm ≈ ms/10 − 3,3. A otra fuerza es una CUENTA (cm ≈ ms × fuerza/200 /10 − 3,3): así "
+     "salió el 666.",
+     "No llega a tocar la pelota → SUBIR de a 20. Deja el arco muy solo → BAJAR. Se mide: CANCHA paso 5 (con los "
+     "números del PARTIDO en el robot: a fuerza 160).",
+     "ATADO a umbralCm, a potenciaDespeje (a menos fuerza, más tiempo para llegar igual) y a MS_MAX_VUELTA_DESPEJE "
+     "(más lejos = más tarda en volver)."),
+    ("potenciaDespeje", "int", "i", "160", "fuerza", 140, 230, 10, "despeje",
+     "Fuerza de la ida. 0921j: 160 (era 200), pedido del equipo: la ida más lenta y más larga, como la estrategia 2.",
+     "Más = sale más rápido (y con el mismo msAdelante llega más lejos).",
+     "ATADO a msAdelante: si la cambiás, cambiá msAdelante para llegar igual (160 → 666, 200 → 533) y medilo "
+     "(CANCHA paso 5). Con persecución, la rueda más cargada recibe esto + el volantazo + la corrección: pasado 255 "
+     "se queda corta."),
+    ("rampaEnCadaMotor", "bool", "b", "true", "", None, None, None, "despeje",
+     "(0921j) LA RAMPA EN CADA MOTOR: en la ida, al enderezarse antes de volver y en la vuelta del despeje (y en la "
+     "barrida), CADA rueda sube de a poco con TODO lo que le llega (avance + correrse hacia la pelota + el "
+     "giroscopio). Es contra el tirón para la izquierda al salir. Seguir la pelota de costado NO la usa.",
+     "NO = como la 0921i: la rampa general (solo el avance sube de a poco; pisoRampaIda y rampaAlVolver vuelven a "
+     "valer).",
+     "ATADO a PASO_RAMPA_RUEDA (y a MS_RAMPA_RUEDA, en AVANZADO) y a msAdelante (cuánto llega la ida)."),
+    # (2026-11-12, revisión) Mínimo 5 (no 2): con 2 o 3 la ida pasa casi todo
+    # msAdelante subiendo y no llega, y la barrida no alcanza a girar antes del
+    # tope de cada paso. 5 es "el doble de suave" del .ino. Igual, con 5 y
+    # MS_RAMPA_RUEDA alto puede no alcanzar: eso lo avisan O26 y O27 (siempre,
+    # también después de guardar).
+    ("PASO_RAMPA_RUEDA", "const int", "i", "10", "fuerza por paso", 5, 30, 1, "despeje",
+     "Cuánto sube cada rueda cada MS_RAMPA_RUEDA (10 ms): 10 = de 0 a 160 en 0,16 s.",
+     "Sigue el tirón al salir → BAJAR (5 = el doble de suave, no menos). Sale muy lento y no llega a la pelota → "
+     "SUBIR.",
+     "ATADO a msAdelante (más suave = llega menos lejos: el \"≈ cm\" de msAdelante NO lo cuenta, y CANCHA paso 5 "
+     "tampoco lo mide) y a MS_RAMPA_RUEDA. Lo usan también enderezarse antes de volver y LA BARRIDA (cada paso "
+     "arranca de 0 con esta rampa). Si tarda mucho en subir sale O26 / O27. Gris si no lo usa nadie "
+     "(rampaEnCadaMotor = NO y sin enderezarse antes de volver)."),
     ("kpPersecucion", "float", "f", "6.0", "fuerza por cm", 0, 12, 0.5, "despeje",
      "Con perseguirEnElDespeje: cuánto se corre hacia la pelota en la ida, por cada cm que está al costado. "
-     "Puesto a ojo.",
+     "Puesto a ojo. Con rampaEnCadaMotor sube en el MISMO tiempo que el avance (sin tirón de costado al salir).",
      "Hace eses → BAJAR (6 → 4). No corrige → SUBIR.",
      "Gris si perseguirEnElDespeje = NO."),
     ("PWM_MAX_PERSECUCION", "const int", "i", "60", "fuerza", 0, 100, 10, "despeje",
      "Tope de ese volantazo de costado.",
      "Hace eses → BAJAR (60 → 40).",
      "Gris si perseguirEnElDespeje = NO."),
+    ("pisoRampaIda", "int", "i", "0", "fuerza", 0, 120, 10, "despeje",
+     "Solo con rampaEnCadaMotor = NO: la ida arranca desde esta fuerza en vez de 0. 0 = como la b.",
+     "Hace un saltito al salir → probar 70, 80. Patina → bajar.",
+     "Gris si rampaEnCadaMotor = SÍ (así viene la 0921k: cada rueda arranca desde 0 con su rampa)."),
     ("MS_PAUSA_MEDIO", _CUL, "u", "300", "ms", 0, 800, 50, "despeje",
      "Lo MÍNIMO que se queda quieto entre la ida y la vuelta.",
      "Que vuelva más prolijo → SUBIR. Que vuelva antes al arco → BAJAR.",
@@ -827,28 +919,84 @@ TABLA_PARTIDO = (
      "...y quedarse plano este rato seguido (si se hamaca, pasa por el plano y se va).",
      "",
      "Gris si no espera plano."),
-    ("pisoRampaIda", "int", "i", "0", "fuerza", 0, 120, 10, "despeje",
-     "La ida arranca desde esta fuerza en vez de 0. 0 = como la b.",
-     "Hace un saltito al salir → probar 70, 80. Patina → bajar.",
-     ""),
+    ("enderezarAntesDeVolver", "bool", "b", "true", "", None, None, None, "despeje",
+     "(0921j) Después de la pausa gira EN EL LUGAR hasta quedar a GRADOS_DERECHO del rumbo del arranque, frena un "
+     "ratito (MS_FRENO_ENDEREZADO) y recién ahí vuelve: así la vuelta sale derecha. Sin giroscopio se saltea.",
+     "NO = vuelve directo después de la pausa, como la 0921i (en la estrategia 2: \"en el retroceso lo hace "
+     "chueco\").",
+     "ATADO a GRADOS_DERECHO, PWM_MIN_GIRO, PWM_MAX_GIRO, MS_TOPE_ENDEREZAR y MS_FRENO_ENDEREZADO. Necesita "
+     "enderezarActivado."),
+    ("GRADOS_DERECHO", "const float", "f", "3.0", "grados", 1, 8, 0.5, "despeje",
+     "Enderezarse antes de volver: \"derecho\" = a esto o menos del rumbo del arranque.",
+     "Va y viene sin terminar de enderezarse (corta por el tope) → SUBIR (4, 5). Vuelve torcido → BAJAR.",
+     "Gris si enderezarAntesDeVolver = NO."),
+    ("PWM_MIN_GIRO", "const int", "i", "70", "fuerza", 70, 120, 5, "despeje",
+     "Enderezarse antes de volver: lo MÍNIMO que empuja cada rueda (la fuerza es grados × KP_RUMBO, entre este y "
+     "PWM_MAX_GIRO). Menos de 70 no gira.",
+     "Zumba y no gira → SUBIR de a 5.",
+     "Tiene que ser menos o igual que PWM_MAX_GIRO. Gris si enderezarAntesDeVolver = NO."),
+    ("PWM_MAX_GIRO", "const int", "i", "85", "fuerza", 70, 150, 5, "despeje",
+     "Enderezarse antes de volver: lo MÁXIMO que empuja cada rueda. En la estrategia 2 (10/11): 120 → 85, pedido "
+     "del equipo (\"al enderezarse se pasa\").",
+     "Se pasa al enderezarse → BAJAR. Tarda mucho → SUBIR.",
+     "Tiene que ser más o igual que PWM_MIN_GIRO. ATADO a KP_RUMBO (la fuerza es grados × KP_RUMBO). Gris si "
+     "enderezarAntesDeVolver = NO."),
+    ("MS_TOPE_ENDEREZAR", _CUL, "u", "1500", "ms", 500, 3000, 100, "despeje",
+     "Enderezarse antes de volver: si en este rato no quedó derecho, vuelve igual (no se traba).",
+     "Siempre corta por el tope (gira lento) → primero subir PWM_MIN_GIRO, no esto.",
+     "Gris si enderezarAntesDeVolver = NO."),
+    ("MS_FRENO_ENDEREZADO", _CUL, "u", "150", "ms", 0, 500, 25, "despeje",
+     "Después de enderezarse frena esto, y recién ahí vuelve para atrás.",
+     "Arranca la vuelta todavía girando → SUBIR.",
+     "Gris si enderezarAntesDeVolver = NO."),
+    ("potenciaVueltaDespeje", "int", "i", "80", "fuerza", 70, 150, 5, "despeje",
+     "(0921j) Fuerza de la VUELTA del despeje hasta la línea, por la misma diagonal de la ida. En la estrategia 2 "
+     "(10/11): 110 → 90 → 80, pedido del equipo (\"vuelve muy rápido\").",
+     "Se traba o hace zigzag → SUBIR (90). Frena pasado de la línea → BAJAR (no menos de 70: parado no arranca).",
+     "ATADO a MS_MAX_VUELTA_DESPEJE (más lenta = tarda más en llegar a la línea). NO es potenciaRetroceso (esa es la "
+     "del arranque)."),
+    ("MS_MAX_VUELTA_DESPEJE", _CUL, "u", "2500", "ms", 1000, 3500, 100, "despeje",
+     "(0921j) Tope de la vuelta del despeje: es solo un seguro, frena al ver la línea. Si no la ve en este rato, "
+     "frena igual y se endereza ahí.",
+     "La vuelta se corta antes de la línea y queda adelantado → SUBIR. Si no ve la línea se mete contra el arco → "
+     "BAJAR.",
+     "ATADO a msAdelante, potenciaDespeje y potenciaVueltaDespeje: la vuelta tarda unas 1,3 × msAdelante × "
+     "potenciaDespeje / potenciaVueltaDespeje (a 160 y 80, ~1760 ms; en la estrategia 2, a 90 ya cortaba justo con "
+     "1500)."),
     ("msFreno", "unsigned long", "u", "200", "ms", 100, 400, 25, "despeje",
-     "Cuánto sostiene el freno eléctrico cada vez que frena. Lo usan TODOS los frenos.",
+     "Cuánto sostiene el freno eléctrico cada vez que frena. Lo usan TODOS los frenos (también los de la barrida).",
      "Se pasa de la línea al frenar → SUBIR (250). Más de 300 calienta el driver.",
      "En el empujoncito el robot queda trabado ese rato (delay)."),
     ("potenciaEmpujon", "int", "i", "100", "fuerza", 70, 150, 10, "despeje",
      "Fuerza del empujoncito final. Despacio a propósito: rápido patina.",
      "",
-     "ATADO a msEmpujonFinal y a MS_AVANCE_10CM (grupo 5: avanzan a esta fuerza)."),
+     "ATADO a msEmpujonFinal, a MS_EXTRA_EMPUJON_DESPEJE y a MS_AVANCE_10CM (grupo 6: avanzan a esta fuerza)."),
     ("msEmpujonFinal", "int", "i", "450", "ms", 0, 600, 20, "despeje",
      "Cuánto dura el empujoncito (después del despeje y al ubicarse). 450 ≈ 15 cm a fuerza 100: el 09/11 pasó de "
-     "320 (10 cm) a 450, pedido del equipo. Es una CUENTA del 18/08 (15 / 0,041 + 83 ms), no está medido con regla.",
+     "320 (10 cm) a 450, pedido del equipo. Es una CUENTA del 18/08 (15 / 0,041 + 83 ms), no está medido con regla. "
+     "Después del DESPEJE se le suma MS_EXTRA_EMPUJON_DESPEJE (0921k: 70 ms, ~3 cm más).",
      "Queda pegado a la línea → SUBIR. Queda muy adelante → BAJAR. Medilo con regla. ES EL QUE DECIDE dónde queda "
-     "AL FINAL, también después de ir al medio, de la patrulla y del límite lateral (MS_AVANCE_10CM no).",
+     "AL FINAL, también después de ir al medio, de la patrulla y del límite lateral (MS_AVANCE_10CM no). Si es solo "
+     "después del despeje, tocá MS_EXTRA_EMPUJON_DESPEJE.",
      "ATADO a potenciaEmpujon."),
+    ("MS_EXTRA_EMPUJON_DESPEJE", _CUL, "u", "70", "ms", 0, 300, 10, "despeje",
+     "(0921k) SOLO después del DESPEJE el empujoncito dura esto MÁS (70 ≈ 3 cm a fuerza 100), pedido del equipo: "
+     "\"en ese saltito que hace aumentale 3 cm mas\". Al arrancar, después del límite lateral y de ir al medio "
+     "sigue msEmpujonFinal solo.",
+     "Después del despeje queda muy lejos de la línea → BAJAR. Muy cerca → SUBIR. 0 = como la 0921j.",
+     "ATADO a msEmpujonFinal y potenciaEmpujon (es una cuenta: 3 cm / 0,041 ≈ 70 ms). Gris si empujonFinal = NO."),
     ("MS_ENFRIAMIENTO", _CUL, "u", "1500", "ms", 300, 3000, 100, "despeje",
      "Después de un despeje se queda quieto esto, sin volver a salir.",
      "Sale dos veces seguidas de gusto → SUBIR. Se queda mirando una pelota que vuelve → BAJAR.",
      ""),
+    # (2026-11-12) Desde la 0921j la vuelta del despeje es potenciaVueltaDespeje:
+    # esta queda para el retroceso del ARRANQUE (y el plan B de la patrulla vieja).
+    ("potenciaRetroceso", "int", "i", "110", "fuerza", 80, 150, 10, "despeje",
+     "Fuerza del retroceso hasta la línea AL ARRANCAR (ubicarse). Desde la 0921j la vuelta del DESPEJE NO usa esta: "
+     "usa potenciaVueltaDespeje (arriba).",
+     "Al arrancar frena pasado de la línea → BAJAR. Zumba y no llega → SUBIR.",
+     "Atado a MS_MAX_RETROCESO (grupo 1). Al terminar la vuelta del despeje, la rampa general queda en este número: "
+     "el empujoncito sale de una."),
     # ---- 4 · SEGUIR LA PELOTA ----
     ("pwmMaxLateral", "int", "i", "160", "fuerza", 80, 170, 10, "seguir",
      "La velocidad MÁXIMA de costado siguiendo la pelota.",
@@ -867,7 +1015,89 @@ TABLA_PARTIDO = (
      "También la usa la ida.",
      "Tiembla con la pelota quieta → SUBIR. No se acomoda con la pelota apenas corrida → BAJAR.",
      ""),
-    # ---- 5 · LA PATRULLA Y EL LÍMITE LATERAL (0921i) ----
+    # ---- 5 · LA BARRIDA (0921k, 2026-11-10: la patrulla de HOY) ----
+    # (2026-11-12) Lo que conviene tocar, a la vista; lo de "casi nunca" en
+    # AVANZADO › La barrida; y los SEGUROS del .ino (GRADOS_AL_REVES_BARRIDA,
+    # MAX_VUELTAS_SIGNO_BARRIDA, GRADOS_MARGEN_BARRIDA, MAX_REINTENTOS_A_CERO_BARRIDA),
+    # el signo (SIGNO_GIRO_BARRIDA = +1: se da vuelta SOLO si gira al revés) y
+    # el arreglo PASOS_BARRIDA {1, 2, 3, -1, -2, -3, 0} quedan fijos en el .ino.
+    ("barridaActivada", "bool", "b", "true", "", None, None, None, "barrida",
+     "LA LLAVE DE LA BARRIDA (0921k: es la patrulla de HOY). Quieto esperando y sin ver la pelota "
+     "MS_SIN_PELOTA_PARA_BARRER, gira de a GRADOS_PASO_BARRIDA (+15, +30, +45, −15, −30, −45 y 0; + = derecha), "
+     "frenando y mirando en cada paso. Si la ve: vuelve a 0 grados, va DE COSTADO para ese lado hasta verla y la "
+     "sigue como siempre (nunca despeja girado). Si en MS_TOPE_COSTADO_BARRIDA no la ve, vuelve lo mismo y espera. "
+     "LED: dos destellos cortos por segundo.",
+     "NO = sin barrida: vuelve a mandar patrullarSinPelota (grupo 6; de fábrica en NO = quieto para siempre).",
+     "Necesita giroscopio (sin giroscopio no barre). Con SÍ, la patrulla vieja (grupo 6) NO arranca aunque "
+     "patrullarSinPelota esté en SÍ. Si lo mueven de afuera (lo levantan, lo empuja un rival) corta esa barrida, se "
+     "endereza y después barre de nuevo."),
+    ("MS_SIN_PELOTA_PARA_BARRER", _CUL, "u", "4000", "ms", 2000, 20000, 500, "barrida",
+     "Cuánto tiene que estar quieto ESPERANDO sin ver la pelota para empezar a barrer (10/11: 7000 → 4000, pedido "
+     "del equipo: \"que sea 4 seg\"). Verla lo reinicia.",
+     "El juez dice que está quieto mucho → BAJAR. Sale a barrer cuando un rival le tapa la pelota un rato → SUBIR.",
+     "Gris sin barrida."),
+    ("barridaConTresRuedas", "bool", "b", "true", "", None, None, None, "barrida",
+     "SÍ = gira EN EL LUGAR con las TRES ruedas (a PWM_BARRIDA_TRES), pedido del equipo el 10/11: \"para que el giro "
+     "no ocupe tanto lugar\".",
+     "NO = como la primera 0921k: gira SOLO con la rueda de atrás (a PWM_BARRIDA), con las de adelante frenadas: la "
+     "cola se corre (y al volver a 0 se deshace).",
+     "Elige cuál de las dos fuerzas de abajo se usa. Gris sin barrida."),
+    ("PWM_BARRIDA_TRES", "const int", "i", "80", "fuerza", 70, 120, 5, "barrida",
+     "La fuerza de cada rueda girando con las tres (como al enderezarse: 70 a 85). Con rampaEnCadaMotor sube de a "
+     "poco.",
+     "Zumba y no gira (cada paso se corta por el tope) → SUBIR (85, 90). Se pasa de cada paso → BAJAR (no menos de "
+     "70).",
+     "Gris si barridaConTresRuedas = NO (o sin barrida)."),
+    ("PWM_BARRIDA", "const int", "i", "90", "fuerza", 75, 150, 5, "barrida",
+     "La fuerza de la rueda de ATRÁS sola: solo con barridaConTresRuedas = NO.",
+     "Zumba y no gira → SUBIR (100, 110). Se pasa mucho de cada paso o patina → BAJAR (no menos de 75: parada no "
+     "arranca).",
+     "Gris si barridaConTresRuedas = SÍ (así viene) o sin barrida."),
+    ("GRADOS_PASO_BARRIDA", "const float", "f", "15.0", "grados", 10, 30, 1, "barrida",
+     "Cuánto gira en cada paso. Los pasos son 3 para cada lado (fijos en el programa): con 15, +15, +30, +45, −15, "
+     "−30, −45 y 0.",
+     # (2026-11-12, revisión) NO "cada vuelta tarda demasiado → SUBIR" (lo dice el
+     # comentario del .ino, línea ~1252, y está mal): son siempre 7 paradas y,
+     # recortado a GRADOS_MAX_BARRIDA, gira lo mismo (con 15 o con 20: 180°).
+     "La pelota se le escapa entre un paso y otro → BAJAR (10), pero barre solo hasta ±30 (sale la O23). Que cada "
+     "vuelta tarde menos NO es esto (siempre son 7 paradas y gira lo mismo): bajá MS_MIRAR_BARRIDA o subí "
+     "PWM_BARRIDA_TRES.",
+     "ATADO a GRADOS_MAX_BARRIDA: lo más que gira es 3 × esto (y nunca más que GRADOS_MAX_BARRIDA): con 10 barre "
+     "solo hasta ±30. Si 3 × esto pasa GRADOS_MAX_BARRIDA, el último paso se recorta (con 20: un saltito de 5°, "
+     "nota N5). Gris sin barrida."),
+    ("GRADOS_MAX_BARRIDA", "const float", "f", "45.0", "grados", 15, 60, 5, "barrida",
+     "Nunca gira más que esto para cada lado (aunque 3 × GRADOS_PASO_BARRIDA dé más). Si se pasa de esto + 15 (lo "
+     "empujaron, o se pasó de largo), corta la barrida y se endereza.",
+     "No ve pelotas muy al costado → SUBIR esto Y GRADOS_PASO_BARRIDA (gira hasta 3 × el paso: para 60, paso 20; "
+     "subir solo esto no cambia nada). Se tuerce tanto que se pierde → BAJAR.",
+     "ATADO a GRADOS_PASO_BARRIDA. Gris sin barrida."),
+    ("MS_MIRAR_BARRIDA", _CUL, "u", "200", "ms", 100, 1000, 50, "barrida",
+     "Cuánto se queda QUIETO mirando en cada paso (ya frenado). Girando, la cámara ve la pelota más o menos la mitad "
+     "de las veces; quieta, casi siempre.",
+     "Pasa por la pelota y no la ve → SUBIR (300). La barrida es muy lenta → BAJAR (150).",
+     "En el 0 mira MS_MIRAR_CENTRO_BARRIDA (AVANZADO). Gris sin barrida."),
+    ("CUADROS_PARA_VER_BARRIDA", "const int", "i", "3", "cuadros", 2, 8, 1, "barrida",
+     "\"La vio\" = la pelota en estos cuadros SEGUIDOS de la cámara (~26 por segundo: 3 son ~0,12 s). Un reflejo "
+     "suelto no alcanza.",
+     "Sale para un lado por un reflejo → SUBIR (4, 5). La tiene enfrente y no reacciona → BAJAR (2) o subir "
+     "MS_MIRAR_BARRIDA.",
+     "Gris sin barrida."),
+    ("VEL_COSTADO_BARRIDA", "const int", "i", "100", "fuerza", 75, 150, 5, "barrida",
+     "Después de verla y volver a 0: la fuerza DE COSTADO para el lado donde la vio (el giroscopio sostiene el "
+     "rumbo).",
+     "No llega a verla antes del tope → SUBIR (o subir MS_TOPE_COSTADO_BARRIDA). No bajar de 75 (parado no arranca).",
+     "ATADO a MS_TOPE_COSTADO_BARRIDA (más rápido = más lejos en el mismo tiempo). Si pisa el lateral: el límite "
+     "lateral de siempre. Gris sin barrida."),
+    ("MS_TOPE_COSTADO_BARRIDA", _CUL, "u", "1500", "ms", 500, 3000, 100, "barrida",
+     "Cuánto va de costado, como mucho, buscándola. Si no la ve, vuelve el MISMO tiempo para el otro lado (a donde "
+     "estaba) y vuelve a esperar.",
+     "No llega a verla antes del tope → SUBIR (2000). Se aleja demasiado del medio del arco → BAJAR (1000).",
+     "ATADO a VEL_COSTADO_BARRIDA. Gris sin barrida."),
+    # ---- 6 · LA PATRULLA VIEJA Y EL LÍMITE LATERAL (0921i; 0921k: la patrulla, apagada) ----
+    # (2026-11-12) En la 0921k la patrulla la reemplaza LA BARRIDA (grupo 5):
+    # con barridaActivada SÍ, nada de la patrulla arranca (gris). Lo que sigue
+    # valiendo de este grupo: la vuelta al medio con la línea del área (ir al
+    # medio al arrancar y el límite lateral), el ancho del área y el límite.
     # (2026-11-09) Pedido del equipo: "agregale una funcion en el tablero sobre
     # la patrulla", y a la tarde "adapta el programa solo para el 0921i". Todo
     # lo de la patrulla junto, en el orden en que lo usa el robot: cuándo sale,
@@ -876,28 +1106,30 @@ TABLA_PARTIDO = (
     # dos) y la patrulla por la línea (escrita, pero APAGADA). Lo que NO está acá
     # se deja fijo en el .ino: MS_MIN_ANTES_DE_PUNTA 300, LADO_PATRULLA_LINEA -1,
     # remedirLineaSiempre false, MS_VERDE_PARA_ARMAR 150, MS_BLANCO_LINEA_VUELTA 20.
-    ("patrullarSinPelota", "bool", "b", "true", "", None, None, None, "patrulla",
-     "LA LLAVE DE LA PATRULLA: sin pelota y quieto MS_QUIETO_PARA_PATRULLAR (20 s), sale a patrullar. Así el juez ve "
-     "que está vivo (el 21/09 y el 12/10 lo sacaron por quieto). CUÁL patrulla: patrullaPorLaLinea (abajo).",
-     "NO = quieto para siempre: no patrulla NADA, ni al lateral ni por la línea del área (el 09/11 a la mañana la "
-     "apagaron para un partido y después la prendieron otra vez).",
-     "Ojo con NO: el juez lo puede sacar por quieto."),
+    ("patrullarSinPelota", "bool", "b", "false", "", None, None, None, "patrulla",
+     "LA LLAVE DE LA PATRULLA VIEJA (solo con barridaActivada = NO): sin pelota y quieto MS_QUIETO_PARA_PATRULLAR "
+     "(20 s), sale a patrullar. CUÁL patrulla: patrullaPorLaLinea (abajo). 0921k: en NO, porque la reemplaza LA "
+     "BARRIDA (grupo 5); su código quedó entero.",
+     "Con la barrida prendida no hace nada (gris). Si apagás la barrida: SÍ = vuelve la patrulla de la 0921j; NO = "
+     "quieto para siempre (no patrulla NADA).",
+     "Ojo con barridaActivada NO y esto en NO: el juez lo puede sacar por quieto (el 21/09 y el 12/10). Gris con la "
+     "barrida."),
     ("MS_QUIETO_PARA_PATRULLAR", _CUL, "u", "20000", "ms", 5000, 60000, 1000, "patrulla",
      "Si pasa este rato sin moverse (y sin pelota), sale a patrullar. 0921i: 20 s, pedido del equipo (\"que inicie a "
      "20\"; era 10 s, y a la mañana del 09/11, 15).",
      "Si el juez aguanta más quieto → SUBIR. Si lo saca por quieto antes → BAJAR. Preguntarle al juez.",
-     "Gris si patrullarSinPelota = NO."),
+     "Gris si no patrulla (barridaActivada SÍ, así viene la 0921k, o patrullarSinPelota NO)."),
     ("MS_SIN_PELOTA_PARA_PATRULLAR", _CUL, "u", "3000", "ms", 1000, 10000, 500, "patrulla",
      "...y además tiene que llevar este rato SEGUIDO sin ver la pelota (si un rival se la tapa un instante, "
      "no sale).",
      "",
-     "Gris si patrullarSinPelota = NO."),
+     "Gris si no patrulla (con la barrida, o patrullarSinPelota NO)."),
     ("CUADROS_PARA_CORTAR_PATRULLA", "const int", "i", "5", "cuadros", 2, 15, 1, "patrulla",
      "Si patrullando ve la pelota estos cuadros seguidos (~0,2 s), corta la patrulla y la sigue (también en la "
      "vuelta con la línea del área de la patrulla y del límite lateral, y en la patrulla por la línea aunque esté "
      "quieto mirando; ir al medio al ARRANCAR se deja terminar).",
      "Corta por reflejos → SUBIR. Tarda en reaccionar → BAJAR.",
-     "Gris si patrullarSinPelota = NO."),
+     "La barrida usa el suyo (CUADROS_PARA_VER_BARRIDA, grupo 5). Gris si no patrulla y sin límite lateral."),
     ("patrullaPorLaLinea", "bool", "b", "false", "", None, None, None, "patrulla",
      "CUÁL PATRULLA. NO (así viene: pedido del equipo, 09/11, \"la patrulla de antes, que iba hacia un lateral y "
      "luego volvía al medio por tiempo\") = la patrulla AL LATERAL de la cancha (patrullaPorElLateral, a los dos "
@@ -905,14 +1137,15 @@ TABLA_PARTIDO = (
      "IZQUIERDA y a la derecha la mitad de MS_PUNTA_A_PUNTA_FIJO; nunca sale del área.",
      "SÍ = no deja el arco solo, pero quedó a medio probar (el 09/11 la cambiaron por la de antes). Antes de jugar "
      "con SÍ: probala y bajá MS_QUIETO_PARA_MIRAR.",
-     "Gris si patrullarSinPelota = NO. Con SÍ, patrullaPorElLateral y alternarLadoPatrulla no se usan. Si en "
-     "MS_MAX_RETROCESO no ve la línea, se endereza y juega desde ahí."),
+     "Gris si no patrulla (con la barrida, o patrullarSinPelota NO). Con SÍ, patrullaPorElLateral y "
+     "alternarLadoPatrulla no se usan. Si en MS_MAX_RETROCESO no ve la línea, se endereza y juega desde ahí."),
     ("patrullaPorElLateral", "bool", "b", "true", "", None, None, None, "patrulla",
-     "La patrulla AL LATERAL (con patrullaPorLaLinea = NO, la de hoy). SÍ = hasta el lateral de la cancha y de "
+     "La patrulla AL LATERAL (con patrullaPorLaLinea = NO, la de la 0921j). SÍ = hasta el lateral de la cancha y de "
      "vuelta al medio por tiempo (~8 s, ~5 con el arco solo).",
      "NO = PLAN B: solo atrás a la línea, enderezarse y el poquito (~1,3 s; no descubre el arco, pero tampoco "
      "se vuelve a centrar).",
-     "Gris si patrullarSinPelota = NO o si patrullaPorLaLinea = SÍ (con SÍ manda la de la línea)."),
+     "Gris si no patrulla (con la barrida, o patrullarSinPelota NO) o si patrullaPorLaLinea = SÍ (con SÍ manda la de "
+     "la línea)."),
     ("alternarLadoPatrulla", "bool", "b", "true", "", None, None, None, "patrulla",
      "La patrulla al lateral A LOS DOS LADOS (de la 0921h): una al lateral IZQUIERDO, la siguiente al DERECHO, y "
      "así. Ir al medio al arrancar va siempre por el de LADO_MEDIO (el izquierdo, de donde se midió).",
@@ -921,7 +1154,7 @@ TABLA_PARTIDO = (
      "queda corto del medio, es eso. Con buscarLineaDelAreaAlVolver SÍ se centra con la línea del área. Gris si no "
      "patrulla al lateral."),
     ("buscarLineaDelAreaAlVolver", "bool", "b", "true", "", None, None, None, "patrulla",
-     "VOLVIENDO AL MEDIO desde un lateral (la patrulla al lateral, ir al medio al arrancar y el límite lateral): si un "
+     "VOLVIENDO AL MEDIO desde un lateral (ir al medio al arrancar, el límite lateral y la patrulla al lateral): si un "
      "sensor de atrás ve la línea del área, frena, avanza MS_AVANCE_10CM y va de costado hacia el medio la MITAD de "
      "MS_PUNTA_A_PUNTA_FIJO, a VEL_LINEA. Después, atrás hasta la línea como siempre.",
      "NO = como antes: vuelve el tiempo entero de MS_MEDIO_AL_MEDIO y listo.",
@@ -962,8 +1195,8 @@ TABLA_PARTIDO = (
      "pelota, igual corta y la sigue.",
      "Gris si no patrulla por la línea (patrullaPorLaLinea = NO, así viene)."),
     ("VEL_ATRAS_A_LA_LINEA", "const int", "i", "80", "fuerza", 75, 150, 5, "patrulla",
-     "Patrulla por la línea: fuerza para atrás hasta encontrar la línea del área, al empezar. Más despacio que la "
-     "vuelta del despeje (potenciaRetroceso), para que frene cerca de donde la vio.",
+     "Patrulla por la línea: fuerza para atrás hasta encontrar la línea del área, al empezar. Más despacio que el "
+     "retroceso del arranque (potenciaRetroceso), para que frene cerca de donde la vio.",
      "Zumba y no llega → SUBIR de a 5 (no menos de 75: parado no arranca). Frena pasado de la línea (se mete en el "
      "área) → BAJAR.",
      "Atado a MS_MAX_RETROCESO (el tope: si no ve la línea, se endereza y juega desde ahí). Gris si no patrulla por "
@@ -981,10 +1214,11 @@ TABLA_PARTIDO = (
      "Tiene que ser más que MS_PUNTA_A_PUNTA_FIJO (desde la otra punta tarda eso). Gris si no patrulla por la "
      "línea."),
     ("LECTURAS_PARA_CREER_LATERAL", "const int", "i", "3", "lecturas", 1, 10, 1, "patrulla",
-     "Límite lateral: cuántas vueltas seguidas pisando el lateral necesita para creerle.",
+     "Límite lateral (siguiendo la pelota, y en la barrida yendo de costado): cuántas vueltas seguidas pisando el "
+     "lateral necesita para creerle.",
      "Vuelve al medio sin haber llegado al lateral → SUBIR. Se pasa de la línea → BAJAR.",
      "Gris si volverAlMedioEnElLateral = NO."),
-    # ---- 6 · AVANZADO (plegado: casi nunca se toca) ----
+    # ---- 7 · AVANZADO (plegado: casi nunca se toca) ----
     ("lateralInvertido", "bool", "b", "false", "", None, None, None, "avanzado",
      "Tocar SOLO si, cuando el programa dice \"derecha\", el robot va a la IZQUIERDA (MOVIMIENTOS, mov. 2).",
      "NO = como se midió el 11/08 (el mov. 2 fue a la DERECHA).",
@@ -1117,9 +1351,45 @@ TABLA_PARTIDO = (
      "robot se mueve apenas termina el giroscopio, SIN parpadear (sin el aviso de manos afuera).",
      "Si al terminar el giroscopio todavía no contesta, espera (LED temblando) y recién ahí se mueve."),
     ("PWM_CUENTA_COMO_MOVERSE", "const int", "i", "60", "fuerza", 30, 100, 5, "avanzado",
-     "Para el reloj de la patrulla: con menos que esto en las tres ruedas, cuenta como que \"no se movió\".",
+     "Para el reloj de la patrulla VIEJA (MS_QUIETO_PARA_PATRULLAR): con menos que esto en las tres ruedas, cuenta "
+     "como que \"no se movió\". La barrida no lo usa (cuenta el rato ESPERANDO sin pelota).",
      "",
-     ""),
+     "Gris si no patrulla (con la barrida prendida, así viene la 0921k)."),
+    # (2026-11-12) La rampa de cada motor (0921j): el tiempo de cada paso.
+    # (revisión) Máximo 20 (no 30): con 30 y PASO_RAMPA_RUEDA bajo, la ida no
+    # sale y la barrida se queda quieta "barriendo". O26 / O27 avisan igual.
+    ("MS_RAMPA_RUEDA", _CUL, "u", "10", "ms", 5, 20, 1, "avanzado",
+     "Rampa de cada motor: cada este tiempo, cada rueda sube PASO_RAMPA_RUEDA (10 cada 10 ms = de 0 a 160 en 0,16 s).",
+     "",
+     "ATADO a PASO_RAMPA_RUEDA y a msAdelante. Lo usan la ida, enderezarse antes de volver y LA BARRIDA (si tarda "
+     "mucho en subir: O26 / O27). Gris si no lo usa nadie (como PASO_RAMPA_RUEDA)."),
+    # (2026-11-12) La barrida (0921k): lo que casi nunca se toca.
+    ("MS_MIRAR_CENTRO_BARRIDA", _CUL, "u", "500", "ms", 100, 2000, 50, "avanzado",
+     "Barrida: en el 0, al terminar cada vuelta, mira esto (en vez de MS_MIRAR_BARRIDA).",
+     "",
+     "Gris sin barrida."),
+    ("GRADOS_TOL_PASO_BARRIDA", "const float", "f", "3.0", "grados", 1, 4, 0.5, "avanzado",
+     "Barrida: \"llegó al paso\" = a esto o menos del objetivo (o lo pasó de largo).",
+     "",
+     "Con los rangos, siempre menos que la mitad de GRADOS_PASO_BARRIDA. Gris sin barrida."),
+    ("MS_TOPE_PASO_BARRIDA", _CUL, "u", "1200", "ms", 500, 3000, 100, "avanzado",
+     "Barrida: tope de cada giro POR CADA GRADOS_PASO_BARRIDA que tiene que girar, por si no gira (de +45 a −15 son "
+     "4 pasos: 4 × 1200 = 4,8 s).",
+     "Corta los pasos antes de llegar (gira lento) → SUBIR.",
+     "Gris sin barrida."),
+    ("GRADOS_DERECHO_BARRIDA", "const float", "f", "3.0", "grados", 1, 6, 0.5, "avanzado",
+     "Barrida: al volver a 0 después de verla, \"derecho\" = a esto o menos del rumbo del arranque. Frena, se asienta "
+     "y mide; si quedó lejos, reintenta.",
+     "Va y viene buscando el 0 → SUBIR (4, 5).",
+     "Gris sin barrida."),
+    ("MS_ASENTAR_BARRIDA", _CUL, "u", "300", "ms", 100, 1000, 50, "avanzado",
+     "Barrida: frenado y quieto antes de medir si quedó en 0.",
+     "",
+     "Ojo si es menos que msFreno. Gris sin barrida."),
+    ("MS_PAUSA_COSTADO_BARRIDA", _CUL, "u", "300", "ms", 0, 1000, 50, "avanzado",
+     "Barrida: quieto entre la ida de costado y la vuelta (si la ve acá, también la sigue).",
+     "",
+     "Gris sin barrida."),
 )
 FILA_PARTIDO = {f[0]: f for f in TABLA_PARTIDO}
 ORDEN_PARTIDO = tuple(f[0] for f in TABLA_PARTIDO)
@@ -1129,46 +1399,82 @@ VALORES_DE_FABRICA = {f[0]: f[3] for f in TABLA_PARTIDO}      # "Volver a los de
 GRUPOS_PARTIDO = (
     ("cancha", "1 · LA CANCHA (lo de cada cancha)", False),
     ("interruptores", "2 · INTERRUPTORES (SÍ / NO)", False),
-    ("despeje", "3 · EL DESPEJE", False),
+    ("despeje", "3 · EL DESPEJE (0921k: el de la estrategia 2)", False),
     ("seguir", "4 · SEGUIR LA PELOTA", False),
-    ("patrulla", "5 · LA PATRULLA Y EL LÍMITE LATERAL (0921i)", False),
-    ("avanzado", "6 · AVANZADO (cerrado: casi nunca se toca)", True),
+    ("barrida", "5 · LA BARRIDA (0921k: la patrulla de hoy)", False),
+    ("patrulla", "6 · LA PATRULLA VIEJA (apagada: la reemplaza la barrida) Y EL LÍMITE LATERAL", False),
+    ("avanzado", "7 · AVANZADO (cerrado: casi nunca se toca)", True),
 )
 AVISO_AVANZADO = "Casi nunca se toca. Cambiarlo cambia lo medido."
-# Los subtítulos (de AVANZADO y de la PATRULLA): van ANTES de ese nombre.
+# Los subtítulos (de AVANZADO, del DESPEJE, de la BARRIDA y de la PATRULLA): van ANTES de ese nombre.
 SUBTITULOS_PARTIDO = {"lateralInvertido": "Signos", "enderezarActivado": "Giroscopio",
                       "TOLERANCIA_ACOMODO": "Enderezarse", "LADO_TRASERA": "Movimiento",
                       "LADO_MEDIO": "Ir al medio", "rendimientoCostado": "Diagonal (solo con despejeEnDiagonal = SÍ)",
                       "MS_AVISO_ARMADO": "Arranque",
-                      # (2026-11-09) el grupo 5, el de la patrulla de la 0921i
-                      "patrullarSinPelota": "Cuándo sale a patrullar",
-                      "patrullaPorLaLinea": "Cuál patrulla (de fábrica, la del LATERAL: patrullaPorLaLinea = NO)",
+                      # (2026-11-12) el grupo 3, el despeje de la 0921j, en el orden en que lo hace
+                      "umbralCm": "Cuándo sale",
+                      "msAdelante": "La IDA (0921j: 160 / 666, con la rampa en CADA motor)",
+                      "MS_PAUSA_MEDIO": "La PAUSA (espera a quedar plano)",
+                      "enderezarAntesDeVolver": "Se ENDEREZA ANTES DE VOLVER (0921j)",
+                      "potenciaVueltaDespeje": "La VUELTA hasta la línea (0921j: más lenta, con su propio tope)",
+                      "msFreno": "El freno y el EMPUJONCITO (0921k: 3 cm más después del despeje)",
+                      "potenciaRetroceso": "Del ARRANQUE (desde la 0921j NO es la vuelta del despeje)",
+                      # (2026-11-12) el grupo 5, la barrida de la 0921k
+                      "barridaActivada": "Cuándo barre",
+                      "barridaConTresRuedas": "Cómo gira",
+                      "GRADOS_PASO_BARRIDA": "Cuánto gira y cuánto mira",
+                      "VEL_COSTADO_BARRIDA": "Si la vio: de costado para ese lado",
+                      # (2026-11-09) el grupo 6, el de la patrulla de la 0921i
+                      "patrullarSinPelota": "Cuándo sale a patrullar (solo con barridaActivada = NO)",
+                      "patrullaPorLaLinea": "Cuál patrulla (con la barrida apagada, la del LATERAL: patrullaPorLaLinea "
+                                            "= NO)",
                       "buscarLineaDelAreaAlVolver": "Volviendo al medio desde un lateral: si ve la línea del área",
                       "MS_PUNTA_A_PUNTA_FIJO": "El ANCHO DEL ÁREA (lo usan la vuelta con la línea y la patrulla por la "
                                                "línea)",
                       "MS_QUIETO_PARA_MIRAR": "La patrulla POR LA LÍNEA DEL ÁREA (solo con patrullaPorLaLinea = SÍ): "
                                               "atrás hasta la línea, a la punta IZQUIERDA y a la derecha la mitad",
-                      "LECTURAS_PARA_CREER_LATERAL": "Límite lateral"}
+                      "LECTURAS_PARA_CREER_LATERAL": "Límite lateral",
+                      # (2026-11-12) AVANZADO: lo nuevo de la 0921j y de la 0921k
+                      "MS_RAMPA_RUEDA": "La rampa de cada motor (0921j)",
+                      "MS_MIRAR_CENTRO_BARRIDA": "La barrida (0921k)"}
 # (2026-11-09) Las 10 filas que la 0921g NO tenía (las trajo la 0921i): la
 # patrulla a los dos lados (de la 0921h), la vuelta al medio con la línea del
 # área y la patrulla por la línea del área.
 NUEVOS_EN_LA_0921I = ("patrullaPorLaLinea", "alternarLadoPatrulla", "buscarLineaDelAreaAlVolver", "MS_AVANCE_10CM",
                       "MS_PUNTA_A_PUNTA_FIJO", "VEL_LINEA", "VEL_ATRAS_A_LA_LINEA", "MS_QUIETO_PARA_MIRAR",
                       "MS_PUNTA_SOSTENIDA", "MS_TOPE_PUNTA")
+# (2026-11-12) Las 11 que trajo la 0921j (el despeje de la estrategia 2).
+NUEVOS_EN_LA_0921J = ("rampaEnCadaMotor", "PASO_RAMPA_RUEDA", "MS_RAMPA_RUEDA", "enderezarAntesDeVolver",
+                      "GRADOS_DERECHO", "PWM_MIN_GIRO", "PWM_MAX_GIRO", "MS_TOPE_ENDEREZAR", "MS_FRENO_ENDEREZADO",
+                      "potenciaVueltaDespeje", "MS_MAX_VUELTA_DESPEJE")
+# (2026-11-12) Las 18 que trajo la 0921k (la barrida y los 3 cm de más).
+NUEVOS_EN_LA_0921K = ("MS_EXTRA_EMPUJON_DESPEJE", "barridaActivada", "MS_SIN_PELOTA_PARA_BARRER", "barridaConTresRuedas",
+                      "PWM_BARRIDA_TRES", "PWM_BARRIDA", "GRADOS_PASO_BARRIDA", "GRADOS_MAX_BARRIDA", "MS_MIRAR_BARRIDA",
+                      "CUADROS_PARA_VER_BARRIDA", "VEL_COSTADO_BARRIDA", "MS_TOPE_COSTADO_BARRIDA",
+                      "MS_MIRAR_CENTRO_BARRIDA", "GRADOS_TOL_PASO_BARRIDA", "MS_TOPE_PASO_BARRIDA",
+                      "GRADOS_DERECHO_BARRIDA", "MS_ASENTAR_BARRIDA", "MS_PAUSA_COSTADO_BARRIDA")
+# Qué filas trajo cada versión, y cómo se dice (para el aviso de un archivo de antes: un ejemplo de cada una).
+NUEVOS_POR_VERSION = {"0921i": NUEVOS_EN_LA_0921I, "0921j": NUEVOS_EN_LA_0921J, "0921k": NUEVOS_EN_LA_0921K}
+QUE_TRAJO = {"0921i": ("la patrulla nueva y la vuelta al medio con la línea del área", "VEL_LINEA"),
+             "0921j": ("el despeje de la estrategia 2", "potenciaVueltaDespeje"),
+             "0921k": ("la barrida y los 3 cm de más del empujoncito", "barridaActivada")}
 # Las versiones ANTERIORES (las que conoce este tablero): lo que valía de
-# fábrica cada una, distinto de la de hoy. Esas NO tienen NUEVOS_EN_LA_0921I.
-# None = no dice su versión (la 0921f: los mismos números que la 0921g).
+# fábrica cada una, distinto de la de hoy (en las filas que SÍ tenía). Las
+# filas que todavía no tenía: filas_que_no_tenia(). None = no dice su
+# versión (la 0921f: los mismos números que la 0921g).
 # (MS_AVISO_ARMADO, además de valer otra cosa, se contaba desde otro momento:
 # en la 0921g, después de prender el giroscopio.)
-_FABRICA_0921G = {"MS_QUIETO_PARA_PATRULLAR": "10000", "msEmpujonFinal": "320", "MS_AVISO_ARMADO": "2000"}
+_FABRICA_0921J = {"patrullarSinPelota": "true"}                      # la 0921k la apagó (la barrida)
+_FABRICA_0921I = dict(_FABRICA_0921J, potenciaDespeje="200", msAdelante="533")   # la 0921j: 160 / 666
+_FABRICA_0921G = dict(_FABRICA_0921I, MS_QUIETO_PARA_PATRULLAR="10000", msEmpujonFinal="320", MS_AVISO_ARMADO="2000")
 FABRICA_DE_ANTES = {
+    "0921j": dict(_FABRICA_0921J),
+    "0921i": dict(_FABRICA_0921I),
     "0921g": dict(_FABRICA_0921G),
     None: dict(_FABRICA_0921G),
 }
 # La fila se ve GRIS (no se usa) si TODOS estos interruptores están en NO.
 GRIS_SI_PARTIDO = {
-    "MS_QUIETO_PARA_PATRULLAR": ("patrullarSinPelota",),
-    "MS_SIN_PELOTA_PARA_PATRULLAR": ("patrullarSinPelota",), "CUADROS_PARA_CORTAR_PATRULLA": ("patrullarSinPelota",),
     "LECTURAS_PARA_CREER_LATERAL": ("volverAlMedioEnElLateral",),
     "kpPersecucion": ("perseguirEnElDespeje",), "PWM_MAX_PERSECUCION": ("perseguirEnElDespeje",),
     "MS_MAX_ESPERA_PLANO": ("esperarPlanoAntesDeVolver",), "GRADOS_PLANO": ("esperarPlanoAntesDeVolver",),
@@ -1176,15 +1482,17 @@ GRIS_SI_PARTIDO = {
     "rendimientoCostado": ("despejeEnDiagonal",), "PWM_MIN_AVANCE_DESPEJE": ("despejeEnDiagonal",),
     "COSTADO_MINIMO_UTIL": ("despejeEnDiagonal",), "MS_MAX_ADELANTE": ("despejeEnDiagonal",),
     "msEmpujonFinal": ("empujonFinal", "avanzarAlUbicarse"),
+    "MS_EXTRA_EMPUJON_DESPEJE": ("empujonFinal",),          # (0921k) solo el empujoncito del DESPEJE
 }
 
 
 # (2026-11-09) Qué patrulla y qué vuelta usa el robot con ESOS interruptores.
 # valores: {nombre: 'true'/'false'} (el archivo con el editor encima) o los
 # valores ya validados (True/False). Lo que no está (un archivo de antes, sin
-# esas filas) cuenta como NO si es de la 0921i (NUEVOS_EN_LA_0921I) y como SÍ
-# si es de siempre (como hacía _fila_no_aplica). Es lo que hace el .ino en
-# arrancarPatrulla(), vueltaVioLaLineaDelArea() y MEDIO_LINEA_AL_MEDIO.
+# esas filas) cuenta como NO si es de una versión nueva (NUEVOS_EN_LA_...) y
+# como SÍ si es de siempre (como hacía _fila_no_aplica). Es lo que hace el
+# .ino en arrancarPatrulla(), vueltaVioLaLineaDelArea(), MEDIO_LINEA_AL_MEDIO
+# y (0921k) en ESPERANDO: con barridaActivada, la patrulla no arranca.
 def _en_no(valores, nombre):
     x = valores.get(nombre)
     return x is False or x == "false"
@@ -1195,20 +1503,32 @@ def _en_si(valores, nombre):
     return x is True or x == "true"
 
 
+def barrida(v):
+    """(0921k) ¿Barre? barridaActivada SÍ (sin la fila, una versión de antes: no)."""
+    return _en_si(v, "barridaActivada")
+
+
+def patrulla_vieja(v):
+    """¿Sale la patrulla de antes (al lateral o por la línea)? patrullarSinPelota
+    SÍ y (0921k) SIN barrida: con barridaActivada SÍ no arranca."""
+    return not _en_no(v, "patrullarSinPelota") and not barrida(v)
+
+
 def patrulla_por_la_linea(v):
     """¿Patrulla por la línea del área? (patrullaPorLaLinea SÍ manda)."""
-    return not _en_no(v, "patrullarSinPelota") and _en_si(v, "patrullaPorLaLinea")
+    return patrulla_vieja(v) and _en_si(v, "patrullaPorLaLinea")
 
 
 def patrulla_al_lateral(v):
     """¿Patrulla al lateral de la cancha y vuelve al medio por tiempo?"""
-    return (not _en_no(v, "patrullarSinPelota") and not _en_si(v, "patrullaPorLaLinea")
+    return (patrulla_vieja(v) and not _en_si(v, "patrullaPorLaLinea")
             and not _en_no(v, "patrullaPorElLateral"))
 
 
 def vuelve_de_un_lateral(v):
     """¿Alguna vez vuelve al medio desde un lateral? La patrulla al lateral,
-    ir al medio al arrancar (y el plan B, que arranca igual) y el límite lateral."""
+    ir al medio al arrancar (y el plan B, que arranca igual) y el límite lateral
+    (siguiendo la pelota, o en la barrida yendo de costado)."""
     return (patrulla_al_lateral(v) or not _en_no(v, "irAlMedioSiNoHayLinea")
             or not _en_no(v, "volverAlMedioEnElLateral"))
 
@@ -1224,10 +1544,33 @@ def usa_el_ancho_del_area(v):
     return patrulla_por_la_linea(v) or vuelta_con_la_linea(v)
 
 
+def enderezar_antes_de_volver(v):
+    """(0921j) ¿Se endereza antes de volver del despeje? (necesita el giroscopio)."""
+    return _en_si(v, "enderezarAntesDeVolver") and not _en_no(v, "enderezarActivado")
+
+
+def usa_la_rampa_de_cada_motor(v):
+    """(0921j) ¿Alguien usa PASO_RAMPA_RUEDA y MS_RAMPA_RUEDA? La ida, la vuelta
+    y la barrida con rampaEnCadaMotor SÍ; enderezarse antes de volver, siempre
+    (aplicarSuave en ENDEREZAR_DESPEJE)."""
+    return _en_si(v, "rampaEnCadaMotor") or enderezar_antes_de_volver(v)
+
+
+def _de_la_barrida(v):
+    return barrida(v)
+
+
 # La fila se ve GRIS si esto da False (manda sobre GRIS_SI_PARTIDO).
 SE_USA_SI_PARTIDO = {
-    "patrullaPorLaLinea": lambda v: not _en_no(v, "patrullarSinPelota"),
-    "patrullaPorElLateral": lambda v: not _en_no(v, "patrullarSinPelota") and not _en_si(v, "patrullaPorLaLinea"),
+    # (2026-11-12) la patrulla vieja: con la barrida prendida (la 0921k) no arranca
+    "patrullarSinPelota": lambda v: not barrida(v),
+    "MS_QUIETO_PARA_PATRULLAR": patrulla_vieja,
+    "MS_SIN_PELOTA_PARA_PATRULLAR": patrulla_vieja,
+    "PWM_CUENTA_COMO_MOVERSE": patrulla_vieja,
+    # (2026-11-12) también corta la vuelta del límite lateral (patrullando = true en LATERAL_AL_MEDIO)
+    "CUADROS_PARA_CORTAR_PATRULLA": lambda v: patrulla_vieja(v) or not _en_no(v, "volverAlMedioEnElLateral"),
+    "patrullaPorLaLinea": patrulla_vieja,
+    "patrullaPorElLateral": lambda v: patrulla_vieja(v) and not _en_si(v, "patrullaPorLaLinea"),
     "alternarLadoPatrulla": patrulla_al_lateral,
     "buscarLineaDelAreaAlVolver": vuelve_de_un_lateral,
     "MS_AVANCE_10CM": vuelta_con_la_linea,
@@ -1240,6 +1583,33 @@ SE_USA_SI_PARTIDO = {
     # potenciaEmpujon: el empujoncito, al ubicarse y (0921i) el avance de la vuelta con la línea
     "potenciaEmpujon": lambda v: (not _en_no(v, "empujonFinal") or not _en_no(v, "avanzarAlUbicarse")
                                   or vuelta_con_la_linea(v)),
+    # (2026-11-12) el despeje de la 0921j: con rampaEnCadaMotor SÍ, la rampa general de la ida y de la vuelta no
+    "pisoRampaIda": lambda v: not _en_si(v, "rampaEnCadaMotor"),
+    "rampaAlVolver": lambda v: not _en_si(v, "rampaEnCadaMotor"),
+    "PASO_RAMPA_RUEDA": usa_la_rampa_de_cada_motor,
+    "MS_RAMPA_RUEDA": usa_la_rampa_de_cada_motor,
+    "GRADOS_DERECHO": enderezar_antes_de_volver,
+    "PWM_MIN_GIRO": enderezar_antes_de_volver,
+    "PWM_MAX_GIRO": enderezar_antes_de_volver,
+    "MS_TOPE_ENDEREZAR": enderezar_antes_de_volver,
+    "MS_FRENO_ENDEREZADO": enderezar_antes_de_volver,
+    # (2026-11-12) la barrida de la 0921k
+    "MS_SIN_PELOTA_PARA_BARRER": _de_la_barrida,
+    "barridaConTresRuedas": _de_la_barrida,
+    "PWM_BARRIDA_TRES": lambda v: barrida(v) and not _en_no(v, "barridaConTresRuedas"),
+    "PWM_BARRIDA": lambda v: barrida(v) and _en_no(v, "barridaConTresRuedas"),
+    "GRADOS_PASO_BARRIDA": _de_la_barrida,
+    "GRADOS_MAX_BARRIDA": _de_la_barrida,
+    "MS_MIRAR_BARRIDA": _de_la_barrida,
+    "CUADROS_PARA_VER_BARRIDA": _de_la_barrida,
+    "VEL_COSTADO_BARRIDA": _de_la_barrida,
+    "MS_TOPE_COSTADO_BARRIDA": _de_la_barrida,
+    "MS_MIRAR_CENTRO_BARRIDA": _de_la_barrida,
+    "GRADOS_TOL_PASO_BARRIDA": _de_la_barrida,
+    "MS_TOPE_PASO_BARRIDA": _de_la_barrida,
+    "GRADOS_DERECHO_BARRIDA": _de_la_barrida,
+    "MS_ASENTAR_BARRIDA": _de_la_barrida,
+    "MS_PAUSA_COSTADO_BARRIDA": _de_la_barrida,
 }
 # Los que piden confirmar en una ventanita: nombre -> (con qué valor pregunta, o None = con cualquier cambio; texto)
 CONFIRMAR_PARTIDO = {
@@ -1250,7 +1620,8 @@ CONFIRMAR_PARTIDO = {
     "camaraYInvertida": (None, "¡CAMBIA UN SIGNO! Tocalo SOLO si el movimiento 2 va bien y aun así, siguiendo la "
                                "pelota, se ALEJA de ella.\n\n¿Seguro?"),
     "enderezarActivado": ("false", "Con NO se apaga TODA la corrección del giroscopio: no hay límite lateral, ni "
-                                   "patrulla, ni ir al medio, ni se endereza. Es solo para pruebas.\n\n¿Seguro?"),
+                                   "barrida, ni patrulla, ni ir al medio, ni se endereza (tampoco antes de volver del "
+                                   "despeje). Es solo para pruebas.\n\n¿Seguro?"),
     "LADO_MEDIO": (None, "Cambiar SOLO si el lateral IZQUIERDO de esta cancha no tiene línea. OJO: "
                          "MS_MEDIO_AL_MEDIO está medido desde el IZQUIERDO (desde el derecho daba 2331).\n\n¿Seguro?"),
     # (2026-11-09) la 0921i viene con la patrulla AL LATERAL, pedido del equipo
@@ -1258,6 +1629,11 @@ CONFIRMAR_PARTIDO = {
                                    "a MEDIO PROBAR (el 09/11 la cambiaron por la de antes) y se queda "
                                    "MS_QUIETO_PARA_MIRAR quieto dos veces en cada patrulla (de fábrica, 3 s: para "
                                    "jugar, bajalo).\n\n¿Seguro?"),
+    # (2026-11-12) la 0921k: la barrida ES la patrulla. Apagarla con patrullarSinPelota NO = quieto para siempre.
+    "barridaActivada": ("false", "Con NO, el robot NO BARRE: sin pelota vuelve a la patrulla VIEJA solo si "
+                                 "patrullarSinPelota (grupo 6) está en SÍ. De fábrica está en NO: quedaría QUIETO "
+                                 "para siempre sin pelota, y el juez lo puede sacar (pasó el 21/09 y el 12/10)."
+                                 "\n\n¿Seguro?"),
 }
 # Variables de ESTADO de la 0921: NUNCA van en la tabla aunque parezcan
 # valores (el programa las pisa en cada despeje). Lo mira la autoprueba.
@@ -1272,7 +1648,61 @@ ESTADO_DEL_PARTIDO = ("rumboBase", "hayGiroscopo", "giroscopoRespondiendo", "msI
                       "ladoLinea", "ladoAlMedio", "t_puntaDesde", "msLargoLinea", "msLineaGuardado",
                       # (0921i) la patrulla a los dos lados y la vuelta con la línea del área
                       "ladoMedio", "ladoProximaPatrulla", "vioVerdeVuelta", "t_verdeVuelta", "t_blancoVuelta",
-                      "dirVueltaLinea")
+                      "dirVueltaLinea",
+                      # (0921j) la rampa de cada motor, andando
+                      "ruedaActual", "t_rampaRuedas",
+                      # (0921k) la barrida, andando (signoGiroBarrida es el que USA: arranca en SIGNO_GIRO_BARRIDA
+                      # y se da vuelta solo si gira al revés)
+                      "pasoBarrida", "objetivoGiro", "relInicioGiro", "dirGiro", "msTopeGiro", "rumboRelBarrida",
+                      "signoGiroBarrida", "vueltasSignoBarrida", "signoBarridaProbado", "yaLoDioVueltaEnEsteGiro",
+                      "ladoBarrida", "anguloPelotaBarrida", "reintentosACeroBarrida", "msCostadoBarrida",
+                      "msPausaBarrida", "faseTrasPausaBarrida", "CANT_PASOS_BARRIDA")
+# (2026-11-12) Los de la 0921k que quedan FIJOS en el .ino a propósito (no van en la
+# tabla): los seguros de la barrida, su signo (se corrige solo) y el arreglo de los
+# pasos. La autoprueba controla que existan y que no estén en la tabla.
+FIJOS_DE_LA_0921K = ("PASOS_BARRIDA", "SIGNO_GIRO_BARRIDA", "GRADOS_AL_REVES_BARRIDA", "MAX_VUELTAS_SIGNO_BARRIDA",
+                     "GRADOS_MARGEN_BARRIDA", "MAX_REINTENTOS_A_CERO_BARRIDA")
+# (2026-11-12) Cuánto llega la ida (cm): lo medido el 04/08 a fuerza 200 es
+# cm ≈ ms/10 − 3,3. A otra fuerza es una CUENTA (la velocidad, proporcional a
+# la fuerza): la misma con la que la 0921j pasó de 533 a 200 a 666 a 160 (~50 cm).
+FUERZA_MEDIDA_IDA = 200
+
+
+def cm_de_la_ida(ms, potencia=FUERZA_MEDIDA_IDA):
+    """Hasta dónde llega la ida, en cm, con esos ms a esa fuerza."""
+    return float(ms) * float(potencia) / FUERZA_MEDIDA_IDA / 10.0 - 3.3
+
+
+# (2026-11-12) Cuánto tarda la vuelta del despeje: la 0921f midió que a 110 es
+# unas 2,4 veces más lenta que la ida a 200 (la regla O2 de antes). Con otras
+# fuerzas, proporcional: veces = 2,4 × (110/200) × idaFuerza / vueltaFuerza =
+# 1,32 × idaFuerza / vueltaFuerza. Cierra con lo que vio la estrategia 2 (10/11):
+# a 160 de ida y 90 de vuelta, 1,32 × 666 × 160/90 ≈ 1560 ms: "a 90 ya cortaba
+# justo con 1500".
+VECES_VUELTA_POR_FUERZA = 2.4 * 110 / 200.0
+
+
+def ms_de_la_vuelta(ms_ida, fuerza_ida, fuerza_vuelta):
+    """(2026-11-12, revisión) Cuánto tarda la vuelta hasta la línea (la cuenta de la O2)."""
+    return VECES_VUELTA_POR_FUERZA * float(ms_ida) * float(fuerza_ida) / max(1.0, float(fuerza_vuelta))
+
+
+def ida_vale(ida, fuerza):
+    """(2026-11-12, revisión) ¿Una ida del paso 5 ([ms, cm, fuerza]) vale para un
+    partido que sale a `fuerza`? Solo si se hizo a esa fuerza (una sin fuerza, de
+    antes de esto, no). Con fuerza None (sin PARTIDO leído) valen todas."""
+    con = ida[2] if len(ida) > 2 else None
+    return fuerza is None or (con is not None and abs(float(con) - float(fuerza)) < 0.5)
+
+
+def ms_de_subida(fuerza, paso, ms_paso):
+    """(2026-11-12, revisión) Cuánto tarda una rueda en llegar a `fuerza` con una
+    rampa que sube `paso` cada `ms_paso` ms (pasoRueda / rampa() del .ino)."""
+    if fuerza <= 0:
+        return 0
+    return int(math.ceil(float(fuerza) / max(1, int(paso)))) * int(ms_paso)
+
+
 # Los que la línea #PARTIDO imprime con decimales (los demás van enteros)
 DECIMALES_LINEA_PARTIDO = {"CAMARA_POR_CM": 2, "umbralCm": 1, "umbralDesvio": 1, "kpLateral": 2}
 
@@ -1698,9 +2128,9 @@ _RE_NUMERO_ASCII = re.compile(r"^-?[0-9]+(?:\.[0-9]+)?$")
 
 
 def _i_partido(resto):
-    """La línea de versión del programa de PARTIDO (0921g y 0921i: los mismos
-    campos), NO de tablero.ino:
-    #PARTIDO version=0921i sello=fabrica giro=1 umbralBlanco=425 ... interruptores=1111111110101
+    """La línea de versión del programa de PARTIDO (0921g, 0921i, 0921j y 0921k:
+    los mismos campos), NO de tablero.ino:
+    #PARTIDO version=0921k sello=fabrica giro=1 umbralBlanco=425 ... interruptores=1011111110101
     version PRIMERO e interruptores ÚLTIMO: si no, vino cortada (o pegada).
     Las claves de más se aceptan y se ignoran (para el futuro)."""
     d = _pares(resto)
@@ -2797,6 +3227,23 @@ vel = 90   # la VEL_LINEA de la 0921i: MS_PUNTA_A_PUNTA_FIJO vale SOLO a esta fu
 NOMBRE_HOJA_ESCUELA = "escuela-iita-bitacoras.txt"
 
 
+def _vuelta_del_despeje_viejo(valores):
+    """(2026-11-12, revisión) Cuánto tarda la vuelta del despeje VIEJO de
+    tablero.ino (MOVIMIENTOS 6 y 9: a potenciaRetroceso, con la cuenta de la
+    O2), con los números del robot. None si no se sabe."""
+    if not valores:
+        return None
+    try:
+        ida = valor_num(valores, "msAdelante")
+        fuerza = valor_num(valores, "potenciaDespeje")
+        vuelta = valor_num(valores, "potenciaRetroceso")
+    except (TypeError, ValueError, KeyError):
+        return None
+    if ida is None or fuerza is None or not vuelta or vuelta <= 0:
+        return None
+    return int(round(ms_de_la_vuelta(ida, fuerza, vuelta)))
+
+
 def avisos_de_numeros(valores, sensores=None, codigo=None):
     """Los avisos que la ventana pone sola, en naranja, SIN bloquear nada
     (el robot no tiene controles cruzados entre números)."""
@@ -2808,9 +3255,20 @@ def avisos_de_numeros(valores, sensores=None, codigo=None):
     if V("MS_MAX_MIRANDO") < V("MS_ASENTAR_MIRADA") + V("MS_MIRAR"):
         avisos.append("MS_MAX_MIRANDO (%d) es menor que MS_ASENTAR_MIRADA + MS_MIRAR (%d): nunca llega "
                       "a medir." % (V("MS_MAX_MIRANDO"), V("MS_ASENTAR_MIRADA") + V("MS_MIRAR")))
-    if V("msAdelante") / 10.0 - 3.3 <= V("umbralCm"):
-        avisos.append("Con msAdelante %d la ida llega a ~%.0f cm: no pasa de umbralCm (%g). La ida "
-                      "no llega a la pelota." % (V("msAdelante"), V("msAdelante") / 10.0 - 3.3, V("umbralCm")))
+    # (2026-11-12) a la potenciaDespeje que tiene el robot (la 0921k: 160): cm_de_la_ida
+    llega = cm_de_la_ida(V("msAdelante"), V("potenciaDespeje"))
+    if llega <= V("umbralCm"):
+        avisos.append("Con msAdelante %d (a fuerza %d) la ida llega a ~%.0f cm: no pasa de umbralCm (%g). La ida "
+                      "no llega a la pelota." % (V("msAdelante"), V("potenciaDespeje"), llega, V("umbralCm")))
+    # (2026-11-12, revisión) el despeje VIEJO (6 y 9) vuelve a potenciaRetroceso y corta a
+    # los 1200 ms: con los números del PARTIDO (666 a 160) no le alcanza.
+    vuelta = _vuelta_del_despeje_viejo(valores) if codigo in (6, 9) else None
+    if vuelta is not None and vuelta > FIJOS["MS_MAX_RETROCESO"]:
+        avisos.append("Con msAdelante %d a fuerza %d, la vuelta de este despeje VIEJO (a potenciaRetroceso %d) tarda "
+                      "unos %d ms y acá corta a los %d: puede frenar ANTES de la línea, y eso NO es umbralBlanco "
+                      "(el partido vuelve a 80 con tope 2500)." % (V("msAdelante"), V("potenciaDespeje"),
+                                                                    V("potenciaRetroceso"), vuelta,
+                                                                    FIJOS["MS_MAX_RETROCESO"]))
     if V("pwmMaxLateral") > 150:
         avisos.append("pwmMaxLateral más de 150 nunca se probó (a 160 chocó la madera).")
     if V("umbralDesvio") > 7 and V("despejeEnDiagonal") < 0.5:
@@ -2922,6 +3380,14 @@ def explicar_informe(inf, intentos=None, valores=None, muestras=None):
         elif not cortado:
             frases.append(("NO vio la línea al volver: frenó por tiempo (%d ms)." % FIJOS["MS_MAX_RETROCESO"],
                            "malo"))
+            # (2026-11-12, revisión) con los números del PARTIDO (666 a 160) la vuelta del
+            # despeje VIEJO (a 110) no alcanza en 1200 ms: no es umbralBlanco.
+            vuelta = _vuelta_del_despeje_viejo(valores) if n in (6, 9) else None
+            if vuelta is not None and vuelta > FIJOS["MS_MAX_RETROCESO"]:
+                frases.append(("Con esta ida la vuelta (a potenciaRetroceso) tarda unos %d ms y este despeje VIEJO "
+                               "corta a los %d: es eso, NO umbralBlanco. El partido (0921k) vuelve a "
+                               "potenciaVueltaDespeje con su tope MS_MAX_VUELTA_DESPEJE." % (
+                                   vuelta, FIJOS["MS_MAX_RETROCESO"]), ""))
         if cortado and acomodo == 0:
             frases.append(("Lo cortaron antes de terminar: no se sabe si se enderezaba." if num("lineams") > 0 else
                            "Lo cortaron antes de terminar la vuelta: no se sabe si veía la línea ni si se "
@@ -3324,15 +3790,36 @@ def _reglas_con_codigo(valores, valores_del_archivo=None, medido=None):
     if hay("MS_PAUSA_MEDIO", "MS_MAX_ESPERA_PLANO") and v["MS_PAUSA_MEDIO"] > v["MS_MAX_ESPERA_PLANO"]:
         error("E4", "MS_PAUSA_MEDIO (%d) es más que MS_MAX_ESPERA_PLANO (%d): lo mínimo no puede ser más que "
               "lo máximo." % (v["MS_PAUSA_MEDIO"], v["MS_MAX_ESPERA_PLANO"]), "MS_PAUSA_MEDIO", "MS_MAX_ESPERA_PLANO")
-    if hay("msAdelante", "umbralCm", "potenciaDespeje") and v["potenciaDespeje"] == 200:
-        alcance = v["msAdelante"] / 10.0 - 3.3        # medido el 04/08, a fuerza 200
+    # (2026-11-12) Cuánto llega la ida: a 200 es lo MEDIDO (04/08) y da ERROR si no
+    # llega; a otra fuerza (la 0921k: 160) es una CUENTA (cm_de_la_ida) y da OJO.
+    if hay("msAdelante", "umbralCm", "potenciaDespeje"):
+        alcance = cm_de_la_ida(v["msAdelante"], v["potenciaDespeje"])
+        es_medida = v["potenciaDespeje"] == FUERZA_MEDIDA_IDA
         if alcance <= v["umbralCm"]:
-            error("E5", "La ida llega a %.0f cm y sale con la pelota a %s: no la toca nunca. Subí msAdelante o "
-                  "bajá umbralCm." % (alcance, _g(v["umbralCm"])), "msAdelante", "umbralCm")
+            if es_medida:
+                error("E5", "La ida llega a %.0f cm y sale con la pelota a %s: no la toca nunca. Subí msAdelante o "
+                      "bajá umbralCm." % (alcance, _g(v["umbralCm"])), "msAdelante", "umbralCm")
+            else:
+                ojo("O14", "A fuerza %d la ida llega a unos %.0f cm (una CUENTA: lo medido a 200 el 04/08, proporcional "
+                    "a la fuerza) y sale con la pelota a %s: según la cuenta no la toca. Subí msAdelante o medilo "
+                    "(CANCHA paso 5)." % (v["potenciaDespeje"], alcance, _g(v["umbralCm"])),
+                    "msAdelante", "potenciaDespeje", "umbralCm")
         elif alcance - v["umbralCm"] < 10:
-            ojo("O1", "La ida llega a %.0f cm, apenas %.0f más que umbralCm (%s): si la pelota se corre, no la "
-                "toca." % (alcance, alcance - v["umbralCm"], _g(v["umbralCm"])), "msAdelante", "umbralCm")
-    if hay("MS_MAX_RETROCESO", "msAdelante") and v["MS_MAX_RETROCESO"] < 2.4 * v["msAdelante"]:
+            ojo("O1", "La ida llega a %.0f cm%s, apenas %.0f más que umbralCm (%s): si la pelota se corre, no la "
+                "toca." % (alcance, "" if es_medida else " (una cuenta, a fuerza %d)" % v["potenciaDespeje"],
+                           alcance - v["umbralCm"], _g(v["umbralCm"])), "msAdelante", "umbralCm")
+    # (2026-11-12) La vuelta del despeje: desde la 0921j va a potenciaVueltaDespeje con
+    # su tope MS_MAX_VUELTA_DESPEJE; un archivo de antes, a potenciaRetroceso con MS_MAX_RETROCESO.
+    if hay("MS_MAX_VUELTA_DESPEJE", "potenciaVueltaDespeje", "msAdelante", "potenciaDespeje"):
+        veces = VECES_VUELTA_POR_FUERZA * v["potenciaDespeje"] / float(v["potenciaVueltaDespeje"])
+        if v["MS_MAX_VUELTA_DESPEJE"] < veces * v["msAdelante"]:
+            coma = ("%.1f" % veces).replace(".", ",")
+            ojo("O2", "MS_MAX_VUELTA_DESPEJE (%d) es menos que %s × msAdelante (%d): la vuelta, a %d, tarda unas %s "
+                "veces la ida a %d y se puede cortar antes de la línea (en la estrategia 2, a 90 ya cortaba justo con "
+                "1500)." % (v["MS_MAX_VUELTA_DESPEJE"], coma, veces * v["msAdelante"], v["potenciaVueltaDespeje"],
+                            coma, v["potenciaDespeje"]),
+                "MS_MAX_VUELTA_DESPEJE", "msAdelante", "potenciaVueltaDespeje")
+    elif hay("MS_MAX_RETROCESO", "msAdelante") and v["MS_MAX_RETROCESO"] < 2.4 * v["msAdelante"]:
         ojo("O2", "MS_MAX_RETROCESO (%d) es menos que 2,4 × msAdelante (%d): la vuelta (a 110) es unas 2,4 veces "
             "más lenta que la ida y se puede cortar antes de la línea." % (v["MS_MAX_RETROCESO"], 2.4 * v["msAdelante"]),
             "MS_MAX_RETROCESO", "msAdelante")
@@ -3357,9 +3844,49 @@ def _reglas_con_codigo(valores, valores_del_archivo=None, medido=None):
         ojo("O6", "Cambiaste %s: MS_MEDIO_AL_MEDIO y MS_PUNTA_A_PUNTA_FIJO se midieron con los de antes. "
             "Medilos de nuevo (CANCHA pasos 2 y 7)." % ", ".join(movidos), "MS_MEDIO_AL_MEDIO", "MS_PUNTA_A_PUNTA_FIJO",
             *movidos)
-    if cambio("potenciaDespeje") or cambio("RAMPA_MOV_PASO"):
-        ojo("O7", "msAdelante se midió a fuerza 200 y con la rampa de antes: medilo de nuevo (CANCHA paso 5).",
-            "msAdelante", "potenciaDespeje", "RAMPA_MOV_PASO")
+    # (2026-11-12) La rampa que usa la ida: con rampaEnCadaMotor SÍ (la 0921k) la de
+    # cada motor; si no, la general (y su piso). Cambiar la fuerza o la rampa
+    # cambia cuánto llega la ida con el mismo msAdelante.
+    rampa_ida = (("rampaEnCadaMotor", "PASO_RAMPA_RUEDA", "MS_RAMPA_RUEDA") if _en_si(v, "rampaEnCadaMotor")
+                 else ("rampaEnCadaMotor", "RAMPA_MOV_PASO", "pisoRampaIda"))
+    de_la_ida = [n for n in ("potenciaDespeje",) + rampa_ida if cambio(n)]
+    if de_la_ida:
+        # (2026-11-12, revisión) La rampa de cada motor NO la tiene tablero.ino: CANCHA
+        # paso 5 mide con la general (10 cada 10 ms) y ese cambio no lo ve.
+        if {"PASO_RAMPA_RUEDA", "MS_RAMPA_RUEDA"} & set(de_la_ida):
+            como_medir = ("CANCHA paso 5 NO lo ve (mide con la rampa general, 10 cada 10 ms): probalo con el PARTIDO "
+                          "cargado y la pelota, o volvé a PASO_RAMPA_RUEDA 10 y MS_RAMPA_RUEDA 10")
+        else:
+            como_medir = "Medilo de nuevo (CANCHA paso 5, con los números del PARTIDO en el robot)"
+        ojo("O7", "Cambiaste %s: con el mismo msAdelante la ida llega a otro lado (msAdelante salió a fuerza %s y con "
+            "la rampa de antes). %s." % (", ".join(de_la_ida), _g(arch.get("potenciaDespeje", "?")), como_medir),
+            "msAdelante", *de_la_ida)
+    # (2026-11-12, revisión) O26: cuánto tarda la ida en SUBIR a su fuerza con la rampa
+    # que usa (la cuenta del .ino). NO mira cambio(): sigue saliendo después de guardar.
+    # Si pasa más de la mitad de msAdelante subiendo, llega bastante menos que el
+    # "≈ cm" de msAdelante (esa cuenta no tiene la rampa).
+    if hay("msAdelante", "potenciaDespeje"):
+        sube, rampa_de_la_ida = None, ()
+        if _en_si(v, "rampaEnCadaMotor"):
+            if hay("PASO_RAMPA_RUEDA", "MS_RAMPA_RUEDA"):
+                sube = ms_de_subida(v["potenciaDespeje"], v["PASO_RAMPA_RUEDA"], v["MS_RAMPA_RUEDA"])
+                rampa_de_la_ida = ("PASO_RAMPA_RUEDA", "MS_RAMPA_RUEDA")
+                como = "PASO_RAMPA_RUEDA %d cada MS_RAMPA_RUEDA %d ms" % (v["PASO_RAMPA_RUEDA"], v["MS_RAMPA_RUEDA"])
+                arreglo = ("CANCHA paso 5 NO lo ve (mide con la rampa general). Volvé a 10 y 10 (los de fábrica), o "
+                           "subí msAdelante y probalo con el PARTIDO cargado")
+        elif hay("RAMPA_MOV_PASO"):
+            piso = v.get("pisoRampaIda", 0) or 0
+            sube = ms_de_subida(v["potenciaDespeje"] - piso, v["RAMPA_MOV_PASO"], FIJOS["RAMPA_MOV_MS"])
+            rampa_de_la_ida = ("RAMPA_MOV_PASO",) + (("pisoRampaIda",) if "pisoRampaIda" in v else ())
+            como = "RAMPA_MOV_PASO %d cada %d ms%s" % (v["RAMPA_MOV_PASO"], FIJOS["RAMPA_MOV_MS"],
+                                                       " desde %d" % piso if piso else "")
+            arreglo = "Volvé a RAMPA_MOV_PASO 10, o subí msAdelante y medilo (CANCHA paso 5)"
+        if sube is not None and 2 * sube > v["msAdelante"]:
+            ojo("O26", "Con %s la ida tarda %d ms en llegar a fuerza %d: más de la mitad de msAdelante (%d) la pasa "
+                "SUBIENDO, y llega bastante menos que los ≈ %.0f cm de la cuenta (que no tiene la rampa). %s." % (
+                    como, sube, v["potenciaDespeje"], v["msAdelante"],
+                    cm_de_la_ida(v["msAdelante"], v["potenciaDespeje"]), arreglo),
+                "msAdelante", *rampa_de_la_ida)
     if cambio("CAMARA_POR_CM"):
         ojo("O8", "Cambiaste CAMARA_POR_CM: cambian TODOS los cm (umbralCm, umbralDesvio, ZONA_MUERTA_PELOTA), y "
             "kpLateral está pensado para 2,87.", "CAMARA_POR_CM")
@@ -3369,18 +3896,21 @@ def _reglas_con_codigo(valores, valores_del_archivo=None, medido=None):
     if hay("despejeEnDiagonal") and v["despejeEnDiagonal"]:
         ojo("O10", "despejeEnDiagonal está en SÍ: está ESCRITO Y SIN PROBAR.", "despejeEnDiagonal")
     if hay("enderezarActivado") and not v["enderezarActivado"]:
-        ojo("O11", "enderezarActivado está en NO: sin límite lateral, ni patrulla, ni ir al medio, ni se endereza.",
-            "enderezarActivado")
+        ojo("O11", "enderezarActivado está en NO: sin límite lateral, ni barrida, ni patrulla, ni ir al medio, ni se "
+            "endereza (tampoco antes de volver del despeje).", "enderezarActivado")
     signos = [n for n in ("lateralInvertido", "camaraYInvertida") if cambio(n)]
     if signos:
         ojo("O12", "¡Cambiaste un SIGNO (%s)! Si estaba bien, ahora el robot se aleja de la pelota." %
             ", ".join(signos), *signos)
-    if hay("patrullarSinPelota") and not v["patrullarSinPelota"]:
-        ojo("O13", "Sin patrulla (patrullarSinPelota NO): no patrulla NADA, ni al lateral ni por la línea del área. Si "
-            "queda quieto mucho rato, el juez lo puede sacar (pasó el 21/09 y el 12/10).", "patrullarSinPelota")
-    if hay("potenciaDespeje") and v["potenciaDespeje"] != 200:
-        ojo("O14", "potenciaDespeje no es 200: la cuenta de cuántos cm llega la ida ya no vale (no puedo revisar "
-            "si la ida llega a la pelota).", "potenciaDespeje", "msAdelante")
+    # (2026-11-12) En la 0921k la patrulla de hoy es la BARRIDA: sin las dos, quieto para siempre.
+    if hay("patrullarSinPelota") and not v["patrullarSinPelota"] and not barrida(v):
+        if "barridaActivada" in v:
+            ojo("O13", "Sin barrida y sin patrulla (barridaActivada y patrullarSinPelota en NO): sin pelota se queda "
+                "QUIETO para siempre. El juez lo puede sacar (pasó el 21/09 y el 12/10).", "barridaActivada",
+                "patrullarSinPelota")
+        else:
+            ojo("O13", "Sin patrulla (patrullarSinPelota NO): no patrulla NADA, ni al lateral ni por la línea del área. "
+                "Si queda quieto mucho rato, el juez lo puede sacar (pasó el 21/09 y el 12/10).", "patrullarSinPelota")
     if hay("MS_ASENTAR_ACOMODO", "msFreno") and v["MS_ASENTAR_ACOMODO"] < v["msFreno"]:
         ojo("O15", "MS_ASENTAR_ACOMODO (%d) es menos que msFreno (%d): mide antes de que termine de frenar." % (
             v["MS_ASENTAR_ACOMODO"], v["msFreno"]), "MS_ASENTAR_ACOMODO", "msFreno")
@@ -3397,10 +3927,10 @@ def _reglas_con_codigo(valores, valores_del_archivo=None, medido=None):
     if hay("umbralDesvio", "despejeEnDiagonal") and v["umbralDesvio"] > 7 and not v["despejeEnDiagonal"]:
         nota("N1", "Con despejeEnDiagonal en NO sale siempre DERECHO: con la pelota a %s cm al costado, derecho no "
              "la toca." % _g(v["umbralDesvio"]), "umbralDesvio")
-    if hay("pisoRampaIda", "potenciaDespeje") and v["pisoRampaIda"] > v["potenciaDespeje"]:
+    if hay("pisoRampaIda", "potenciaDespeje") and v["pisoRampaIda"] > v["potenciaDespeje"]             and not _en_si(v, "rampaEnCadaMotor"):
         nota("N2", "pisoRampaIda (%d) es más que potenciaDespeje (%d): la ida sale de una con toda la fuerza." % (
             v["pisoRampaIda"], v["potenciaDespeje"]), "pisoRampaIda")
-    if hay("MS_QUIETO_PARA_PATRULLAR") and v["MS_QUIETO_PARA_PATRULLAR"] < 10000:
+    if hay("MS_QUIETO_PARA_PATRULLAR") and v["MS_QUIETO_PARA_PATRULLAR"] < 10000 and patrulla_vieja(v):
         nota("N3", "MS_QUIETO_PARA_PATRULLAR menos de 10 s: más patrullas (con la vieja, al lateral, más rato con el "
              "arco solo).", "MS_QUIETO_PARA_PATRULLAR")
     # ---- (2026-11-09) la patrulla y la vuelta con la línea del área (0921i) ----
@@ -3439,6 +3969,73 @@ def _reglas_con_codigo(valores, valores_del_archivo=None, medido=None):
             ojo("O21", "MS_TOPE_PUNTA (%d) es menos que MS_PUNTA_A_PUNTA_FIJO (%d): si arranca cerca de la punta "
                 "derecha, corta antes de llegar a la izquierda." % (v["MS_TOPE_PUNTA"], v["MS_PUNTA_A_PUNTA_FIJO"]),
                 "MS_TOPE_PUNTA", "MS_PUNTA_A_PUNTA_FIJO")
+    # ---- (2026-11-12) el despeje de la 0921j y la barrida de la 0921k ----
+    if hay("PWM_MIN_GIRO", "PWM_MAX_GIRO") and v["PWM_MIN_GIRO"] > v["PWM_MAX_GIRO"]:
+        error("E9", "PWM_MIN_GIRO (%d) es más que PWM_MAX_GIRO (%d): tiene que ser menos o igual." % (
+            v["PWM_MIN_GIRO"], v["PWM_MAX_GIRO"]), "PWM_MIN_GIRO", "PWM_MAX_GIRO")
+    if barrida(v):
+        if _en_si(v, "patrullarSinPelota"):
+            nota("N4", "Con la barrida prendida la patrulla vieja NO arranca (patrullarSinPelota && !barridaActivada): "
+                 "patrullarSinPelota en SÍ no hace nada. Para usar la patrulla vieja: barridaActivada NO.",
+                 "patrullarSinPelota", "barridaActivada")
+        if hay("GRADOS_PASO_BARRIDA", "GRADOS_MAX_BARRIDA")                 and 3 * v["GRADOS_PASO_BARRIDA"] < v["GRADOS_MAX_BARRIDA"] - 1e-6:
+            p, m = v["GRADOS_PASO_BARRIDA"], v["GRADOS_MAX_BARRIDA"]
+            ojo("O23", "Con GRADOS_PASO_BARRIDA %s los pasos son ±%s, ±%s y ±%s (3 por lado, fijos en el programa): "
+                "barre solo hasta ±%s y nunca llega a GRADOS_MAX_BARRIDA (%s). Para llegar, GRADOS_PASO_BARRIDA %s o "
+                "más." % (_g(p), _g(p), _g(2 * p), _g(3 * p), _g(3 * p), _g(m), _g(math.ceil(m / 3.0))),
+                "GRADOS_PASO_BARRIDA", "GRADOS_MAX_BARRIDA")
+        if hay("volverAlMedioEnElLateral") and not v["volverAlMedioEnElLateral"]:
+            ojo("O24", "Sin límite lateral y con la barrida: yendo de costado a buscar la pelota (hasta "
+                "MS_TOPE_COSTADO_BARRIDA) tampoco frena en el lateral.", "volverAlMedioEnElLateral", "barridaActivada")
+        if hay("MS_ASENTAR_BARRIDA", "msFreno") and v["MS_ASENTAR_BARRIDA"] < v["msFreno"]:
+            ojo("O25", "MS_ASENTAR_BARRIDA (%d) es menos que msFreno (%d): mide si quedó en 0 apenas termina de frenar." % (
+                v["MS_ASENTAR_BARRIDA"], v["msFreno"]), "MS_ASENTAR_BARRIDA", "msFreno")
+        # (2026-11-12, revisión) N5: si 3 × el paso pasa el máximo, el último paso se
+        # recorta (empezarPasoBarrida). Subir el paso NO apura la vuelta: siempre son
+        # 7 paradas y, recortado, gira lo mismo.
+        if hay("GRADOS_PASO_BARRIDA", "GRADOS_MAX_BARRIDA") \
+                and 3 * v["GRADOS_PASO_BARRIDA"] > v["GRADOS_MAX_BARRIDA"] + 1e-6:
+            p, m = v["GRADOS_PASO_BARRIDA"], v["GRADOS_MAX_BARRIDA"]
+            objetivos = [min(k * p, m) for k in (1, 2, 3)]
+            chico = min(b - a for a, b in zip([0.0] + objetivos[:-1], objetivos))
+            nota("N5", "Con GRADOS_PASO_BARRIDA %s y GRADOS_MAX_BARRIDA %s los pasos de cada lado son ±%s, ±%s y ±%s "
+                 "(se recortan a %s): %s (igual frena y mira). La vuelta NO es más rápida: gira lo mismo y son las "
+                 "mismas 7 paradas. Para apurarla: bajá MS_MIRAR_BARRIDA o subí PWM_BARRIDA_TRES." % (
+                     _g(p), _g(m), _g(objetivos[0]), _g(objetivos[1]), _g(objetivos[2]), _g(m),
+                     "un paso no gira nada" if chico < 1e-6 else "el más chico gira solo %s°" % _g(chico)),
+                 "GRADOS_PASO_BARRIDA", "GRADOS_MAX_BARRIDA")
+    # (2026-11-12, revisión) O27: la rampa con que arrancan los GIROS (enderezarse antes
+    # de volver: siempre la de cada motor; cada paso de la barrida: la de cada motor con
+    # rampaEnCadaMotor SÍ, si no la general). Mientras sube no gira: si se come la mitad
+    # del tope, el paso se corta sin girar. No mira cambio(): sale también ya guardado.
+    lentos, filas_lentas = [], set()
+    if enderezar_antes_de_volver(v) and hay("PASO_RAMPA_RUEDA", "MS_RAMPA_RUEDA", "PWM_MIN_GIRO",
+                                            "MS_TOPE_ENDEREZAR"):
+        sube = ms_de_subida(v["PWM_MIN_GIRO"], v["PASO_RAMPA_RUEDA"], v["MS_RAMPA_RUEDA"])
+        if 2 * sube > v["MS_TOPE_ENDEREZAR"]:
+            lentos.append("enderezarse antes de volver tarda %d ms en llegar a PWM_MIN_GIRO %d (el tope es "
+                          "MS_TOPE_ENDEREZAR %d)" % (sube, v["PWM_MIN_GIRO"], v["MS_TOPE_ENDEREZAR"]))
+            filas_lentas |= {"PASO_RAMPA_RUEDA", "MS_RAMPA_RUEDA", "MS_TOPE_ENDEREZAR"}
+    if barrida(v) and hay("MS_TOPE_PASO_BARRIDA"):
+        tres = not _en_no(v, "barridaConTresRuedas")
+        fuerza = "PWM_BARRIDA_TRES" if tres else "PWM_BARRIDA"
+        if _en_si(v, "rampaEnCadaMotor"):
+            rampa_giro = ("PASO_RAMPA_RUEDA", "MS_RAMPA_RUEDA")
+            paso_ms = (v.get("PASO_RAMPA_RUEDA"), v.get("MS_RAMPA_RUEDA"))
+        else:
+            rampa_giro = ("RAMPA_MOV_PASO",)
+            paso_ms = (v.get("RAMPA_MOV_PASO"), FIJOS["RAMPA_MOV_MS"])
+        if hay(fuerza) and None not in paso_ms:
+            sube = ms_de_subida(v[fuerza], paso_ms[0], paso_ms[1])
+            if 2 * sube >= v["MS_TOPE_PASO_BARRIDA"]:
+                lentos.append("cada paso de la barrida tarda %d ms en llegar a %s %d (el tope de cada paso es "
+                              "MS_TOPE_PASO_BARRIDA %d: se puede cortar sin girar)" % (
+                                  sube, fuerza, v[fuerza], v["MS_TOPE_PASO_BARRIDA"]))
+                filas_lentas |= set(rampa_giro) | {fuerza, "MS_TOPE_PASO_BARRIDA"}
+    if lentos:
+        ojo("O27", "La rampa sube muy lento para girar: %s. Mientras sube casi no gira (con menos de ~70 no se "
+            "mueve). Volvé la rampa a la de fábrica (10 cada 10 ms) o subí el tope." % "; y ".join(lentos),
+            *sorted(filas_lentas))
     return salida
 
 
@@ -3580,7 +4177,7 @@ def elegir_copia_para_volver(carpeta_copias, valores_archivo, version_archivo=_S
     tabla) son distintos de los del archivo. -> (ruta, [(nombre, archivo,
     copia)]) o None. Vuelve valores y no bytes, para no borrar cambios de
     código que alguien haya hecho afuera. (2026-11-09) Con version_archivo:
-    de una copia de OTRA versión (una 0921g, con el archivo en la 0921i) no
+    de una copia de OTRA versión (una 0921g o 0921i, con el archivo en la 0921k) no
     vuelve lo que cambió la versión (MS_QUIETO_PARA_PATRULLAR, msEmpujonFinal y
     MS_AVISO_ARMADO: cambiados_por_la_version),
     solo lo que cambió alguien con el tablero."""
@@ -3735,7 +4332,8 @@ def comparar_con_robot(m, lectura):
     return ("DISTINTO" if difs else "IGUAL"), difs
 
 
-# ---------- las versiones (2026-11-09: la 0921i, y la 0921g como ANTERIOR) ----------
+# ---------- las versiones (2026-11-09: la 0921i, y la 0921g como ANTERIOR;
+# 2026-11-12: la 0921k, y la 0921j, la 0921i y la 0921g como ANTERIORES) ----------
 
 def que_version_es(version):
     """'HOY' (la que maneja este tablero, VERSION_PARTIDO_HOY), 'ANTERIOR'
@@ -3762,12 +4360,23 @@ def nombre_de_version(version):
 
 def texto_otra_version(robot, archivo):
     """El robot dijo una #PARTIDO de OTRA versión que el archivo: cómo se dice
-    (sin el 'cargalo'). Una ANTERIOR conocida (la 0921g) se dice con su nombre."""
+    (sin el 'cargalo'). Una ANTERIOR conocida (la 0921j, 0921i o 0921g) se
+    dice con su nombre."""
     archivo = archivo or "0921f"
     if que_version_es(robot) == "ANTERIOR" and robot != archivo:
         return "el robot dice que tiene la %s, la VERSIÓN ANTERIOR (%s), y el archivo es la %s" % (
             robot, VERSIONES_PARTIDO_ANTERIORES[robot], archivo)
     return "el robot dice que tiene la %s y el archivo es la %s" % (robot, archivo)
+
+
+def filas_que_no_tenia(version):
+    """(2026-11-12) Las filas de la tabla que ESA versión todavía no tenía (las
+    que trajeron las que vinieron después, NUEVOS_POR_VERSION). La de hoy, o
+    una que no conozco: ninguna."""
+    if version not in FABRICA_DE_ANTES:
+        return set()
+    despues = ORDEN_VERSIONES[ORDEN_VERSIONES.index(version) + 1:]
+    return {n for otra in despues for n in NUEVOS_POR_VERSION.get(otra, ())}
 
 
 def fabrica_de(version=VERSION_PARTIDO_HOY):
@@ -3776,7 +4385,8 @@ def fabrica_de(version=VERSION_PARTIDO_HOY):
     sin las filas que todavía no tenía y con lo que valía."""
     if version not in FABRICA_DE_ANTES:
         return dict(VALORES_DE_FABRICA)
-    v = {n: x for n, x in VALORES_DE_FABRICA.items() if n not in NUEVOS_EN_LA_0921I}
+    no_tenia = filas_que_no_tenia(version)
+    v = {n: x for n, x in VALORES_DE_FABRICA.items() if n not in no_tenia}
     v.update(FABRICA_DE_ANTES[version])
     return v
 
@@ -3788,8 +4398,9 @@ def _version_conocida(version):
 def cambiados_por_la_version(version_a, version_b):
     """Los nombres cuya FÁBRICA es distinta entre esas dos versiones: lo que
     cambió el que hizo la versión, no alguien con el tablero (0921g -> 0921i:
-    MS_QUIETO_PARA_PATRULLAR, msEmpujonFinal y MS_AVISO_ARMADO). Iguales, o
-    alguna que no conozco: ninguno."""
+    MS_QUIETO_PARA_PATRULLAR, msEmpujonFinal y MS_AVISO_ARMADO; 0921i -> 0921k:
+    potenciaDespeje, msAdelante y patrullarSinPelota). Iguales, o alguna que no
+    conozco: ninguno."""
     if version_a == version_b or not (_version_conocida(version_a) and _version_conocida(version_b)):
         return set()
     fa, fb = fabrica_de(version_a), fabrica_de(version_b)
@@ -3799,16 +4410,20 @@ def cambiados_por_la_version(version_a, version_b):
 def avisos_de_la_lectura(lec):
     """Los avisos de cómo se leyó el .ino (arriba de la lista de PARTIDO):
     [(nivel, texto)]. (2026-11-09) Un archivo de una versión ANTERIOR (0921g,
-    0921f) no tiene lo de la 0921i: eso no es un ERROR, es la versión (ojo)."""
+    0921f) no tiene lo de la 0921i: eso no es un ERROR, es la versión (ojo).
+    (2026-11-12) Lo mismo con lo de la 0921j y la 0921k (filas_que_no_tenia)."""
     avisos = [("error", p) for p in lec["problemas"]]
-    de_antes = set(NUEVOS_EN_LA_0921I) if lec["version"] in FABRICA_DE_ANTES else set()
+    de_antes = filas_que_no_tenia(lec["version"])
     no_tenia = [n for n in lec["faltan"] if n in de_antes]
     faltan = [n for n in lec["faltan"] if n not in de_antes]
     if no_tenia:
-        texto = ("El archivo es la %s, ANTERIOR a la %s: no tiene lo nuevo de la patrulla (%s). Esas filas quedan "
-                 "grises." % (lec["version"] or "0921f", VERSION_PARTIDO_HOY, ", ".join(no_tenia)))
+        trajo = ["la %s (%s: %s...)" % (otra, QUE_TRAJO[otra][0], QUE_TRAJO[otra][1]) for otra in ORDEN_VERSIONES
+                 if otra in QUE_TRAJO and set(NUEVOS_POR_VERSION[otra]) & set(no_tenia)]
+        trajo = (", ".join(trajo[:-1]) + " y " + trajo[-1]) if len(trajo) > 1 else "".join(trajo)
+        texto = ("El archivo es la %s, ANTERIOR a la %s: no tiene lo que trajeron %s. Esas %d filas quedan grises." % (
+            lec["version"] or "0921f", VERSION_PARTIDO_HOY, trajo, len(no_tenia)))
         # (2026-11-09, revisión) la 0921g contaba MS_AVISO_ARMADO DESPUÉS del giroscopio (2000 servía); el
-        # mínimo de este tablero es el de la 0921i, que lo cuenta desde que se prende
+        # mínimo de este tablero es el de la 0921i (y la 0921k), que lo cuenta desde que se prende
         aviso = lec["valores"].get("MS_AVISO_ARMADO")
         if aviso is not None and validar_valor_partido("MS_AVISO_ARMADO", aviso)[1]:
             texto += (" Su MS_AVISO_ARMADO (%s) está debajo del mínimo de la %s (%s: esa lo cuenta desde que se "
@@ -3827,7 +4442,8 @@ def avisos_de_la_lectura(lec):
 
 def fila_no_aplica(nombre, valores):
     """¿La fila se ve GRIS (con esos interruptores no se usa)? Las de
-    SE_USA_SI_PARTIDO (la patrulla de la 0921i): si eso da False. Las demás: si
+    SE_USA_SI_PARTIDO (la patrulla de la 0921i, el despeje de la 0921j y la
+    barrida de la 0921k): si eso da False. Las demás: si
     TODOS los de GRIS_SI_PARTIDO están en NO. valores: {nombre: texto}
     ('true'/'false')."""
     se_usa = SE_USA_SI_PARTIDO.get(nombre)
@@ -4548,8 +5164,9 @@ def consejos_del_contrato(n, inf, intentos, valores, tope=None):
                 c.append("Se torcio en la PAUSA, frenado al terminar la ida (ahi no corrige): probar "
                          "MS_ESPERA_ANTES_DE_VOLVER de a 25 (ahora %s)." % V("MS_ESPERA_ANTES_DE_VOLVER"))
         elif n in (6, 9) and inf["atrasms"] <= inf["picoms"] < inf["atrasms"] + 300:
-            c.append("Se torcio al ARRANCAR PARA ATRAS: el partido no reinicia la rampa ahi. No hay numero "
-                     "para eso: anotarlo en la bitacora.")
+            # (2026-11-12, revisión) igual que tablero.ino: la 0921k SÍ reinicia la rampa ahí
+            c.append("Se torcio al ARRANCAR PARA ATRAS: en este despeje VIEJO la vuelta sale sin rampa (la 0921k "
+                     "si la reinicia). No hay numero para eso aca: anotarlo en la bitacora.")
         elif inf.get("pico_fase") == "f":
             c.append("Se tuerce al FRENAR: el freno es igual al del partido, no hay numero para tocar.")
         else:
@@ -5304,7 +5921,7 @@ TEXTO_VOLVER_AL_PARTIDO = ("Pestaña PARTIDO: revisá los valores y apretá CARG
 TEXTO_CARGAR_PARTIDO = (
     "Esto GUARDA estos valores en el programa de partido (funciona\\partido-0921), lo COMPILA y lo CARGA "
     "al arquero.\n\n"
-    "⚠ APENAS TERMINA LA CARGA, EL ROBOT ARRANCA SOLO: a los 2 s retrocede buscando la línea\n"
+    "⚠ APENAS TERMINA LA CARGA, EL ROBOT ARRANCA SOLO: a los ~3 s retrocede buscando la línea\n"
     "(y si no la encuentra, sale a buscar el medio).\n"
     "Batería APAGADA (lo mejor) o el robot EN EL PISO con lugar alrededor.\n"
     "Dejá enchufado SOLO el arquero.")
@@ -5334,16 +5951,17 @@ REVISAR_A_OJO = (
     "MS_MAX_RETROCESO 1500 (la 0921): ¿lo apoyan más lejos de la línea del área?",
     "MS_MEDIO_TOPE_LATERAL 6000: tiene que ser 1,3 veces el cruce o más",
     "MS_MEDIO_ADELANTE 943: ¿el área es más honda?",
-    "msEmpujonFinal 450 (15 cm), MS_AVANCE_10CM 450 y MS_MEDIO_ALEJARSE 400: ¿el piso patina distinto?",
+    "msEmpujonFinal 450 (15 cm, +70 = 3 cm después del despeje), MS_AVANCE_10CM 450 y MS_MEDIO_ALEJARSE 400: ¿el "
+    "piso patina distinto?",
     "umbralCm y msAdelante: ¿el tamaño de la cancha es otro?",
     "LADO_MEDIO -1: ¿el lateral IZQUIERDO tiene línea?",
     "El ancho de la línea contra la separación de los sensores de atrás",
     "Que no haya otra línea entre el lateral izquierdo y el fondo",
     "¿Hay rampa o pared en los bordes?",
     "La luz y las cosas naranjas cerca de la cancha",
-    "MS_QUIETO_PARA_PATRULLAR 20000 (la 0921i): preguntarle al juez",
+    "MS_SIN_PELOTA_PARA_BARRER 4000 (la 0921k: a los 4 s sin pelota, BARRE): preguntarle al juez cuánto aguanta quieto",
     "La batería: la de jugar, cargada",
-    "Si prenden patrullaPorLaLinea: MS_QUIETO_PARA_MIRAR (PARTIDO, grupo 5) bajarlo (500, o 0)",
+    "Si apagan la barrida y prenden patrullaPorLaLinea: MS_QUIETO_PARA_MIRAR (PARTIDO, grupo 6) bajarlo (500, o 0)",
 )
 RESPUESTAS_PELOTA = (
     ("DESPEJO", "LA DESPEJÓ"),
@@ -6004,7 +6622,7 @@ class Ventana:
             self._llego_fin(m["codigo"])
         if tipo == "PARTIDO" and self.conectado and self.es_arquero:
             # (2026-11-08) La manda el programa de PARTIDO (0921g; desde el 09/11
-            # la 0921i, igual) al arrancar, NO tablero.ino: no se le manda nada
+            # la 0921i, y desde el 12/11 la 0921k, igual) al arrancar, NO tablero.ino: no se le manda nada
             # (ni h ni ?). Una 0921g se entiende igual: es la "versión ANTERIOR".
             self.programa_detectado = "PARTIDO " + m["version"]
             self.estado.hola = None
@@ -6033,8 +6651,8 @@ class Ventana:
             # manda h (ni nada): ajustar toma las teclas como órdenes.
             self.programa_detectado = programa
             self.estado.hola = None
-            self.ultimo_partido = None  # (un cartel de otro programa: ya no es la 0921g/0921i)
-            self.estado_archivo = "otro"        # (la 0921g y la 0921i no imprimen carteles: solo su #PARTIDO)
+            self.ultimo_partido = None  # (un cartel de otro programa: ya no es la 0921g a 0921k)
+            self.estado_archivo = "otro"        # (la 0921g a la 0921k no imprimen carteles: solo su #PARTIDO)
         self.pendientes |= {"conexion", "partido"}
 
     def _reconocer_tablero(self, tipo, ahora):
@@ -6345,14 +6963,14 @@ class Ventana:
             xa, ya = P(14, signo * zm)
             xb, yb = P(26, signo * zm)
             c.create_line(xa, ya, xb, yb, fill="#e0f2f1", width=1)
-        # hasta dónde llega la ida (una CUENTA del 04/08, a potencia 200)
-        llega = V("msAdelante") / 10.0 - 3.3
+        # hasta dónde llega la ida (una CUENTA del 04/08, a potencia 200; 2026-11-12: a la del robot)
+        llega = cm_de_la_ida(V("msAdelante"), V("potenciaDespeje"))
         color = "#ff5252" if llega <= umbral else "white"
         xa, ya = P(llega, -desvio - 6)
         xb, yb = P(llega, desvio + 6)
         c.create_line(xa, ya, xb, yb, fill=color, width=3, dash=(10, 4))
         c.create_text(xb + 6, yb, anchor="w", fill=color, font=F_NORMAL_B,
-                      text="llega la ida ≈ %.0f cm\n(una cuenta del 04/08, a 200)" % llega)
+                      text="llega la ida ≈ %.0f cm\n(una cuenta del 04/08, a fuerza %d)" % (llega, V("potenciaDespeje")))
         c.create_text(14, 12, anchor="nw", text="◄ IZQUIERDA del robot", fill="white", font=F_NORMAL_B)
         c.create_text(w - 14, 12, anchor="ne", text="DERECHA del robot ►", fill="white", font=F_NORMAL_B)
 
@@ -7016,6 +7634,19 @@ class Ventana:
             return self.ultimo_mov
         return e
 
+    def _con_que_corrio(self, e, nombre):
+        """(2026-11-12, revisión) El número con que corrió la última tanda (entero):
+        el de #USADOS si lo cambiaron, si no el del partido de tablero.ino (#DEF).
+        Sin #USADOS, el que tiene el robot ahora. None si no es un número."""
+        if e.usados is not None:
+            v = e.usados.get(nombre, e.defectos.get(nombre, defecto_de(nombre)))
+        else:
+            v = (self.estado.valores or {}).get(nombre, defecto_de(nombre))
+        try:
+            return int(round(float(v)))
+        except (TypeError, ValueError):
+            return None
+
     def _llego_fin(self, codigo):
         e = self.estado
         if codigo.isdigit():
@@ -7025,9 +7656,14 @@ class Ventana:
                 ms = self.cancha["ida_en_curso"]
                 self.cancha["ida_en_curso"] = None
                 if e.informe is not None and e.informe.get("nota") != "NO_VALE":
-                    self.cancha["idas"].append([ms, None])
+                    # (2026-11-12, revisión) con la FUERZA con que corrió (la de #USADOS si
+                    # la cambiaron, si no la del partido de tablero.ino, #DEF): una ida
+                    # solo vale para esa potenciaDespeje.
+                    fuerza = self._con_que_corrio(e, "potenciaDespeje")
+                    self.cancha["idas"].append([ms, None, fuerza])
                     self._asegurar_hoja()
-                    hoja_agregar(self.hoja, "DESPEJE", "ida", "ms=%d cm=?" % ms, time.strftime("%H:%M"))
+                    hoja_agregar(self.hoja, "DESPEJE", "ida", "ms=%d cm=? fuerza=%s" % (
+                        ms, "?" if fuerza is None else fuerza), time.strftime("%H:%M"))
                     self._escribir_hoja()
                     self._aviso("Medí con regla cuánto llegó la ida de %d ms y anotalo en CANCHA (paso 5)." % ms, AZUL)
                 self.pendientes.add("cancha")
@@ -7372,16 +8008,19 @@ class Ventana:
 
     def _armar_paso_2c(self, d):
         # (2026-11-09, revisión) El !I de tablero.ino es la rutina de la 0921g:
-        # vuelve al medio SOLO por tiempo. La 0921i, con buscarLineaDelAreaAlVolver
-        # SÍ, corta al ver la línea del área (MS_AVANCE_10CM y la mitad de
-        # MS_PUNTA_A_PUNTA_FIJO a VEL_LINEA): eso acá NO se prueba, y se dice.
+        # vuelve al medio SOLO por tiempo. La 0921i (y la 0921k), con
+        # buscarLineaDelAreaAlVolver SÍ, corta al ver la línea del área
+        # (MS_AVANCE_10CM y la mitad de MS_PUNTA_A_PUNTA_FIJO a VEL_LINEA): eso
+        # acá NO se prueba, y se dice. (2026-11-12) En la 0921k ya no hay patrulla
+        # al lateral (la barrida no va al lateral): se ve al arrancar o con el límite.
         self.w["que"].configure(text="Para comprobar MS_MEDIO_AL_MEDIO: el robot hace la rutina de ir al medio "
                                      "(lateral, fondo, adelante, lateral, al medio, atrás al área), pero vuelve al "
-                                     "medio SOLO POR TIEMPO (MS_MEDIO_AL_MEDIO). ⚠ El partido 0921i, con "
+                                     "medio SOLO POR TIEMPO (MS_MEDIO_AL_MEDIO). ⚠ El partido 0921k, con "
                                      "buscarLineaDelAreaAlVolver SÍ (así viene), si en esa vuelta ve la línea del "
                                      "área corta ahí y va al medio con la mitad del ancho del área (paso 7): ESO acá "
-                                     "NO se prueba; se ve con el partido cargado (sin pelota, a los 20 s patrulla y "
-                                     "vuelve al medio). Apoyalo delante del área, con lugar, y apretá COMPROBAR.")
+                                     "NO se prueba; se ve con el partido cargado (al arrancar lejos de la línea del "
+                                     "área, o cuando pisa un lateral siguiendo la pelota). Apoyalo delante del área, "
+                                     "con lugar, y apretá COMPROBAR.")
         b = self.w["botones"]
         self._boton_cancha(b, "COMPROBAR (ir al medio)", lambda: self._medir_cancha("!I", ("I",), True), "2c")
         self._fila_sin_cable(b)
@@ -7430,9 +8069,23 @@ class Ventana:
                                      "hasta el frente del chasis, escribí los cm, ANOTAR, y volvé a ponerlo en la "
                                      "cinta. (Atajo si no hay tiempo: pelota quieta a 30 cm: ¿la toca y la saca? "
                                      "Si no, subir msAdelante de a 30.) La ida termina SOLTANDO los motores, como "
-                                     "la 0921 (la ventana le pone frenarAntesDeVolver 0).")
+                                     "la 0921 (la ventana le pone frenarAntesDeVolver 0). ⚠ Sale a la potenciaDespeje "
+                                     "del PARTIDO (la 0921k: 160): IDA se la pone antes. Las idas a OTRA fuerza no "
+                                     "cuentan. Para los demás números (la rampa, el rumbo) apretá antes, en "
+                                     "MOVIMIENTOS, \"Volver a los números del PARTIDO\" (si no, abajo avisa que mide "
+                                     "con otros números).")
         b = self.w["botones"]
-        for ms in (250, 383, 500):
+        idas = [250, 383, 500]
+        # (2026-11-12) y la de HOY del archivo (la 0921k: 666), para medirla tal cual
+        lec = getattr(self, "lectura", None)
+        try:
+            hoy = int(float(lec["valores"]["msAdelante"])) if lec else None
+        except (KeyError, TypeError, ValueError):
+            hoy = None
+        lo, hi = rango_de("msPruebaIda")[:2] if rango_de("msPruebaIda") else (100, 800)
+        if hoy and hoy not in idas and lo <= hoy <= hi:
+            idas.append(hoy)
+        for ms in idas:
             self._boton_cancha(b, "IDA %d ms" % ms, lambda x=ms: self._ida(x), "5")
         self._fila_sin_cable(b)
         f = tk.Frame(d, bg=FONDO)
@@ -7489,6 +8142,32 @@ class Ventana:
             return None
         fila = FILA_PARTIDO["VEL_LINEA"]
         return v if fila[5] <= v <= fila[6] else None
+
+    def _fuerza_ida_de_partido(self):
+        """(2026-11-12, revisión) La potenciaDespeje a la que valen las idas del
+        paso 5: la de PARTIDO (el archivo con el editor encima; la 0921k: 160).
+        None si no se sabe (sin PARTIDO leído)."""
+        try:
+            return int(valor_de_texto("potenciaDespeje", self._valores_partido()["potenciaDespeje"]))
+        except (KeyError, ValueError, AttributeError, TypeError):
+            return None
+
+    def _idas_que_valen(self, anotadas=True):
+        """(2026-11-12, revisión) Las idas [ms, cm, fuerza] del paso 5 hechas a la
+        potenciaDespeje de PARTIDO (con anotadas: solo las que tienen los cm) ->
+        (las que valen [(ms, cm)], las fuerzas de las otras). Una ida sin fuerza
+        (de antes de esto) no vale. Sin PARTIDO leído, valen todas (como antes)."""
+        fuerza = self._fuerza_ida_de_partido()
+        buenas, otras = [], set()
+        for ida in self.cancha["idas"]:
+            if anotadas and ida[1] is None:
+                continue
+            if ida_vale(ida, fuerza):
+                buenas.append((ida[0], ida[1]))
+            else:
+                con = ida[2] if len(ida) > 2 else None
+                otras.add("?" if con is None else str(int(float(con))))
+        return buenas, sorted(otras)
 
     def _medir_area(self):
         """MEDIR EL ANCHO DEL ÁREA (paso 7): !P <VEL_LINEA de PARTIDO> [c]."""
@@ -7569,6 +8248,19 @@ class Ventana:
         if self._bloqueado("5"):
             self._aviso("Primero el paso 1 (la línea), o 'Usar el umbral de hoy'.", NARANJA)
             return
+        # (2026-11-12, revisión) A la potenciaDespeje de PARTIDO (la 0921k: 160). El
+        # TABLERO arranca con 200 compilado: sin esto, unas idas a 200 quedaban como
+        # "medido ahora" para un partido que sale a 160. Como frenarAntesDeVolver.
+        fuerza = self._fuerza_ida_de_partido()
+        rango = rango_de("potenciaDespeje") or (140, 230)
+        if fuerza is not None and rango[0] <= fuerza <= rango[1] \
+                and abs(valor_num(self.estado.valores, "potenciaDespeje") - fuerza) >= 0.5:
+            se_puede, motivo = self._puede()
+            if not se_puede:
+                self._aviso(motivo, NARANJA)
+                return
+            if not self._mandar("=potenciaDespeje %d" % fuerza):
+                return
         if valor_num(self.estado.valores, "frenarAntesDeVolver") >= 0.5:
             # (2026-11-08, revisión) La 0921 termina la ida SOLTANDO los
             # motores (parar(), sigue un poco de largo); el tablero, frenando.
@@ -7637,7 +8329,9 @@ class Ventana:
         except Exception:
             pass
         self._asegurar_hoja()
-        hoja_agregar(self.hoja, "DESPEJE", "medida", "ms=%d cm=%s" % (sin_cm[0][0], cm), time.strftime("%H:%M"))
+        fuerza = sin_cm[0][2] if len(sin_cm[0]) > 2 else None
+        hoja_agregar(self.hoja, "DESPEJE", "medida", "ms=%d cm=%s fuerza=%s" % (
+            sin_cm[0][0], cm, "?" if fuerza is None else fuerza), time.strftime("%H:%M"))
         self._actualizar_sugeridos_hoja()
         self._escribir_hoja()
         self._pintar_cancha()
@@ -7903,7 +8597,12 @@ class Ventana:
             sugerido_cam = None                      # con la 4a sola no se cambia: está bien
         salida["CAMARA_POR_CM"] = (sugerido_cam, avisos, tabla)
         avisos = []
-        idas = [(ms, cm) for ms, cm in c["idas"] if cm is not None]
+        # (2026-11-12, revisión) SOLO las idas a la potenciaDespeje de PARTIDO (como el área, paso 7)
+        idas, otras = self._idas_que_valen()
+        if otras:
+            avisos.append(("Hay idas a fuerza %s y la potenciaDespeje de PARTIDO es %s: esas NO cuentan (lo que llega "
+                           "vale solo a la fuerza con que se midió). Medí de nuevo: IDA ya le pone la fuerza del "
+                           "PARTIDO." % (", ".join(otras), self._fuerza_ida_de_partido()), "amarillo"))
         quiero = None
         if "quiero" in self.w:
             quiero = normalizar_entrada(str(self.w["quiero"].get()))
@@ -7921,7 +8620,7 @@ class Ventana:
                 if llega <= V("umbralCm"):
                     avisos.append(("Con msAdelante %d la ida llega a %.0f cm: NO pasa de umbralCm (%g)." % (
                         V("msAdelante"), llega, V("umbralCm")), "malo"))
-        if any(cm is None for _, cm in c["idas"]):
+        if any(i[1] is None for i in c["idas"]):
             avisos.append(("Falta anotar los cm de una ida.", "amarillo"))
         fuera = self._aviso_numeros(NUMEROS_DE_LA_IDA)
         if fuera:
@@ -7973,6 +8672,10 @@ class Ventana:
             # (2026-11-09) a qué fuerza: sin esto, el número de la hoja no sirve para otra VEL_LINEA
             hoja_poner(self.hoja, "AREA", "vel", str(self._vel_linea_de_partido()),
                        "la VEL_LINEA con que se midio: MS_PUNTA_A_PUNTA_FIJO vale SOLO a esta fuerza")
+        if s["msAdelante"][0] is not None and self._fuerza_ida_de_partido() is not None:
+            # (2026-11-12, revisión) lo mismo para la ida: msAdelante vale SOLO a esa potenciaDespeje
+            hoja_poner(self.hoja, "DESPEJE", "fuerza", str(self._fuerza_ida_de_partido()),
+                       "la potenciaDespeje con que se midio: msAdelante vale SOLO a esta fuerza")
 
     def _aviso_numeros(self, nombres):
         """(aviso, 'amarillo') si el robot tiene AHORA alguno de esos números
@@ -8157,9 +8860,15 @@ class Ventana:
             for cm, prom in sugeridos["CAMARA_POR_CM"][2]:
                 t.insert("end", "4b: a %d cm ve %.1f (factor %.2f)\n" % (cm, prom, prom / cm), "")
         elif clave == "5":
-            for ms, cm in self.cancha["idas"]:
-                t.insert("end", "Ida de %d ms: %s\n" % (ms, "%g cm" % cm if cm is not None else "FALTA ANOTAR LOS cm"),
-                         "" if cm is not None else "amarillo")
+            fuerza_partido = self._fuerza_ida_de_partido()
+            for ida in self.cancha["idas"]:
+                ms, cm = ida[0], ida[1]
+                con = ida[2] if len(ida) > 2 else None
+                vale = ida_vale(ida, fuerza_partido)
+                t.insert("end", "Ida de %d ms a fuerza %s: %s%s\n" % (
+                    ms, "?" if con is None else con, "%g cm" % cm if cm is not None else "FALTA ANOTAR LOS cm",
+                    "" if vale else "  (NO cuenta: el PARTIDO sale a %s)" % fuerza_partido),
+                         "" if cm is not None and vale else "amarillo")
             if "quiero" in self.w and not str(self.w["quiero"].get()).strip():
                 try:
                     self.w["quiero"].insert(0, "%g" % (valor_num(self.estado.valores, "umbralCm") + 5))
@@ -8911,13 +9620,18 @@ class Ventana:
     # ---- pintar ----
 
     @staticmethod
-    def _extra_unidad(nombre, texto):
+    def _extra_unidad(nombre, texto, potencia=None):
         try:
             v = float(texto)
         except (TypeError, ValueError):
             return ""
         if nombre == "msAdelante":
-            return "  ≈ %.0f cm" % (v / 10.0 - 3.3)
+            # (2026-11-12) a la potenciaDespeje de la pestaña (la 0921k: 160); sin ella, a 200
+            try:
+                p = float(potencia)
+            except (TypeError, ValueError):
+                p = FUERZA_MEDIDA_IDA
+            return "  ≈ %.0f cm%s" % (cm_de_la_ida(v, p), "" if p == FUERZA_MEDIDA_IDA else " (a %d)" % p)
         if FILA_PARTIDO[nombre][4] == "ms" and v >= 1000:
             return "  = %s s" % ("%.1f" % (v / 1000.0)).rstrip("0").rstrip(".")
         return ""
@@ -8994,7 +9708,7 @@ class Ventana:
                 for b, (_, que) in zip(fila["botones"], fila["opciones"]):
                     elegido = texto is not None and mismo_valor(nombre, que, texto)
                     b.configure(style="Elegido.TButton" if elegido else "TButton")
-            fila["unidad"].configure(text=f[4] + self._extra_unidad(nombre, texto))
+            fila["unidad"].configure(text=f[4] + self._extra_unidad(nombre, texto, valores.get("potenciaDespeje")))
             if nombre in no_usables:
                 explica = "NO ESTÁ en el programa (o no lo entiendo): no lo toco."
             elif nombre in self.pendientes_partido:
@@ -9060,6 +9774,7 @@ class Ventana:
                 return cabeza + "\n✔ coincide con el archivo", VERDE
             if estado == "OTRA_VERSION":
                 # (2026-11-09) una 0921g con el archivo en la 0921i: "la VERSIÓN ANTERIOR".
+                # (2026-11-12) igual una 0921j, 0921i o 0921g con el archivo en la 0921k.
                 return cabeza + "\n✖ Es otra versión: %s. Para jugar con la del archivo: CARGAR EL PARTIDO." % (
                     texto_otra_version(m["version"], self.lectura["version"])), ROJO
             return cabeza + "\n✖ NO coincide: " + self._texto_difs(difs), ROJO
@@ -9342,7 +10057,7 @@ class Ventana:
     def _partido_volver_fabrica(self):
         if not self._partido_editable():
             return False
-        # (2026-11-09) los de fábrica de la versión DEL ARCHIVO (la 0921i: VALORES_DE_FABRICA).
+        # (2026-11-09) los de fábrica de la versión DEL ARCHIVO (la 0921k: VALORES_DE_FABRICA).
         version = self.lectura["version"]
         fab = fabrica_de(version)
         difs = [(n, self.lectura["valores"][n], fab[n]) for n in ORDEN_PARTIDO
@@ -9414,10 +10129,28 @@ class Ventana:
                         aviso="1,3 × el cruce más largo (%d ms)" % max(cruces))
         v, f = de("CAMARA_POR_CM")
         agregar("CAMARA_POR_CM", v, f, aviso="cambia todos los cm", tildado=False)
-        idas = [] if solo_hoja else [(ms, cm) for ms, cm in self.cancha["idas"] if cm is not None]
+        # (2026-11-12, revisión) SOLO las idas a la potenciaDespeje de PARTIDO: unas a 200
+        # (el TABLERO arranca con 200) ya no salen como "medido ahora" para la 0921k (160).
+        fuerza_p = self._fuerza_ida_de_partido()
+        anotadas = [] if solo_hoja else [i for i in self.cancha["idas"] if i[1] is not None]
+        idas = [(i[0], i[1]) for i in anotadas if ida_vale(i, fuerza_p)]
+        otras = [i for i in anotadas if not ida_vale(i, fuerza_p)]
         ab = recta([i[0] for i in idas], [i[1] for i in idas]) if len(idas) >= 2 else None
-        if ab and "msAdelante" in self.lectura["valores"]:
-            quiero = float(self.lectura["valores"]["msAdelante"]) / 10.0 - 3.3
+        ab_otras = recta([i[0] for i in otras], [i[1] for i in otras]) if not ab and len(otras) >= 2 else None
+        if ab_otras and "msAdelante" in self.lectura["valores"]:
+            quiero = cm_de_la_ida(self.lectura["valores"]["msAdelante"],
+                                  self.lectura["valores"].get("potenciaDespeje", FUERZA_MEDIDA_IDA))
+            ms = ms_para_cm(ab_otras[0], ab_otras[1], quiero)
+            fuerzas = sorted({"?" if len(i) < 3 or i[2] is None else str(i[2]) for i in otras})
+            if ms is not None:
+                agregar("msAdelante", ms, "medido ahora",
+                        no_va="las idas se midieron a fuerza %s y la potenciaDespeje de PARTIDO es %s: NO valen. "
+                              "Medilas de nuevo (CANCHA paso 5: IDA le pone la fuerza del PARTIDO)" % (
+                                  ", ".join(fuerzas), fuerza_p))
+        elif ab and "msAdelante" in self.lectura["valores"]:
+            # (2026-11-12) lo de hoy a la potenciaDespeje del archivo (la 0921k: 666 a 160 ≈ 50 cm)
+            quiero = cm_de_la_ida(self.lectura["valores"]["msAdelante"],
+                                  self.lectura["valores"].get("potenciaDespeje", FUERZA_MEDIDA_IDA))
             ms = ms_para_cm(ab[0], ab[1], quiero)
             nota = ("lo que hace falta para seguir llegando a %.0f cm (lo de hoy). Las idas del paso 5 se miden "
                     "SOLTANDO al final, como la 0921" % quiero)
@@ -9425,8 +10158,21 @@ class Ventana:
                 nota += "; el sugerido del paso 5 da %s ms" % s["msAdelante"][0]
             agregar("msAdelante", ms, "medido ahora", aviso=nota, tildado=False)
         elif "msAdelante" in hoja:
-            agregar("msAdelante", hoja["msAdelante"], fuente_hoja, tildado=False,
-                    aviso="de la hoja: si se midió con la 0.1103 (frenando, otra potencia), NO vale para la 0921")
+            # (2026-11-12, revisión) si la hoja dice a qué fuerza se midió (DESPEJE fuerza), solo a esa
+            try:
+                fuerza_hoja = int(str(hoja_valor(hoja_cruda, "DESPEJE", "fuerza")).split()[0])
+            except (TypeError, ValueError, IndexError):
+                fuerza_hoja = None
+            if fuerza_hoja is not None and fuerza_p is not None and fuerza_hoja != fuerza_p:
+                agregar("msAdelante", hoja["msAdelante"], fuente_hoja,
+                        no_va="se midió a fuerza %d y la potenciaDespeje de PARTIDO es %d: NO vale (CANCHA paso 5)" % (
+                            fuerza_hoja, fuerza_p))
+            else:
+                agregar("msAdelante", hoja["msAdelante"], fuente_hoja, tildado=False,
+                        aviso="de la hoja: si se midió con la 0.1103 (frenando, otra potencia), NO vale para la 0921"
+                              + ("" if fuerza_hoja is not None else
+                                 " (la hoja no dice a qué fuerza: vale SOLO si fue a potenciaDespeje %s, soltando)" %
+                                 fuerza_p))
         for nombre in ("lateralInvertido", "camaraYInvertida"):
             v = s.get(nombre, (None,))[0]
             if v is not None:
@@ -11262,6 +12008,16 @@ def _autoprueba_ventana(verificar, carpeta):
         verificar(v.cancha["areas"] == [] and v._sugeridos()["MS_PUNTA_A_PUNTA_FIJO"][0] is None, "cancha 7: borrar")
         # el paso 5: !10 recién después del #OK
         v._elegir_paso("5")
+        # (2026-11-12) y tiene el botón de la ida de HOY del archivo (la 0921k: 666 ms)
+        textos_botones = [c[1].get("text") for c in globals()["ttk"].Button.call_args_list]
+        verificar(v.lectura is None or "IDA %d ms" % int(v.lectura["valores"]["msAdelante"]) in textos_botones,
+                  "cancha: el paso 5 tiene el botón de la ida del archivo (%r)" % [x for x in textos_botones
+                                                                                 if x and x.startswith("IDA")])
+        # (2026-11-12, revisión) la fuerza de las idas: la de PARTIDO (la 0921k: 160). El robot de
+        # mentira (como el TABLERO recién cargado) tiene 200: IDA le manda antes =potenciaDespeje.
+        fuerza_p = v._fuerza_ida_de_partido()
+        con_fuerza = {} if fuerza_p is None else {"potenciaDespeje": str(fuerza_p)}
+        fuerza_ida = int(float(con_fuerza.get("potenciaDespeje", VALORES_DE_MENTIRA["potenciaDespeje"])))
         v._ida(250)
         verificar(cable.mandados[-1] == "=msPruebaIda 250", "cancha: IDA 250 manda primero el número")
         # (revisión 08/11) la 0921 termina la ida SOLTANDO: el paso 5 mide igual (frenarAntesDeVolver 0)
@@ -11269,20 +12025,54 @@ def _autoprueba_ventana(verificar, carpeta):
                   and any(f[0] == "frenarAntesDeVolver" for f in numeros_fuera_del_partido(
                       v.estado.valores, {"frenarAntesDeVolver": "false"}, ("frenarAntesDeVolver",))),
                   "cancha: IDA con el robot frenando manda antes =frenarAntesDeVolver 0")
+        verificar(fuerza_ida == 200 or cable.mandados[-3] == "=potenciaDespeje %d" % fuerza_ida,
+                  "cancha: IDA con el robot a 200 manda antes =potenciaDespeje de PARTIDO (%r)" % (cable.mandados[-3:],))
         llegan("#OK msPruebaIda=250", V_BUENA)
         verificar(cable.mandados[-1] == "!10", "cancha: el !10 recién después del #OK")
         llegan("#CUENTA 3.0 cable", "#INICIO 10 IDA tope=3250 sincable=0",
-               *demo_resultado(10, dict(VALORES_DE_MENTIRA, msPruebaIda="250"), random.Random(1)))
+               *demo_resultado(10, dict(VALORES_DE_MENTIRA, msPruebaIda="250", **con_fuerza), random.Random(1)))
         v.w["cm"].get.return_value = "19"
         v._anotar_ida()
         v._ida(350)
         llegan("#OK msPruebaIda=350", "#CUENTA 3.0 cable", "#INICIO 10 IDA tope=3350 sincable=0",
-               *demo_resultado(10, dict(VALORES_DE_MENTIRA, msPruebaIda="350"), random.Random(2)))
+               *demo_resultado(10, dict(VALORES_DE_MENTIRA, msPruebaIda="350", **con_fuerza), random.Random(2)))
         v.w["cm"].get.return_value = "33"          # (las cajitas de mentira son todas la misma)
         v._anotar_ida()
         v.w["quiero"].get.return_value = "35"
-        verificar(v.cancha["idas"] == [[250, 19.0], [350, 33.0]] and v._sugeridos()["msAdelante"][0] == "364",
-                  "cancha: la recta de las idas %r" % (v._sugeridos()["msAdelante"][0],))
+        verificar(v.cancha["idas"] == [[250, 19.0, fuerza_ida], [350, 33.0, fuerza_ida]]
+                  and v._sugeridos()["msAdelante"][0] == "364",
+                  "cancha: la recta de las idas (con la fuerza con que corrieron) %r %r" % (
+                      v.cancha["idas"], v._sugeridos()["msAdelante"][0]))
+        texto_hoja = open(v.ruta_hoja, encoding="utf-8").read()
+        verificar("ms=250 cm=? fuerza=%d" % fuerza_ida in texto_hoja and "cm=19 fuerza=%d" % fuerza_ida in texto_hoja
+                  and (fuerza_p is None or "fuerza = %d" % fuerza_p in texto_hoja),
+                  "cancha: la hoja anota la fuerza de cada ida (y a qué fuerza vale el sugerido)")
+        if fuerza_p is not None and fuerza_p != 200 and v.lectura is not None:
+            # unas idas a 200 (el TABLERO recién cargado) NO cuentan para un partido a 160
+            buenas = [list(i) for i in v.cancha["idas"]]
+            v.cancha["idas"] = buenas + [[500, 47.0, 200], [600, 57.0, 200]]
+            s5 = v._sugeridos()["msAdelante"]
+            verificar(s5[0] == "364" and any("NO cuentan" in a[0] and "200" in a[0] for a in s5[1])
+                      and v._estado_paso("5", v._sugeridos()) == "amarillo",
+                      "cancha: las idas a fuerza 200 no entran en la recta y lo dice (%r)" % (s5,))
+            v.cancha["idas"] = [[383, 35.0, 200], [500, 47.0, 200]]
+            f5 = {f["nombre"]: f for f in v._medido_para_partido()}.get("msAdelante")
+            verificar(f5 is not None and not f5["puede"] and not f5["tildado"] and f5["rojo"]
+                      and "fuerza 200" in f5["aviso"],
+                      "cancha: PASAR A PARTIDO no ofrece un msAdelante medido a 200 para un partido a %d (%r)" % (
+                          fuerza_p, f5))
+            v.cancha["idas"] = [[383, 35.0], [500, 47.0]]          # (de antes de esto: sin la fuerza)
+            verificar(v._sugeridos()["msAdelante"][0] is None and not ida_vale([383, 35.0], fuerza_p)
+                      and ida_vale([383, 35.0], None) and ida_vale([383, 35.0, 160], 160),
+                      "cancha: una ida sin la fuerza no vale (salvo sin PARTIDO leído)")
+            hoja_200 = texto_a_hoja(HOJA_ESCUELA.replace("sugerido = 383", "sugerido = 383\nfuerza = 200"))
+            fh = {f["nombre"]: f for f in v._medido_para_partido(hoja=hoja_200, fuente="h")}.get("msAdelante")
+            fh0 = {f["nombre"]: f for f in v._medido_para_partido(hoja=texto_a_hoja(HOJA_ESCUELA),
+                                                                     fuente="h")}.get("msAdelante")
+            verificar(fh is not None and not fh["puede"] and "fuerza 200" in fh["aviso"]
+                      and fh0 is not None and not fh0["tildado"] and "no dice a qué fuerza" in fh0["aviso"],
+                      "cancha: de una hoja medida a 200, msAdelante NO va; sin la fuerza, sin tildar y lo dice")
+            v.cancha["idas"] = buenas
         # un IDA cuyo #OK no llegó a tiempo NO manda !10 después (ni al tocar msPruebaIda con + y -)
         v._ida(500)
         verificar(cable.mandados[-1] == "=msPruebaIda 500", "cancha: IDA 500")
@@ -11579,7 +12369,7 @@ def _autoprueba_partido(verificar, carpeta):
     from unittest import mock
     # ---- A. La tabla ----
     nombres = [f[0] for f in TABLA_PARTIDO]
-    verificar(len(nombres) == len(set(nombres)) == 83, "partido: 83 nombres sin repetir (%d)" % len(nombres))
+    verificar(len(nombres) == len(set(nombres)) == 112, "partido: 112 nombres sin repetir (%d)" % len(nombres))
     for f in TABLA_PARTIDO:
         nombre, decl, tipo, fabrica, unidad, minimo, maximo, paso = f[:8]
         verificar(tipo in ("i", "u", "f", "b", "l", "v") and len(f) == 12, "partido: el tipo de %s" % nombre)
@@ -11594,6 +12384,9 @@ def _autoprueba_partido(verificar, carpeta):
             verificar(0 <= minimo and maximo <= 255, "partido: %s va entre 0 y 255" % nombre)
     verificar(not set(ESTADO_DEL_PARTIDO) & set(nombres), "partido: ninguna variable de estado en la tabla")
     # ---- A2. (2026-11-09) la 0921i: la patrulla y la vuelta con la línea del área ----
+    # (2026-11-12) En la 0921k la patrulla vieja quedó APAGADA (la reemplaza la barrida):
+    # lo de la patrulla se prueba sobre fab0 = la 0921k con la barrida apagada y
+    # patrullarSinPelota SÍ (como jugaba la 0921j). Lo de la barrida, en A3.
     verificar(all(n in FILA_PARTIDO and FILA_PARTIDO[n][8] == "patrulla" for n in NUEVOS_EN_LA_0921I)
               and len(NUEVOS_EN_LA_0921I) == 10, "0921i: las 10 filas nuevas están en el grupo de la patrulla")
     verificar(all(TIPO_PARTIDO[n] == "b" and n not in ORDEN_INTERRUPTORES
@@ -11614,15 +12407,16 @@ def _autoprueba_partido(verificar, carpeta):
     verificar(validar_valor_partido("MS_AVISO_ARMADO", "2500")[1] is not None
               and validar_valor_partido("MS_AVISO_ARMADO", "3000") == (3000, None),
               "0921i: MS_AVISO_ARMADO 2500 no se acepta (se movería sin parpadear) y 3000 sí")
-    # lo que tiene HOY funciona/partido-0921 (ebb5518): son los de fábrica del tablero
+    # lo de la 0921i que sigue igual en la 0921k (la patrulla por la línea APAGADA; la patrulla
+    # entera, apagada desde la 0921k: patrullarSinPelota false)
     verificar({n: VALORES_DE_FABRICA[n] for n in NUEVOS_EN_LA_0921I} == {
         "patrullaPorLaLinea": "false", "alternarLadoPatrulla": "true", "buscarLineaDelAreaAlVolver": "true",
         "MS_AVANCE_10CM": "450", "MS_PUNTA_A_PUNTA_FIJO": "2548", "VEL_LINEA": "90", "VEL_ATRAS_A_LA_LINEA": "80",
         "MS_QUIETO_PARA_MIRAR": "3000", "MS_PUNTA_SOSTENIDA": "80", "MS_TOPE_PUNTA": "5000"}
         and VALORES_DE_FABRICA["MS_QUIETO_PARA_PATRULLAR"] == "20000" and VALORES_DE_FABRICA["patrullarSinPelota"]
-        == "true" and VALORES_DE_FABRICA["msEmpujonFinal"] == "450" and VALORES_DE_FABRICA["MS_AVISO_ARMADO"] == "3000"
+        == "false" and VALORES_DE_FABRICA["msEmpujonFinal"] == "450" and VALORES_DE_FABRICA["MS_AVISO_ARMADO"] == "3000"
         and VALORES_DE_FABRICA["patrullaPorElLateral"] == "true",
-        "0921i: los de fábrica son los de la 0921i de ebb5518 (la patrulla por la línea APAGADA)")
+        "0921i: lo de la 0921i en la fábrica de la 0921k (la patrulla por la línea APAGADA, patrullarSinPelota NO)")
     # el pedido del equipo: el grupo PATRULLA con sus números, en el orden en que lo pidieron
     del_grupo = [f[0] for f in TABLA_PARTIDO if f[8] == "patrulla"]
     pedidos = ("patrullarSinPelota", "MS_QUIETO_PARA_PATRULLAR", "patrullaPorLaLinea", "alternarLadoPatrulla",
@@ -11660,26 +12454,30 @@ def _autoprueba_partido(verificar, carpeta):
               and {"patrullarSinPelota", "patrullaPorLaLinea", "buscarLineaDelAreaAlVolver", "MS_PUNTA_A_PUNTA_FIJO",
                    "MS_QUIETO_PARA_MIRAR"} <= set(SUBTITULOS_PARTIDO)
               and all(FILA_PARTIDO[n][8] == "patrulla" for n in ("patrullarSinPelota", "patrullaPorElLateral")),
-              "0921i: los subtítulos son de filas que existen (y las llaves pasaron al grupo 5)")
+              "0921i: los subtítulos son de filas que existen (y las llaves están en el grupo de la patrulla)")
     verificar(CONFIRMAR_PARTIDO["patrullaPorLaLinea"][0] == "true" and "MEDIO PROBAR" in
               CONFIRMAR_PARTIDO["patrullaPorLaLinea"][1], "0921i: prender la patrulla por la línea pide confirmar")
-    # las reglas nuevas de la patrulla
-    fab0 = dict(VALORES_DE_FABRICA)
+    # las reglas nuevas de la patrulla (sobre la 0921k con la barrida apagada: la patrulla vieja)
+    fab_k = dict(VALORES_DE_FABRICA)
+    fab0 = dict(VALORES_DE_FABRICA, barridaActivada="false", patrullarSinPelota="true")
     linea0 = dict(fab0, patrullaPorLaLinea="true")
 
     def cods(cambios, base=fab0, medido=None):
         return {c for _, _, _, c in _reglas_con_codigo(dict(base, **cambios), base, medido)}
     verificar("O18" not in cods({}) and "O18" in cods({}, linea0) and "O18" not in cods({"MS_QUIETO_PARA_MIRAR": "500"},
                                                                                          linea0)
-              and "O18" not in cods({"patrullarSinPelota": "false"}, linea0),
-              "0921i: O18 (MS_QUIETO_PARA_MIRAR alto: bajarlo para el partido), solo si patrulla por la línea")
+              and "O18" not in cods({"patrullarSinPelota": "false"}, linea0)
+              and "O18" not in cods({}, dict(linea0, barridaActivada="true")),
+              "0921i: O18 (MS_QUIETO_PARA_MIRAR alto: bajarlo para el partido), solo si patrulla por la línea (y con la "
+              "barrida, no patrulla)")
     verificar("O19" in cods({"VEL_LINEA": "100"}) and "O19" not in cods({"VEL_LINEA": "100",
                                                                           "MS_PUNTA_A_PUNTA_FIJO": "2300"})
-              and "O19" in cods({"VEL_LINEA": "100"}, linea0),
+              and "O19" in cods({"VEL_LINEA": "100"}, linea0) and "O19" in cods({"VEL_LINEA": "100"}, fab_k),
               "0921i: O19 (cambiar VEL_LINEA sin medir de nuevo el ancho del área)")
     sin_vuelta = dict(fab0, buscarLineaDelAreaAlVolver="false")
     verificar("E7" in cods({"MS_PUNTA_A_PUNTA_FIJO": "300"}) and "E7" not in cods({"MS_PUNTA_A_PUNTA_FIJO": "0"})
               and "E8" in cods({"MS_PUNTA_A_PUNTA_FIJO": "0"}) and "E8" in cods({"MS_PUNTA_A_PUNTA_FIJO": "0"}, linea0)
+              and "E8" in cods({"MS_PUNTA_A_PUNTA_FIJO": "0"}, fab_k)
               and "E8" not in cods({"MS_PUNTA_A_PUNTA_FIJO": "0"}, sin_vuelta)
               and "O20" not in cods({"MS_PUNTA_A_PUNTA_FIJO": "0"}, sin_vuelta)
               and "O20" in cods({"MS_PUNTA_A_PUNTA_FIJO": "0"}, dict(sin_vuelta, patrullaPorLaLinea="true"))
@@ -11697,29 +12495,34 @@ def _autoprueba_partido(verificar, carpeta):
         "MS_PUNTA_A_PUNTA_FIJO" in r[2] for r in _reglas_con_codigo(dict(fab0, LADO_TRASERA="91"), fab0)
         if r[3] == "O6"), "0921i: O6 también nombra MS_PUNTA_A_PUNTA_FIJO")
     verificar(VERSION_PARTIDO_HOY not in VERSIONES_PARTIDO_ANTERIORES and VERSION_PARTIDO_HOY not in FABRICA_DE_ANTES
-              and set(VERSIONES_PARTIDO_ANTERIORES) <= set(FABRICA_DE_ANTES), "0921i: las versiones conocidas")
+              and set(VERSIONES_PARTIDO_ANTERIORES) <= set(FABRICA_DE_ANTES), "versiones: las conocidas")
     viejos = fabrica_de("0921g")
-    cambio_version = {"MS_QUIETO_PARA_PATRULLAR", "msEmpujonFinal", "MS_AVISO_ARMADO"}
-    verificar(not set(NUEVOS_EN_LA_0921I) & set(viejos) and fabrica_de(None) == viejos
+    cambio_version = {"MS_QUIETO_PARA_PATRULLAR", "msEmpujonFinal", "MS_AVISO_ARMADO", "potenciaDespeje", "msAdelante",
+                      "patrullarSinPelota"}
+    verificar(not filas_que_no_tenia("0921g") & set(viejos) and fabrica_de(None) == viejos
+              and filas_que_no_tenia("0921g") == set(NUEVOS_EN_LA_0921I) | set(NUEVOS_EN_LA_0921J)
+              | set(NUEVOS_EN_LA_0921K)
               and {n for n in viejos if viejos[n] != VALORES_DE_FABRICA[n]} == cambio_version
               and viejos["MS_QUIETO_PARA_PATRULLAR"] == "10000" and viejos["msEmpujonFinal"] == "320"
-              and viejos["MS_AVISO_ARMADO"] == "2000"
+              and viejos["MS_AVISO_ARMADO"] == "2000" and viejos["potenciaDespeje"] == "200"
+              and viejos["msAdelante"] == "533" and viejos["patrullarSinPelota"] == "true"
               and fabrica_de(VERSION_PARTIDO_HOY) == VALORES_DE_FABRICA and fabrica_de("0921h") == VALORES_DE_FABRICA,
-              "0921i: la fábrica de la 0921g = la de hoy sin lo nuevo y con 10000 / 320 / 2000")
+              "0921g: la fábrica = la de hoy sin lo nuevo y con 10000 / 320 / 2000 / 200 / 533 / patrulla SÍ")
     verificar(cambiados_por_la_version("0921g", VERSION_PARTIDO_HOY) == cambio_version
               and cambiados_por_la_version(None, VERSION_PARTIDO_HOY) == cambio_version
               and cambiados_por_la_version(VERSION_PARTIDO_HOY, VERSION_PARTIDO_HOY) == set()
               and cambiados_por_la_version("0921h", VERSION_PARTIDO_HOY) == set(),
-              "0921i: lo que cambió la versión (y nada con una que no conozco)")
+              "versiones: lo que cambió la versión (y nada con una que no conozco)")
     # las filas grises: lo que hace el .ino en arrancarPatrulla() y en la vuelta al medio
-    fab = dict(VALORES_DE_FABRICA)
+    fab = dict(fab0)
     de_la_linea = ("MS_QUIETO_PARA_MIRAR", "VEL_ATRAS_A_LA_LINEA", "MS_PUNTA_SOSTENIDA", "MS_TOPE_PUNTA")
     verificar(all(fila_no_aplica(n, fab) for n in de_la_linea)
               and not any(fila_no_aplica(n, fab) for n in ("patrullaPorLaLinea", "patrullaPorElLateral",
                                                              "alternarLadoPatrulla", "buscarLineaDelAreaAlVolver",
                                                              "MS_AVANCE_10CM", "MS_PUNTA_A_PUNTA_FIJO", "VEL_LINEA",
-                                                             "potenciaEmpujon")),
-              "0921i: de fábrica, la patrulla por la línea gris y la del lateral y la vuelta con la línea NO")
+                                                             "potenciaEmpujon", "patrullarSinPelota",
+                                                             "MS_QUIETO_PARA_PATRULLAR", "PWM_CUENTA_COMO_MOVERSE")),
+              "0921i: sin barrida y con patrulla, la patrulla por la línea gris y la del lateral y la vuelta NO")
     con_linea = dict(fab, patrullaPorLaLinea="true")
     verificar(not any(fila_no_aplica(n, con_linea) for n in de_la_linea + ("VEL_LINEA", "MS_PUNTA_A_PUNTA_FIJO",
                                                                             "buscarLineaDelAreaAlVolver"))
@@ -11742,8 +12545,10 @@ def _autoprueba_partido(verificar, carpeta):
                                                                            "alternarLadoPatrulla",
                                                                            "MS_QUIETO_PARA_PATRULLAR"))
               and not fila_no_aplica("buscarLineaDelAreaAlVolver", sin_patrulla)
-              and not fila_no_aplica("VEL_LINEA", sin_patrulla),
-              "0921i: con patrullarSinPelota NO, la patrulla gris (la vuelta del límite lateral sigue)")
+              and not fila_no_aplica("VEL_LINEA", sin_patrulla)
+              and not fila_no_aplica("CUADROS_PARA_CORTAR_PATRULLA", sin_patrulla)
+              and fila_no_aplica("CUADROS_PARA_CORTAR_PATRULLA", dict(sin_patrulla, volverAlMedioEnElLateral="false")),
+              "0921i: con patrullarSinPelota NO, la patrulla gris (la vuelta del límite lateral sigue, y su corte)")
     sin_empujon = dict(fab, empujonFinal="false", avanzarAlUbicarse="false")
     verificar(not fila_no_aplica("potenciaEmpujon", sin_empujon) and fila_no_aplica("msEmpujonFinal", sin_empujon)
               and fila_no_aplica("potenciaEmpujon", dict(sin_empujon, buscarLineaDelAreaAlVolver="false")),
@@ -11753,6 +12558,7 @@ def _autoprueba_partido(verificar, carpeta):
               "0921i: un archivo 0921g (sin las filas nuevas) no usa el ancho del área y patrulla al lateral")
     verificar(patrulla_al_lateral({"patrullarSinPelota": True, "patrullaPorLaLinea": False})
               and not patrulla_por_la_linea({"patrullarSinPelota": True, "patrullaPorLaLinea": False})
+              and not patrulla_al_lateral({"patrullarSinPelota": True, "barridaActivada": True})
               and vuelta_con_la_linea({"buscarLineaDelAreaAlVolver": True})
               and not vuelta_con_la_linea({"buscarLineaDelAreaAlVolver": False}),
               "0921i: las cuentas de qué usa andan también con True/False (las reglas)")
@@ -11764,16 +12570,308 @@ def _autoprueba_partido(verificar, carpeta):
     verificar(all(n in FILA_PARTIDO for n in NUMEROS_LINEA_PARTIDO) and CAMPOS_PARTIDO[0] == "version"
               and CAMPOS_PARTIDO[-1] == "interruptores", "partido: los campos de la línea están en la tabla")
     verificar(VALORES_DE_FABRICA == {f[0]: f[3] for f in TABLA_PARTIDO}, "partido: VALORES_DE_FABRICA = la columna hoy")
-    respaldo = os.path.normpath(os.path.join(CARPETA, "..", "..", "respaldos", "partido-0921f", "partido-0921f.ino"))
-    if os.path.exists(respaldo):
+    # ---- A3. (2026-11-12) la 0921k: el despeje de la 0921j y LA BARRIDA ----
+    verificar(len(NUEVOS_EN_LA_0921J) == 11 and len(NUEVOS_EN_LA_0921K) == 18
+              and not set(NUEVOS_EN_LA_0921I) & set(NUEVOS_EN_LA_0921J)
+              and not (set(NUEVOS_EN_LA_0921I) | set(NUEVOS_EN_LA_0921J)) & set(NUEVOS_EN_LA_0921K)
+              and all(n in FILA_PARTIDO and n not in ORDEN_INTERRUPTORES and n not in NUMEROS_LINEA_PARTIDO
+                      for n in NUEVOS_EN_LA_0921J + NUEVOS_EN_LA_0921K),
+              "0921k: las 11 filas de la 0921j y las 18 de la 0921k, sin repetir y fuera de la línea #PARTIDO")
+    verificar(all(FILA_PARTIDO[n][8] == ("avanzado" if n == "MS_RAMPA_RUEDA" else "despeje") for n in NUEVOS_EN_LA_0921J)
+              and FILA_PARTIDO["MS_EXTRA_EMPUJON_DESPEJE"][8] == "despeje"
+              and all(FILA_PARTIDO[n][8] in ("barrida", "avanzado") for n in NUEVOS_EN_LA_0921K[1:])
+              and [f[0] for f in TABLA_PARTIDO if f[8] == "barrida"][:2] == ["barridaActivada",
+                                                                            "MS_SIN_PELOTA_PARA_BARRER"],
+              "0921k: lo del despeje en el grupo 3, la barrida en el grupo 5 (lo de casi nunca, en AVANZADO)")
+    claves = [g[0] for g in GRUPOS_PARTIDO]
+    verificar(claves == ["cancha", "interruptores", "despeje", "seguir", "barrida", "patrulla", "avanzado"]
+              and GRUPOS_PARTIDO[-1][2] and not any(g[2] for g in GRUPOS_PARTIDO[:-1])
+              and "BARRIDA" in dict((g[0], g[1]) for g in GRUPOS_PARTIDO)["barrida"],
+              "0921k: el grupo 5 es LA BARRIDA, antes de la patrulla vieja (AVANZADO último y plegado)")
+    del_despeje = [f[0] for f in TABLA_PARTIDO if f[8] == "despeje"]
+    orden = ("umbralCm", "msAdelante", "potenciaDespeje", "rampaEnCadaMotor", "PASO_RAMPA_RUEDA", "MS_PAUSA_MEDIO",
+             "enderezarAntesDeVolver", "GRADOS_DERECHO", "potenciaVueltaDespeje", "MS_MAX_VUELTA_DESPEJE",
+             "msEmpujonFinal", "MS_EXTRA_EMPUJON_DESPEJE", "potenciaRetroceso")
+    verificar([n for n in del_despeje if n in orden] == list(orden),
+              "0921k: el grupo 3 va en el orden en que despeja (ida, pausa, enderezarse, vuelta, empujoncito) %r" % (
+                  [n for n in del_despeje if n in orden],))
+    # lo que tiene HOY funciona/partido-0921 (la 0921k del 10/11, cargada y probada): los de fábrica del tablero
+    verificar({n: VALORES_DE_FABRICA[n] for n in NUEVOS_EN_LA_0921J + NUEVOS_EN_LA_0921K} == {
+        "rampaEnCadaMotor": "true", "PASO_RAMPA_RUEDA": "10", "MS_RAMPA_RUEDA": "10", "enderezarAntesDeVolver": "true",
+        "GRADOS_DERECHO": "3.0", "PWM_MIN_GIRO": "70", "PWM_MAX_GIRO": "85", "MS_TOPE_ENDEREZAR": "1500",
+        "MS_FRENO_ENDEREZADO": "150", "potenciaVueltaDespeje": "80", "MS_MAX_VUELTA_DESPEJE": "2500",
+        "MS_EXTRA_EMPUJON_DESPEJE": "70", "barridaActivada": "true", "MS_SIN_PELOTA_PARA_BARRER": "4000",
+        "barridaConTresRuedas": "true", "PWM_BARRIDA_TRES": "80", "PWM_BARRIDA": "90", "GRADOS_PASO_BARRIDA": "15.0",
+        "GRADOS_MAX_BARRIDA": "45.0", "MS_MIRAR_BARRIDA": "200", "CUADROS_PARA_VER_BARRIDA": "3",
+        "VEL_COSTADO_BARRIDA": "100", "MS_TOPE_COSTADO_BARRIDA": "1500", "MS_MIRAR_CENTRO_BARRIDA": "500",
+        "GRADOS_TOL_PASO_BARRIDA": "3.0", "MS_TOPE_PASO_BARRIDA": "1200", "GRADOS_DERECHO_BARRIDA": "3.0",
+        "MS_ASENTAR_BARRIDA": "300", "MS_PAUSA_COSTADO_BARRIDA": "300"}
+        and VALORES_DE_FABRICA["potenciaDespeje"] == "160" and VALORES_DE_FABRICA["msAdelante"] == "666"
+        and VALORES_DE_FABRICA["patrullarSinPelota"] == "false" and VALORES_DE_FABRICA["potenciaRetroceso"] == "110"
+        and VALORES_DE_FABRICA["MS_MAX_RETROCESO"] == "1500",
+        "0921k: los de fábrica son los de la 0921k (160 / 666, vuelta a 80 con tope 2500, la barrida a los 4 s)")
+    # los mínimos y máximos SEGUROS: de movimiento no menos de 70 (75 los que el .ino dice "parado no arranca"),
+    # ninguna fuerza pasa de 255, los giros de la barrida razonables
+    verificar(all(FILA_PARTIDO[n][5] >= 70 for n in ("potenciaVueltaDespeje", "PWM_MIN_GIRO", "PWM_MAX_GIRO",
+                                                      "PWM_BARRIDA_TRES"))
+              and all(FILA_PARTIDO[n][5] >= 75 for n in ("PWM_BARRIDA", "VEL_COSTADO_BARRIDA"))
+              and all(FILA_PARTIDO[n][6] <= 255 for n in ("potenciaVueltaDespeje", "PWM_MIN_GIRO", "PWM_MAX_GIRO",
+                                                          "PWM_BARRIDA_TRES", "PWM_BARRIDA", "VEL_COSTADO_BARRIDA"))
+              and FILA_PARTIDO["GRADOS_MAX_BARRIDA"][6] <= 60 and FILA_PARTIDO["GRADOS_MAX_BARRIDA"][5] >= 15
+              and 10 <= FILA_PARTIDO["GRADOS_PASO_BARRIDA"][5] and FILA_PARTIDO["GRADOS_PASO_BARRIDA"][6] <= 30
+              and FILA_PARTIDO["GRADOS_TOL_PASO_BARRIDA"][6] < FILA_PARTIDO["GRADOS_PASO_BARRIDA"][5] / 2.0
+              and FILA_PARTIDO["PASO_RAMPA_RUEDA"][5] >= 5 and FILA_PARTIDO["MS_RAMPA_RUEDA"][5] >= 5
+              and FILA_PARTIDO["MS_RAMPA_RUEDA"][6] <= 20
+              and FILA_PARTIDO["MS_SIN_PELOTA_PARA_BARRER"][5] >= 2000
+              and FILA_PARTIDO["MS_MAX_VUELTA_DESPEJE"][5] >= 1000 and FILA_PARTIDO["MS_MAX_VUELTA_DESPEJE"][6] <= 3500
+              and FILA_PARTIDO["MS_MAX_RETROCESO"][6] <= 2000,
+              "0921k: los rangos son seguros (fuerzas de 70 o 75 a 255, giros de la barrida de 10 a 30 y hasta 60)")
+    for malo in (("potenciaVueltaDespeje", "60"), ("PWM_BARRIDA_TRES", "65"), ("PWM_BARRIDA", "70"),
+                 ("VEL_COSTADO_BARRIDA", "300"), ("GRADOS_MAX_BARRIDA", "90"), ("GRADOS_PASO_BARRIDA", "5"),
+                 ("PASO_RAMPA_RUEDA", "0"), ("MS_RAMPA_RUEDA", "0"), ("MS_SIN_PELOTA_PARA_BARRER", "500"),
+                 ("barridaActivada", "2"), ("GRADOS_PASO_BARRIDA", "15,5x"), ("MS_EXTRA_EMPUJON_DESPEJE", "-10")):
+        verificar(validar_valor_partido(*malo)[1] is not None, "0921k: rechaza %s = %s" % malo)
+    verificar(validar_valor_partido("potenciaVueltaDespeje", "90") == (90, None)
+              and validar_valor_partido("GRADOS_PASO_BARRIDA", "10") == (10.0, None)
+              and validar_valor_partido("MS_EXTRA_EMPUJON_DESPEJE", "0") == (0, None)
+              and validar_valor_partido("barridaActivada", "false") == (False, None), "0921k: acepta lo bueno")
+    verificar(all(FILA_PARTIDO[n][9] and FILA_PARTIDO[n][11] for n in NUEVOS_EN_LA_0921J + NUEVOS_EN_LA_0921K)
+              and all(FILA_PARTIDO[n][10] for n in NUEVOS_EN_LA_0921J + NUEVOS_EN_LA_0921K
+                      if FILA_PARTIDO[n][8] != "avanzado"),
+              "0921k: cada fila nueva tiene qué es y atado (y las que se ven, para qué lado)")
+    # para qué lado, como dice el .ino (sus "si pasa")
+    verificar("tirón al salir → BAJAR" in FILA_PARTIDO["PASO_RAMPA_RUEDA"][10]
+              and "zigzag → SUBIR" in FILA_PARTIDO["potenciaVueltaDespeje"][10]
+              and "se pasa" in FILA_PARTIDO["PWM_MAX_GIRO"][9] and "BAJAR" in FILA_PARTIDO["PWM_MAX_GIRO"][10]
+              and "Zumba y no gira" in FILA_PARTIDO["PWM_BARRIDA_TRES"][10]
+              and "entre un paso y otro → BAJAR" in FILA_PARTIDO["GRADOS_PASO_BARRIDA"][10]
+              and "quieto mucho → BAJAR" in FILA_PARTIDO["MS_SIN_PELOTA_PARA_BARRER"][10]
+              and "no la ve → SUBIR" in FILA_PARTIDO["MS_MIRAR_BARRIDA"][10]
+              and "reflejo → SUBIR" in FILA_PARTIDO["CUADROS_PARA_VER_BARRIDA"][10]
+              and "medio del arco → BAJAR" in FILA_PARTIDO["MS_TOPE_COSTADO_BARRIDA"][10]
+              and "muy lejos de la línea → BAJAR" in FILA_PARTIDO["MS_EXTRA_EMPUJON_DESPEJE"][10]
+              and "3 × esto" in FILA_PARTIDO["GRADOS_PASO_BARRIDA"][11]
+              and "potenciaVueltaDespeje" in FILA_PARTIDO["MS_MAX_RETROCESO"][9] + FILA_PARTIDO["potenciaRetroceso"][9]
+              and "MS_MAX_VUELTA_DESPEJE" in FILA_PARTIDO["MS_MAX_RETROCESO"][9]
+              and "Gris si rampaEnCadaMotor = SÍ" in FILA_PARTIDO["pisoRampaIda"][11]
+              and "Gris si rampaEnCadaMotor = SÍ" in FILA_PARTIDO["rampaAlVolver"][11]
+              and "barridaConTresRuedas = SÍ" in FILA_PARTIDO["PWM_BARRIDA"][11]
+              and "BARRIDA" in FILA_PARTIDO["patrullarSinPelota"][9],
+              "0921k: los textos dicen para qué lado tocarlo (como el .ino) y qué queda gris")
+    verificar(CONFIRMAR_PARTIDO["barridaActivada"][0] == "false" and "QUIETO" in CONFIRMAR_PARTIDO["barridaActivada"][1]
+              and "barrida" in CONFIRMAR_PARTIDO["enderezarActivado"][1],
+              "0921k: apagar la barrida pide confirmar (de fábrica quedaría quieto)")
+    verificar(not set(FIJOS_DE_LA_0921K) & set(FILA_PARTIDO) and "PASOS_BARRIDA" in FIJOS_DE_LA_0921K
+              and {"barridaActivada", "barridaConTresRuedas", "MS_RAMPA_RUEDA", "MS_MIRAR_CENTRO_BARRIDA",
+                   "enderezarAntesDeVolver", "potenciaVueltaDespeje"} <= set(SUBTITULOS_PARTIDO),
+              "0921k: el arreglo PASOS_BARRIDA y los seguros NO están en la tabla")
+    # las grises de la 0921k, de fábrica: la patrulla vieja (la barrida la reemplaza), la rampa general, PWM_BARRIDA
+    grises_k = {n for n in ORDEN_PARTIDO if fila_no_aplica(n, fab_k)}
+    verificar({"patrullarSinPelota", "MS_QUIETO_PARA_PATRULLAR", "MS_SIN_PELOTA_PARA_PATRULLAR", "patrullaPorLaLinea",
+               "patrullaPorElLateral", "alternarLadoPatrulla", "PWM_CUENTA_COMO_MOVERSE", "pisoRampaIda",
+               "rampaAlVolver", "PWM_BARRIDA"} <= grises_k
+              and not grises_k & ({"PASO_RAMPA_RUEDA", "MS_RAMPA_RUEDA", "GRADOS_DERECHO", "PWM_MIN_GIRO",
+                                   "potenciaVueltaDespeje", "MS_MAX_VUELTA_DESPEJE", "MS_EXTRA_EMPUJON_DESPEJE",
+                                   "CUADROS_PARA_CORTAR_PATRULLA", "buscarLineaDelAreaAlVolver", "MS_AVANCE_10CM",
+                                   "MS_PUNTA_A_PUNTA_FIJO", "VEL_LINEA", "LECTURAS_PARA_CREER_LATERAL",
+                                   "potenciaRetroceso", "MS_MAX_RETROCESO", "barridaActivada"}
+                                  | (set(NUEVOS_EN_LA_0921K) - {"PWM_BARRIDA"})),
+              "0921k: de fábrica, gris la patrulla vieja, la rampa general y PWM_BARRIDA (%r)" % sorted(grises_k)[:6])
+    verificar(not fila_no_aplica("pisoRampaIda", dict(fab_k, rampaEnCadaMotor="false"))
+              and not fila_no_aplica("rampaAlVolver", dict(fab_k, rampaEnCadaMotor="false"))
+              and not fila_no_aplica("PASO_RAMPA_RUEDA", dict(fab_k, rampaEnCadaMotor="false"))
+              and fila_no_aplica("PASO_RAMPA_RUEDA", dict(fab_k, rampaEnCadaMotor="false", enderezarAntesDeVolver="false"))
+              and fila_no_aplica("MS_RAMPA_RUEDA", dict(fab_k, rampaEnCadaMotor="false", enderezarActivado="false")),
+              "0921k: rampaEnCadaMotor NO: vuelve la rampa general; la de cada motor solo la usa enderezarse")
+    verificar(all(fila_no_aplica(n, dict(fab_k, enderezarAntesDeVolver="false")) for n in (
+        "GRADOS_DERECHO", "PWM_MIN_GIRO", "PWM_MAX_GIRO", "MS_TOPE_ENDEREZAR", "MS_FRENO_ENDEREZADO"))
+              and fila_no_aplica("GRADOS_DERECHO", dict(fab_k, enderezarActivado="false"))
+              and fila_no_aplica("MS_EXTRA_EMPUJON_DESPEJE", dict(fab_k, empujonFinal="false"))
+              and not fila_no_aplica("MS_EXTRA_EMPUJON_DESPEJE", dict(fab_k, avanzarAlUbicarse="false")),
+              "0921k: sin enderezarse antes de volver, lo de enderezarse gris; sin empujonFinal, los 3 cm de más")
+    tres_no = dict(fab_k, barridaConTresRuedas="false")
+    sin_barrida = dict(fab_k, barridaActivada="false")
+    verificar(not fila_no_aplica("PWM_BARRIDA", tres_no) and fila_no_aplica("PWM_BARRIDA_TRES", tres_no)
+              and all(fila_no_aplica(n, sin_barrida) for n in NUEVOS_EN_LA_0921K[2:])
+              and not fila_no_aplica("barridaActivada", sin_barrida)
+              and not fila_no_aplica("patrullarSinPelota", sin_barrida)
+              and fila_no_aplica("MS_QUIETO_PARA_PATRULLAR", sin_barrida)
+              and not fila_no_aplica("MS_QUIETO_PARA_PATRULLAR", dict(sin_barrida, patrullarSinPelota="true"))
+              and fila_no_aplica("CUADROS_PARA_CORTAR_PATRULLA", dict(fab_k, volverAlMedioEnElLateral="false")),
+              "0921k: una rueda o tres; sin barrida, la barrida gris y vuelve a mandar patrullarSinPelota")
+    # las reglas de la 0921k (con la fábrica de la 0921k, solo la N1: lo controla la parte E)
+    verificar("E9" in cods({"PWM_MIN_GIRO": "100", "PWM_MAX_GIRO": "90"}, fab_k)
+              and [n for n, _, _, c in _reglas_con_codigo(dict(fab_k, PWM_MIN_GIRO="100", PWM_MAX_GIRO="90"), fab_k)
+                   if c == "E9"] == ["error"],
+              "0921k: E9 (PWM_MIN_GIRO más que PWM_MAX_GIRO) es un ERROR")
+    verificar("O2" not in cods({}, fab_k) and "O2" not in cods({"msAdelante": "700"}, fab_k)
+              and "O2" in cods({"MS_MAX_VUELTA_DESPEJE": "1500"}, fab_k)
+              and "O2" in cods({"potenciaVueltaDespeje": "90", "MS_MAX_VUELTA_DESPEJE": "1500"}, fab_k)
+              and "O2" not in cods({"MS_MAX_RETROCESO": "800"}, fab_k)
+              and "O2" in cods({"msAdelante": "700"}, fabrica_de("0921i")),
+              "0921k: O2 mira el tope de la vuelta DEL DESPEJE (MS_MAX_VUELTA_DESPEJE a potenciaVueltaDespeje); la 0921i, "
+              "MS_MAX_RETROCESO")
+    verificar("E5" in cods({"potenciaDespeje": "200", "umbralCm": "45.0", "msAdelante": "400"}, fab_k)
+              and "E5" not in cods({"msAdelante": "400"}, fab_k) and "O14" in cods({"msAdelante": "400"}, fab_k)
+              and "O1" in cods({"msAdelante": "500"}, fab_k) and not {"O1", "O14", "E5"} & cods({}, fab_k)
+              and "E5" in cods({"umbralCm": "45.0", "msAdelante": "400"}, fabrica_de("0921i")),
+              "0921k: a 200 la ida es lo MEDIDO (E5); a 160 es una CUENTA (O14 / O1), y 666 llega a ~50 cm")
+    verificar(abs(cm_de_la_ida(666, 160) - 50.0) < 0.1 and abs(cm_de_la_ida(533, 200) - 50.0) < 0.1
+              and cm_de_la_ida(533) == 533 / 10.0 - 3.3, "0921k: la cuenta de la ida (533 a 200 = 666 a 160 = 50 cm)")
+    verificar("O7" in cods({"potenciaDespeje": "150"}, fab_k) and "O7" in cods({"PASO_RAMPA_RUEDA": "5"}, fab_k)
+              and "O7" not in cods({"RAMPA_MOV_PASO": "8"}, fab_k)
+              and "O7" in cods({"RAMPA_MOV_PASO": "8"}, dict(fab_k, rampaEnCadaMotor="false"))
+              and "O7" in cods({"rampaEnCadaMotor": "false"}, fab_k),
+              "0921k: O7 (la ida llega a otro lado) con la fuerza o la rampa que usa la ida")
+    verificar("O13" not in cods({}, fab_k) and "O13" in cods({"barridaActivada": "false"}, fab_k)
+              and "O13" not in cods({"barridaActivada": "false", "patrullarSinPelota": "true"}, fab_k)
+              and "O13" in cods({"patrullarSinPelota": "false"}, fabrica_de("0921i"))
+              and "N3" not in cods({"MS_QUIETO_PARA_PATRULLAR": "6000"}, fab_k)
+              and "N3" in cods({"MS_QUIETO_PARA_PATRULLAR": "6000"}, fab0),
+              "0921k: O13 solo sin barrida Y sin patrulla; la N3 (patrulla seguida) solo con la patrulla vieja")
+    verificar("O23" in cods({"GRADOS_PASO_BARRIDA": "10"}, fab_k) and "O23" not in cods({}, fab_k)
+              and "O23" not in cods({"GRADOS_PASO_BARRIDA": "10"}, sin_barrida)
+              and "O24" in cods({"volverAlMedioEnElLateral": "false"}, fab_k)
+              and "O24" not in cods({"volverAlMedioEnElLateral": "false"}, sin_barrida)
+              and "O25" in cods({"MS_ASENTAR_BARRIDA": "150"}, fab_k),
+              "0921k: O23 (los pasos no llegan a GRADOS_MAX_BARRIDA), O24 (barrida sin límite lateral), O25")
+    verificar("N4" in cods({"patrullarSinPelota": "true"}, fab_k) and "N4" not in cods({}, fab_k)
+              and "N4" not in cods({}, fab0) and "O13" not in cods({"patrullarSinPelota": "true"}, fab_k),
+              "0921k: N4 (patrullarSinPelota SÍ con la barrida no hace nada)")
+    o23 = [t for _, t, _, c in _reglas_con_codigo(dict(fab_k, GRADOS_PASO_BARRIDA="10"), fab_k) if c == "O23"]
+    verificar(o23 and "±30" in o23[0] and "15" in o23[0], "0921k: O23 dice hasta dónde barre (%r)" % o23)
+    # ---- (2026-11-12, revisión) la rampa de cada motor: rangos más seguros y O26 / O27 (sin cambio()) ----
+    for malo in (("PASO_RAMPA_RUEDA", "2"), ("PASO_RAMPA_RUEDA", "4"), ("MS_RAMPA_RUEDA", "30"),
+                 ("MS_RAMPA_RUEDA", "21")):
+        verificar(validar_valor_partido(*malo)[1] is not None, "revisión: rechaza %s = %s" % malo)
+    verificar(validar_valor_partido("PASO_RAMPA_RUEDA", "5") == (5, None)
+              and validar_valor_partido("MS_RAMPA_RUEDA", "20") == (20, None),
+              "revisión: PASO_RAMPA_RUEDA desde 5 (el doble de suave) y MS_RAMPA_RUEDA hasta 20")
+    verificar(ms_de_subida(160, 10, 10) == 160 and ms_de_subida(160, 5, 20) == 640 and ms_de_subida(80, 5, 20) == 320
+              and ms_de_subida(70, 3, 10) == 240 and ms_de_subida(0, 10, 10) == 0,
+              "revisión: la cuenta de la rampa (fuerza / paso, para arriba, × ms)")
+    lenta = dict(fab_k, PASO_RAMPA_RUEDA="5", MS_RAMPA_RUEDA="20")
+    verificar("O26" in cods({"PASO_RAMPA_RUEDA": "5", "MS_RAMPA_RUEDA": "20"}, fab_k)
+              and "O26" in {c for _, _, _, c in _reglas_con_codigo(lenta, lenta)}
+              and "O26" not in cods({}, fab_k) and "O26" not in cods({"PASO_RAMPA_RUEDA": "5"}, fab_k)
+              and "O26" in cods({"rampaEnCadaMotor": "false", "RAMPA_MOV_PASO": "2"}, fab_k)
+              and "O26" not in cods({"rampaEnCadaMotor": "false"}, fab_k)
+              and "O26" not in {c for _, _, _, c in _reglas_con_codigo(fabrica_de("0921i"), fabrica_de("0921i"))},
+              "revisión: O26 (la ida pasa más de la mitad subiendo) sale TAMBIÉN después de guardar")
+    o26 = [t for _, t, _, c in _reglas_con_codigo(lenta, lenta) if c == "O26"]
+    verificar(o26 and "640" in o26[0] and "CANCHA paso 5 NO lo ve" in o26[0] and "10 y 10" in o26[0],
+              "revisión: O26 dice cuánto tarda en subir y que CANCHA no lo mide (%r)" % o26)
+    o7 = [t for _, t, _, c in _reglas_con_codigo(dict(fab_k, PASO_RAMPA_RUEDA="5"), fab_k) if c == "O7"]
+    o7f = [t for _, t, _, c in _reglas_con_codigo(dict(fab_k, potenciaDespeje="150"), fab_k) if c == "O7"]
+    verificar(o7 and "CANCHA paso 5 NO lo ve" in o7[0] and o7f and "CANCHA paso 5, con los números" in o7f[0],
+              "revisión: O7 con la rampa de cada motor NO manda a medir a CANCHA (tablero.ino no la tiene)")
+    verificar("O27" in cods({"PASO_RAMPA_RUEDA": "5", "MS_RAMPA_RUEDA": "20", "MS_TOPE_PASO_BARRIDA": "500"}, fab_k)
+              and "O27" not in cods({"PASO_RAMPA_RUEDA": "5", "MS_RAMPA_RUEDA": "20", "MS_TOPE_PASO_BARRIDA": "500"},
+                                    dict(fab_k, barridaActivada="false"))
+              and "O27" in cods({"PASO_RAMPA_RUEDA": "5", "MS_RAMPA_RUEDA": "20", "MS_TOPE_ENDEREZAR": "500"},
+                                dict(fab_k, barridaActivada="false"))
+              and "O27" not in cods({"PASO_RAMPA_RUEDA": "5", "MS_RAMPA_RUEDA": "20", "MS_TOPE_ENDEREZAR": "500"},
+                                    dict(fab_k, barridaActivada="false", enderezarAntesDeVolver="false"))
+              and "O27" not in cods({}, fab_k) and "O27" not in cods({"PASO_RAMPA_RUEDA": "5", "MS_RAMPA_RUEDA": "20"},
+                                                                   fab_k),
+              "revisión: O27 (los giros de la barrida y de enderezarse arrancan con una rampa muy lenta)")
+    o27 = [(t, ns) for _, t, ns, c in _reglas_con_codigo(dict(lenta, MS_TOPE_PASO_BARRIDA="500"), lenta)
+           if c == "O27"]
+    verificar(o27 and "barrida" in o27[0][0] and "PWM_BARRIDA_TRES" in o27[0][1] and "MS_RAMPA_RUEDA" in o27[0][1],
+              "revisión: O27 nombra la barrida y pinta sus filas (%r)" % o27)
+    verificar("BARRIDA" in FILA_PARTIDO["PASO_RAMPA_RUEDA"][11] and "BARRIDA" in FILA_PARTIDO["MS_RAMPA_RUEDA"][11]
+              and "O26" in FILA_PARTIDO["PASO_RAMPA_RUEDA"][11],
+              "revisión: el ATADO de la rampa de cada motor nombra la barrida")
+    # ---- (2026-11-12, revisión) subir GRADOS_PASO_BARRIDA NO apura la vuelta (siempre 7 paradas) ----
+    verificar("NO es esto" in FILA_PARTIDO["GRADOS_PASO_BARRIDA"][10]
+              and "tarda demasiado → SUBIR" not in FILA_PARTIDO["GRADOS_PASO_BARRIDA"][10]
+              and "MS_MIRAR_BARRIDA" in FILA_PARTIDO["GRADOS_PASO_BARRIDA"][10]
+              and "Y GRADOS_PASO_BARRIDA" in FILA_PARTIDO["GRADOS_MAX_BARRIDA"][10],
+              "revisión: GRADOS_PASO_BARRIDA no dice 'tarda demasiado → SUBIR'; GRADOS_MAX_BARRIDA pide subir los dos")
+    n5 = [t for _, t, _, c in _reglas_con_codigo(dict(fab_k, GRADOS_PASO_BARRIDA="20.0"), fab_k) if c == "N5"]
+    n5b = [t for _, t, _, c in _reglas_con_codigo(dict(fab_k, GRADOS_PASO_BARRIDA="30.0"), fab_k) if c == "N5"]
+    verificar(n5 and "±20, ±40 y ±45" in n5[0] and "5°" in n5[0] and "NO es más rápida" in n5[0]
+              and n5b and "no gira nada" in n5b[0] and "N5" not in cods({}, fab_k)
+              and "N5" not in cods({"GRADOS_PASO_BARRIDA": "20.0"}, dict(fab_k, barridaActivada="false"))
+              and "N5" not in cods({"GRADOS_PASO_BARRIDA": "20.0", "GRADOS_MAX_BARRIDA": "60.0"}, fab_k),
+              "revisión: N5 (3 × el paso pasa el máximo: el último paso se recorta) %r %r" % (n5, n5b))
+    # ---- (2026-11-12, revisión) MOVIMIENTOS 8 y 9 tampoco son "como el partido" (la 0921k) ----
+    m9, m8, m6 = MOV_POR_NUMERO[9], MOV_POR_NUMERO[8], MOV_POR_NUMERO[6]
+    verificar("VIEJO" in m9["boton"] and "0921k" in m9["titulo"] and "NO como la 0921k" in m9["que_hace"]
+              and "NO mira" in m9["que_hace"] and "medirAntesDeDespejar" in m9["que_hace"]
+              and "VIEJO" in m9["que_hace"] and not m9["que_hace"].startswith("Como el partido")
+              and m9["nombre"] == "ATAJAR" and "POR TIEMPO" in m8["que_hace"],
+              "revisión: MOVIMIENTOS 9 dice que su despeje es el VIEJO y que la 0921k no mira; el 8 vuelve por tiempo")
+    verificar("como la 0921i" not in m6["que_hace"] and "MÁS viejo que la 0921i" in m6["que_hace"]
+              and "1200" in m6["que_hace"] and "umbralBlanco" in m6["que_hace"],
+              "revisión: MOVIMIENTOS 6 no dice 'como la 0921i' (corta a 1200, vuelve sin rampa)")
+    con_partido = dict(VALORES_DE_MENTIRA, msAdelante="666", potenciaDespeje="160")
+    verificar(any("despeje VIEJO" in a for a in avisos_de_numeros(con_partido, codigo=6))
+              and any("despeje VIEJO" in a for a in avisos_de_numeros(con_partido, codigo=9))
+              and not any("despeje VIEJO" in a for a in avisos_de_numeros(con_partido, codigo=10))
+              and not any("despeje VIEJO" in a for a in avisos_de_numeros(VALORES_DE_MENTIRA, codigo=6))
+              and _vuelta_del_despeje_viejo(con_partido) == 1279 and _vuelta_del_despeje_viejo(None) is None,
+              "revisión: con 666 a 160 avisa que el despeje VIEJO (6 y 9) corta a los 1200 antes de la línea")
+    sin_linea_6 = interpretar(R_6.replace("como=NORMAL", "como=SIN_LINEA").replace("lineams=905", "lineams=0"))
+    fr = [f for f, _ in explicar_informe(sin_linea_6, valores=con_partido)]
+    fr0 = [f for f, _ in explicar_informe(sin_linea_6, valores=VALORES_DE_MENTIRA)]
+    verificar(any("NO umbralBlanco" in f for f in fr) and not any("NO umbralBlanco" in f for f in fr0)
+              and any("NO vio la línea" in f for f in fr0),
+              "revisión: si el 6 no vio la línea con 666 a 160, dice que es el tope del despeje VIEJO")
+    # las versiones de la 0921k: la 0921j, la 0921i y la 0921g son ANTERIORES
+    verificar(ORDEN_VERSIONES[-1] == VERSION_PARTIDO_HOY == "0921k"
+              and all(que_version_es(x) == "ANTERIOR" for x in ("0921j", "0921i", "0921g"))
+              and filas_que_no_tenia(VERSION_PARTIDO_HOY) == set() and filas_que_no_tenia("0921h") == set()
+              and filas_que_no_tenia("0921j") == set(NUEVOS_EN_LA_0921K)
+              and filas_que_no_tenia("0921i") == set(NUEVOS_EN_LA_0921J) | set(NUEVOS_EN_LA_0921K)
+              and filas_que_no_tenia(None) == filas_que_no_tenia("0921g"),
+              "0921k: qué filas no tenía cada versión de antes")
+    fab_j, fab_i = fabrica_de("0921j"), fabrica_de("0921i")
+    verificar({n for n in fab_j if fab_j[n] != VALORES_DE_FABRICA[n]} == {"patrullarSinPelota"}
+              and fab_j["patrullarSinPelota"] == "true" and not set(NUEVOS_EN_LA_0921K) & set(fab_j)
+              and {n for n in fab_i if fab_i[n] != VALORES_DE_FABRICA[n]} == {"patrullarSinPelota", "potenciaDespeje",
+                                                                                "msAdelante"}
+              and fab_i["potenciaDespeje"] == "200" and fab_i["msAdelante"] == "533"
+              and not (set(NUEVOS_EN_LA_0921J) | set(NUEVOS_EN_LA_0921K)) & set(fab_i),
+              "0921k: la fábrica de la 0921j (patrulla SÍ) y de la 0921i (200 / 533, patrulla SÍ)")
+    verificar(cambiados_por_la_version("0921i", VERSION_PARTIDO_HOY) == {"patrullarSinPelota", "potenciaDespeje",
+                                                                          "msAdelante"}
+              and cambiados_por_la_version("0921j", VERSION_PARTIDO_HOY) == {"patrullarSinPelota"},
+              "0921k: lo que cambió la versión desde la 0921i y desde la 0921j")
+    # (2026-11-12) MOVIMIENTOS 6 es el despeje VIEJO (tablero.ino no tiene el de la 0921k), y lo dice clarito
+    m6 = MOV_POR_NUMERO[6]
+    verificar("VIEJO" in m6["boton"] and "VIEJO" in m6["titulo"] and "0921k" in m6["titulo"]
+              and "VIEJO" in m6["que_hace"] and "potenciaVueltaDespeje" in m6["que_hace"]
+              and "PARTIDO" in m6["que_hace"] and m6["nombre"] == "DESPEJE",
+              "0921k: MOVIMIENTOS 6 dice que es el despeje VIEJO y que el de la 0921k se prueba con el PARTIDO")
+    ino_tablero = os.path.join(CARPETA, "tablero.ino")
+    if os.path.exists(ino_tablero):
+        with open(ino_tablero, encoding="utf-8", errors="replace") as f:      # solo LEERLO
+            cod_tablero = _sin_comentarios(f.read())
+        verificar("el despeje VIEJO (0.1103)" in cod_tablero and "potenciaVueltaDespeje" not in cod_tablero
+                  and "rampaEnCadaMotor" not in cod_tablero and "barridaActivada" not in cod_tablero,
+                  "0921k: tablero.ino sigue con el despeje VIEJO (si alguien le copia el de la 0921k, cambiar los "
+                  "textos de MOVIMIENTOS 6 y DISENO 16.12)")
+    # los respaldos (solo LEERLOS): la 0921f, la 0921i y la 0921j congeladas en respaldos/
+    for version, nombre_resp in ((None, "partido-0921f"), ("0921i", "partido-0921i"), ("0921j", "partido-0921j")):
+        respaldo = os.path.normpath(os.path.join(CARPETA, "..", "..", "respaldos", nombre_resp, nombre_resp + ".ino"))
+        if not os.path.exists(respaldo):
+            continue
         with open(respaldo, "rb") as fr:           # solo LEERLO
             r0 = leer_partido(fr.read().decode("utf-8"))
-        # (2026-11-09) la 0921i = la 0921f + lo de FABRICA_DE_ANTES: la 0921f no tiene lo nuevo.
-        verificar(r0["valores"] == fabrica_de(None) and sorted(r0["faltan"]) == sorted(NUEVOS_EN_LA_0921I)
-                  and r0["version"] is None,
-                  "partido: la fábrica es la 0921f congelada en respaldos + lo de la 0921i (%r)" % r0["faltan"][:3])
-        verificar(avisos_de_la_lectura(r0) and all(n == "ojo" for n, _ in avisos_de_la_lectura(r0)),
-                  "0921i: un archivo 0921f no da ERROR por lo que no tenía (solo ojo)")
+        verificar(r0["version"] == version and r0["valores"] == fabrica_de(version)
+                  and sorted(r0["faltan"]) == sorted(filas_que_no_tenia(version)) and not r0["raros"]
+                  and not r0["repetidos"] and not r0["problemas"] and r0["sello"] in (None, "fabrica"),
+                  "partido: el respaldo %s es la fábrica de la %s menos lo que no tenía (%r)" % (
+                      nombre_resp, version or "0921f", [(n, r0["valores"].get(n), fabrica_de(version).get(n))
+                                                         for n in ORDEN_PARTIDO if r0["valores"].get(n)
+                                                         != fabrica_de(version).get(n)][:3]))
+        av = avisos_de_la_lectura(r0)
+        verificar(av and all(n == "ojo" for n, _ in av) and "ANTERIOR" in av[0][1],
+                  "partido: un archivo %s no da ERROR por lo que no tenía (solo ojo): %r" % (nombre_resp, av))
+        reglas0 = [c for _, _, _, c in _reglas_con_codigo(r0["valores"], r0["valores"])]
+        verificar(reglas0 == (["E6", "N1"] if version is None else ["N1"]),
+                  "partido: con su fábrica, el respaldo %s solo da %r" % (nombre_resp, reglas0))
     # ---- B. Leer ----
     sint = _ino_sintetico()
     r = leer_partido(sint)
@@ -11784,10 +12882,11 @@ def _autoprueba_partido(verificar, carpeta):
               "partido: el sintético da los de fábrica")
     verificar(avisos_de_la_lectura(r) == [], "partido: el sintético no da avisos de lectura")
     # (2026-11-09) uno de la 0921g (la ANTERIOR): se lee, lo nuevo "falta" sin ser error, y se escribe lo demás
-    sint_g = _ino_sintetico(sin=NUEVOS_EN_LA_0921I, version="0921g", valores=fabrica_de("0921g"))
+    # (2026-11-12) "lo nuevo" = lo de la 0921i, la 0921j y la 0921k (filas_que_no_tenia)
+    sint_g = _ino_sintetico(sin=filas_que_no_tenia("0921g"), version="0921g", valores=fabrica_de("0921g"))
     rg = leer_partido(sint_g)
     verificar(rg["version"] == "0921g" and rg["valores"] == fabrica_de("0921g") and sorted(rg["faltan"]) ==
-              sorted(NUEVOS_EN_LA_0921I) and not rg["raros"] and not rg["problemas"], "0921g: se lee entera")
+              sorted(filas_que_no_tenia("0921g")) and not rg["raros"] and not rg["problemas"], "0921g: se lee entera")
     av = avisos_de_la_lectura(rg)
     verificar(len(av) == 1 and av[0][0] == "ojo" and "ANTERIOR" in av[0][1] and "VEL_LINEA" in av[0][1],
               "0921g: lo que no tiene es un OJO, no un ERROR (%r)" % (av,))
@@ -11796,8 +12895,28 @@ def _autoprueba_partido(verificar, carpeta):
               and [c for _, _, _, c in _reglas_con_codigo(fabrica_de("0921g"), fabrica_de("0921g")) if c == "E6"]
               == ["E6"], "0921g: MS_AVISO_ARMADO 2000 da E6 (mínimo de la 0921i) y el OJO de la versión lo explica")
     verificar("MS_AVISO_ARMADO" not in avisos_de_la_lectura(leer_partido(_ino_sintetico(
-        sin=NUEVOS_EN_LA_0921I, version="0921g", valores=dict(fabrica_de("0921g"), MS_AVISO_ARMADO="3000"))))[0][1],
+        sin=filas_que_no_tenia("0921g"), version="0921g", valores=dict(fabrica_de("0921g"), MS_AVISO_ARMADO="3000"))))[0][1],
               "0921g: con MS_AVISO_ARMADO 3000 el OJO no lo nombra")
+    # (2026-11-12) una 0921j y una 0921i (ANTERIORES): igual, lo que no tienen es un OJO y lo demás se escribe
+    for version in ("0921j", "0921i"):
+        sint_v = _ino_sintetico(sin=filas_que_no_tenia(version), version=version, valores=fabrica_de(version))
+        rv = leer_partido(sint_v)
+        av = avisos_de_la_lectura(rv)
+        verificar(rv["version"] == version and rv["valores"] == fabrica_de(version)
+                  and sorted(rv["faltan"]) == sorted(filas_que_no_tenia(version)) and len(av) == 1 and av[0][0] == "ojo"
+                  and "ANTERIOR" in av[0][1] and "barridaActivada" in av[0][1]
+                  and ("potenciaVueltaDespeje" in av[0][1]) == (version == "0921i"),
+                  "%s: se lee entera y lo que no tiene es un OJO (%r)" % (version, av))
+        verificar(escribir_partido(sint_v, rv, {"kpLateral": "12"})[1] == [("kpLateral", "11.5", "12.0")],
+                  "%s: lo demás se escribe igual" % version)
+        try:
+            escribir_partido(sint_v, rv, {"barridaActivada": "false"})
+            verificar(False, "%s: barridaActivada no está: no se escribe" % version)
+        except NoSeEscribe:
+            pass
+    av = avisos_de_la_lectura(leer_partido(_ino_sintetico(sin=("barridaActivada", "potenciaVueltaDespeje"))))
+    verificar(len(av) == 1 and av[0][0] == "error" and "barridaActivada" in av[0][1],
+              "0921k: si a la 0921k le falta barridaActivada, ESO sí es error")
     verificar(escribir_partido(sint_g, rg, {"kpLateral": "12"})[1] == [("kpLateral", "11.5", "12.0")],
               "0921g: lo demás se escribe igual")
     try:
@@ -11832,6 +12951,30 @@ def _autoprueba_partido(verificar, carpeta):
                          if not mismo_valor(n, rr["valores"][n], VALORES_DE_FABRICA[n])]
             verificar(not distintos, "partido: el de verdad dice sello=fabrica y NO tiene los de fábrica de la tabla "
                                      "(nombre, archivo, tabla): %r" % distintos[:5])
+        # (2026-11-12) Y el DE VERDAD (funciona/partido-0921, el que está en RUTAS_QUE_NO_SE_ESCRIBEN), SOLO
+        # LEÍDO: tiene que ser la 0921k, y con sello=fabrica, con los de la tabla (lo nuevo de la 0921j y la 0921k
+        # también: la barrida, el despeje de la estrategia 2 y los 3 cm de más).
+        de_verdad = next(iter(RUTAS_QUE_NO_SE_ESCRIBEN), None)
+        if de_verdad and os.path.exists(de_verdad):
+            with open(de_verdad, "rb") as fr:           # solo LEERLO
+                datos_vdd = fr.read()
+            rv = leer_partido(datos_vdd.decode("utf-8"))
+            verificar(datos_vdd == datos_real, "partido: la copia de la temporal es igual al de verdad")
+            verificar(rv["version"] == "0921k" and not rv["faltan"] and not rv["raros"] and not rv["repetidos"]
+                      and not rv["problemas"], "partido: el de verdad es la 0921k y se lee entero (%r, faltan %r)" % (
+                          rv["version"], rv["faltan"][:4]))
+            if rv["sello"] == "fabrica":
+                nuevos = NUEVOS_EN_LA_0921J + NUEVOS_EN_LA_0921K + ("potenciaDespeje", "msAdelante",
+                                                                    "patrullarSinPelota")
+                distintos = [(n, rv["valores"][n], VALORES_DE_FABRICA[n]) for n in ORDEN_PARTIDO
+                             if not mismo_valor(n, rv["valores"][n], VALORES_DE_FABRICA[n])]
+                verificar(not distintos and all(rv["valores"][n] == VALORES_DE_FABRICA[n] for n in nuevos),
+                          "partido: la 0921k de verdad (sello=fabrica) NO tiene los valores de la tabla: %r" % (
+                              distintos[:5],))
+                verificar(comparar_con_robot(interpretar(LINEA_PARTIDO_FABRICA), rv) == ("IGUAL", []),
+                          "partido: la #PARTIDO de fábrica de la tabla es la que diría la 0921k de verdad")
+            else:
+                print("    (el partido de verdad tiene el sello %s, no 'fabrica': no comparo con la tabla)" % rv["sello"])
         # lo que los textos del grupo 5 dan por hecho de cómo lo usa la 0921i
         cod = _sin_comentarios(datos_real.decode("utf-8"))
         for que, como in (("la vuelta con la línea va la mitad del ancho, a VEL_LINEA",
@@ -11856,14 +12999,72 @@ def _autoprueba_partido(verificar, carpeta):
                           ("MEDIO_AL_AREA va atrás hasta ver la línea",
                            r"case MEDIO_AL_AREA:\s*digitalWrite\([^;]*;\s*atrasControlado\(VEL_MEDIO_RECTO\);\s*"
                            r"if \(algunoDeAtrasVeBlanco\(\)\)"),
-                          ("el empujoncito del final es msEmpujonFinal",
+                          # (2026-11-12) en la 0921k, + MS_EXTRA_EMPUJON_DESPEJE solo después del despeje
+                          ("el empujoncito del final es msEmpujonFinal (+ los 3 cm solo después del despeje)",
                            r"adelanteControlado\(potenciaEmpujon\);\s*if \(ahora - t_fase >= \(unsigned long\)"
-                           r"msEmpujonFinal\)")):
-            verificar(re.search(como, cod), "partido: la 0921i ya no hace lo que dice el grupo 5 (%s): revisar "
+                           r"msEmpujonFinal\s*\+ \(empujonDeArranque \? 0UL : MS_EXTRA_EMPUJON_DESPEJE\)\)")):
+            verificar(re.search(como, cod), "partido: la 0921k ya no hace lo que dice el grupo 6 (%s): revisar "
                                             "TABLA_PARTIDO" % que)
+        # (2026-11-12) lo que los textos de los grupos 3 y 5 dan por hecho de cómo lo usa la 0921k
+        caso_vuelta = cod.split("case ATRAS_HASTA_LINEA: {", 1)[-1].split("case FRENANDO:", 1)[0]
+        verificar("MS_MAX_RETROCESO" not in caso_vuelta and "atrasEnDiagonal(potenciaRetroceso" not in cod
+                  and "MS_MAX_VUELTA_DESPEJE" in caso_vuelta,
+                  "partido: la vuelta del despeje de la 0921k NO usa MS_MAX_RETROCESO ni potenciaRetroceso")
+        for que, como in (("la vuelta del despeje va a potenciaVueltaDespeje, con la rampa de cada motor o la general",
+                           r"if \(rampaEnCadaMotor\) atrasEnDiagonalSuave\(potenciaVueltaDespeje, lateralVuelta\);\s*"
+                           r"else\s+atrasEnDiagonal\(potenciaVueltaDespeje, lateralVuelta\);"),
+                          ("su tope es MS_MAX_VUELTA_DESPEJE", r"if \(ahora - t_fase >= MS_MAX_VUELTA_DESPEJE\) \{"),
+                          ("la ida con rampaEnCadaMotor (si no, la general y pisoRampaIda)",
+                           r"avanzarPersiguiendoSuave\(pwmAvanceDespeje, lateral\);\s*\} else \{\s*"
+                           r"avanzarPersiguiendo\(pwmAvanceDespeje, lateral\);"),
+                          ("rampaAlVolver solo sin rampaEnCadaMotor",
+                           r"if \(rampaEnCadaMotor\) \{\s*reiniciarRuedas\(\);\s*reiniciarCorreccion\(\);\s*"
+                           r"\} else if \(rampaAlVolver\)"),
+                          ("se endereza antes de volver solo con enderezarAntesDeVolver y enderezarActivado",
+                           r"if \(enderezarAntesDeVolver && enderezarActivado && rumboBase >= 0"),
+                          ("enderezarse: GRADOS_DERECHO o el tope, y después el freno",
+                           r"if \(fabs\(e\) <= GRADOS_DERECHO \|\| ahora - t_fase >= MS_TOPE_ENDEREZAR\)"),
+                          ("enderezarse: entre PWM_MIN_GIRO y PWM_MAX_GIRO, con la rampa de cada motor SIEMPRE",
+                           r"if \(abs\(g\) < PWM_MIN_GIRO\)[^;]*;\s*if \(abs\(g\) > PWM_MAX_GIRO\)[^;]*;\s*"
+                           r"aplicarSuave\(g, g, g\);"),
+                          ("frena MS_FRENO_ENDEREZADO antes de volver",
+                           r"if \(ahora - t_fase >= MS_FRENO_ENDEREZADO\) empezarVueltaDespeje\(ahora\);"),
+                          ("la rampa de cada motor sube PASO_RAMPA_RUEDA cada MS_RAMPA_RUEDA",
+                           r"int sube = abs\(actual\) \+ PASO_RAMPA_RUEDA;"),
+                          ("con la barrida prendida la patrulla vieja NO arranca",
+                           r"\} else if \(patrullarSinPelota && !barridaActivada"),
+                          ("la barrida arranca a los MS_SIN_PELOTA_PARA_BARRER esperando, con giroscopio",
+                           r"\} else if \(barridaActivada && enderezarActivado\s*&& rumboBase >= 0 && "
+                           r"giroscopoRespondiendo\s*&& ahora - t_fase >= MS_SIN_PELOTA_PARA_BARRER\)"),
+                          ("con tres ruedas gira a PWM_BARRIDA_TRES",
+                           r"if \(barridaConTresRuedas\) \{\s*int g = \(v3 > 0\) \? PWM_BARRIDA_TRES"),
+                          ("con la de atrás sola, a PWM_BARRIDA",
+                           r"girarConLaRuedaDeAtras\(dirGiro \* signoGiroBarrida \* PWM_BARRIDA\);"),
+                          ("los pasos son 3 por lado (+-1, 2, 3 veces GRADOS_PASO_BARRIDA) y el 0",
+                           r"const int PASOS_BARRIDA\[\] = \{ 1, 2, 3, -1, -2, -3, 0 \};"),
+                          ("cada paso es PASOS_BARRIDA x GRADOS_PASO_BARRIDA, nunca más que GRADOS_MAX_BARRIDA",
+                           r"float obj = PASOS_BARRIDA\[pasoBarrida\] \* GRADOS_PASO_BARRIDA;\s*"
+                           r"if \(obj >  GRADOS_MAX_BARRIDA\) obj =  GRADOS_MAX_BARRIDA;"),
+                          ("en el 0 mira MS_MIRAR_CENTRO_BARRIDA, en los otros MS_MIRAR_BARRIDA",
+                           r"\? MS_MIRAR_CENTRO_BARRIDA : MS_MIRAR_BARRIDA;"),
+                          ("la vio = CUADROS_PARA_VER_BARRIDA cuadros seguidos",
+                           r"return veLaPelota\(\) && cuadrosConPelota >= CUADROS_PARA_VER_BARRIDA;"),
+                          ("de costado a VEL_COSTADO_BARRIDA, hasta MS_TOPE_COSTADO_BARRIDA",
+                           r"moverDeCostado\(ladoBarrida \* VEL_COSTADO_BARRIDA\);\s*"
+                           r"if \(ahora - t_fase >= MS_TOPE_COSTADO_BARRIDA\)"),
+                          ("yendo de costado en la barrida, el límite lateral de siempre",
+                           r"bool barridaPisoElLateral\(int lado\) \{\s*if \(!\(volverAlMedioEnElLateral"),
+                          ("la vuelta del límite lateral también se corta con CUADROS_PARA_CORTAR_PATRULLA",
+                           r"case LATERAL_AL_MEDIO:[\s\S]{0,1500}?patrullando = true;")):
+            verificar(re.search(como, cod), "partido: la 0921k ya no hace lo que dicen los grupos 3 y 5 (%s): revisar "
+                                            "TABLA_PARTIDO" % que)
+        for fijo in FIJOS_DE_LA_0921K:
+            verificar(re.search(r"^const (?:int|float)[ \t]+%s(?:\[\])?[ \t]*=" % fijo, cod, re.M),
+                      "partido: %s (fijo en la 0921k, NO en la tabla) ya no está en el .ino" % fijo)
     # ---- C. Ida y vuelta ----
     verificar(escribir_partido(sint, r, {})[0] == sint, "partido: sin cambios da el mismo texto")
-    mismos = dict(VALORES_DE_FABRICA, CAMARA_POR_CM="2.870", umbralCm="30", msAdelante="533.0")
+    mismos = dict(VALORES_DE_FABRICA, CAMARA_POR_CM="2.870", umbralCm="30", msAdelante="666.0",
+                  GRADOS_PASO_BARRIDA="15", GRADOS_DERECHO="3")
     del mismos["VEL_MEDIO_MEDIR"]
     nuevo, reales = escribir_partido(sint, r, mismos, sello="20261108-154210")
     verificar(nuevo == sint and reales == [], "partido: con los mismos valores (2.870, 30) da el mismo texto")
@@ -11895,8 +13096,8 @@ def _autoprueba_partido(verificar, carpeta):
     verificar(r2["valores"] == dict(VALORES_DE_FABRICA, umbralBlanco="430"), "partido: leído de nuevo da 430")
     nuevo, _ = escribir_partido(sint, r, {"msAdelante": "540"})
     l_nueva = nuevo.split("\n")[r["donde"]["msAdelante"][0]]
-    verificar(l_nueva.startswith("int msAdelante = 540;") and "msAdelante vale 533" in l_nueva,
-              "partido: msAdelante 540 y el comentario con 533 intacto")
+    verificar(l_nueva.startswith("int msAdelante = 540;") and "msAdelante vale 666" in l_nueva,
+              "partido: msAdelante 540 y el comentario con 666 intacto")
     for nombre, pedido, esperado in (("kpLateral", "12", "12.0"), ("CAMARA_POR_CM", "2.9", "2.90"),
                                      ("rendimientoCostado", "0.75", "0.75"), ("despejeEnDiagonal", "true", "true"),
                                      ("perseguirEnElDespeje", "false", "false"), ("LADO_MEDIO", "1", "1"),
@@ -11956,25 +13157,29 @@ def _autoprueba_partido(verificar, carpeta):
     verificar("E1" in codigos({"pwmMinLateral": "110", "pwmMaxLateral": "100"}), "partido: E1")
     verificar("E2" in codigos({"PWM_MIN_ACOMODO": "100", "PWM_MAX_ACOMODO": "90"}), "partido: E2")
     verificar("E3" in codigos({"TOLERANCIA_ACOMODO": "6.0", "TOLERANCIA_ESPERA": "6.0"}), "partido: E3")
-    verificar("E5" in codigos({"umbralCm": "45.0", "msAdelante": "400"}), "partido: E5")
+    verificar("E5" in codigos({"umbralCm": "45.0", "msAdelante": "400", "potenciaDespeje": "200"}), "partido: E5")
     verificar("E4" in codigos({"MS_MAX_ESPERA_PLANO": "300", "MS_PAUSA_MEDIO": "400"}), "partido: E4")
     reglas = _reglas_con_codigo(fab, fab)
     # (2026-11-09) la 0921i viene con la patrulla por la línea APAGADA: sin la O18
+    # (2026-11-12) y la 0921k, con la barrida (sin O13), 160 / 666 (sin O1 ni O14) y la vuelta a 80 con tope
+    # 2500 (sin O2): sigue saliendo solo la N1.
     verificar([(n, c) for n, _, _, c in reglas] == [("nota", "N1")], "partido: con fábrica solo la N1 (%r)" % reglas)
-    verificar("O2" in codigos({"msAdelante": "700"}) and "O6" in codigos({"LADO_TRASERA": "90"}),
-              "partido: O2 con msAdelante 700 y O6 al tocar LADO_TRASERA")
-    verificar({"O1", "O3", "O4"} <= codigos({"msAdelante": "420", "pwmMaxLateral": "170",
+    verificar("O2" in codigos({"MS_MAX_VUELTA_DESPEJE": "1500"}) and "O6" in codigos({"LADO_TRASERA": "90"}),
+              "partido: O2 con MS_MAX_VUELTA_DESPEJE 1500 y O6 al tocar LADO_TRASERA")
+    verificar({"O1", "O3", "O4"} <= codigos({"msAdelante": "500", "pwmMaxLateral": "170",
                                               "volverAlMedioEnElLateral": "false"}), "partido: O1, O3, O4")
-    verificar({"O7", "O14"} <= codigos({"potenciaDespeje": "210"}) and "E5" not in codigos(
+    verificar({"O7", "O14"} <= codigos({"potenciaDespeje": "150", "msAdelante": "400"}) and "E5" not in codigos(
         {"potenciaDespeje": "210", "umbralCm": "45.0", "msAdelante": "400"}), "partido: O7/O14 (y sin 200 no hay E5)")
     verificar({"O8", "O9", "O10", "O11", "O12", "O13", "O17"} <= codigos(
         {"CAMARA_POR_CM": "2.90", "LADO_MEDIO": "1", "despejeEnDiagonal": "true", "enderezarActivado": "false",
-         "camaraYInvertida": "false", "patrullarSinPelota": "false", "MS_MAX_ADELANTE": "500", "msAdelante": "533"}),
+         "camaraYInvertida": "false", "patrullarSinPelota": "false", "barridaActivada": "false",
+         "MS_MAX_ADELANTE": "500", "msAdelante": "666"}),
         "partido: O8 a O13 y O17")
     verificar("O15" in codigos({"MS_ASENTAR_ACOMODO": "150"}) and "O16" in codigos({}, {"peor_verde": 380}) and
               "O5" in codigos({}, {"cruce": 5000}) and "O5" in codigos({"MS_MEDIO_TOPE_LATERAL": "4000"}),
               "partido: O5, O15 y O16")
-    verificar("N3" in codigos({"MS_QUIETO_PARA_PATRULLAR": "6000"}), "partido: N3")
+    verificar("N3" in codigos({"MS_QUIETO_PARA_PATRULLAR": "6000", "barridaActivada": "false",
+                               "patrullarSinPelota": "true"}), "partido: N3 (con la patrulla vieja)")
     verificar(all(len(x) == 3 for x in reglas_partido(fab, fab)), "partido: reglas_partido da (nivel, texto, nombres)")
     # ---- F. Archivo raro ----
     sin_umbral = _ino_sintetico(sin=("umbralBlanco",))
@@ -12064,7 +13269,8 @@ def _autoprueba_partido(verificar, carpeta):
                   copias_del_partido(copias)[1].endswith("15-42-10_2.txt"), "partido: las copias, de la más nueva")
         elegida = elegir_copia_para_volver(copias, leer_partido_archivo(real)["valores"])
         verificar(elegida is not None and elegida[0].endswith("15-42-10_2.txt")
-                  and elegida[1] == [("msAdelante", "540", "533")], "partido: volver elige la más nueva distinta (%r)" % (
+                  and elegida[1] == [("msAdelante", "540", VALORES_DE_FABRICA["msAdelante"])],
+                  "partido: volver elige la más nueva distinta (%r)" % (
                       elegida,))
         with open(real, "rb") as fr:
             verificar(fr.read() == actual, "partido: elegir la copia no escribe nada")
@@ -12113,16 +13319,28 @@ def _autoprueba_partido(verificar, carpeta):
     os.makedirs(copias_g, exist_ok=True)
     with open(os.path.join(copias_g, "partido-0921_2026-11-09_09-26-11.txt"), "wb") as fw:
         fw.write(sint_g.encode("utf-8"))
-    archivo_i = dict(VALORES_DE_FABRICA, patrullarSinPelota="false")
-    elegida = elegir_copia_para_volver(copias_g, archivo_i, VERSION_PARTIDO_HOY)
-    verificar(elegida is not None and elegida[1] == [("patrullarSinPelota", "false", "true")],
-              "0921i: volver desde una copia 0921g vuelve lo del tablero, NO MS_QUIETO_PARA_PATRULLAR (%r)" % (
-                  elegida,))
-    sin_version = elegir_copia_para_volver(copias_g, archivo_i)
-    verificar(sin_version is not None and ("MS_QUIETO_PARA_PATRULLAR", "20000", "10000") in sin_version[1],
-              "0921i: sin decir la versión, como antes")
+    # (2026-11-12) Con el archivo en la 0921k, patrullarSinPelota NO es lo de FÁBRICA (lo apagó la versión): lo que
+    # cambió alguien con el tablero es otra cosa (acá, kpLateral 12 en el archivo).
+    archivo_k = dict(VALORES_DE_FABRICA, kpLateral="12.0")
+    elegida = elegir_copia_para_volver(copias_g, archivo_k, VERSION_PARTIDO_HOY)
+    verificar(elegida is not None and elegida[1] == [("kpLateral", "12.0", "11.5")],
+              "0921k: volver desde una copia 0921g vuelve lo del tablero, NO lo de la versión (MS_QUIETO_PARA_PATRULLAR, "
+              "potenciaDespeje, msAdelante, patrullarSinPelota) (%r)" % (elegida,))
+    sin_version = elegir_copia_para_volver(copias_g, archivo_k)
+    verificar(sin_version is not None and ("MS_QUIETO_PARA_PATRULLAR", "20000", "10000") in sin_version[1]
+              and ("msAdelante", "666", "533") in sin_version[1], "0921k: sin decir la versión, como antes")
     verificar(elegir_copia_para_volver(copias_g, dict(VALORES_DE_FABRICA), VERSION_PARTIDO_HOY) is None,
-              "0921i: una copia 0921g de fábrica no tiene nada para volver sobre la 0921i de fábrica")
+              "0921k: una copia 0921g de fábrica no tiene nada para volver sobre la 0921k de fábrica")
+    # (2026-11-12) una copia de la 0921i (lo que guardaron con el tablero de antes) sobre la 0921k
+    copias_i = os.path.join(carpeta, "copias-0921i")
+    os.makedirs(copias_i, exist_ok=True)
+    vals_i = dict(fabrica_de("0921i"), umbralBlanco="440")
+    with open(os.path.join(copias_i, "partido-0921_2026-11-10_18-00-00.txt"), "wb") as fw:
+        fw.write(_ino_sintetico(sin=filas_que_no_tenia("0921i"), version="0921i", valores=vals_i).encode("utf-8"))
+    elegida = elegir_copia_para_volver(copias_i, dict(VALORES_DE_FABRICA), VERSION_PARTIDO_HOY)
+    verificar(elegida is not None and elegida[1] == [("umbralBlanco", "425", "440")],
+              "0921k: volver desde una copia 0921i vuelve lo del tablero (umbralBlanco), NO 200 / 533 ni la patrulla "
+              "(%r)" % (elegida,))
 
 
 def _autoprueba_linea_version(verificar):
@@ -12137,19 +13355,26 @@ def _autoprueba_linea_version(verificar):
     verificar(linea_partido_de(VALORES_DE_FABRICA) == LINEA_PARTIDO_FABRICA,
               "versión: la línea de fábrica es la que imprime avisarVersion()")
     hoy = "version=%s" % VERSION_PARTIDO_HOY
+    bits = INTERRUPTORES_FABRICA          # (2026-11-12) los de la 0921k: patrullarSinPelota en 0
+    verificar(("interruptores=" + bits) in LINEA_PARTIDO_FABRICA and bits[1] == "0" and len(bits) == 13
+              and INTERRUPTORES_ANTES == bits[0] + "1" + bits[2:]
+              and all(("interruptores=" + INTERRUPTORES_ANTES) in x for x in (LINEA_PARTIDO_0921J, LINEA_PARTIDO_0921I,
+                                                                            LINEA_PARTIDO_0921G)),
+              "versión: los interruptores de la 0921k (patrullarSinPelota en 0) y los de antes")
     rotas = (LINEA_PARTIDO_FABRICA.replace(hoy + " ", ""),
              LINEA_PARTIDO_FABRICA.replace(hoy + " sello=fabrica", "sello=fabrica " + hoy),
-             LINEA_PARTIDO_FABRICA.replace(" interruptores=1111111110101", "") + " interruptores=1111111110101 x=1",
-             LINEA_PARTIDO_FABRICA.replace("1111111110101", "111111111010"),
-             LINEA_PARTIDO_FABRICA.replace("1111111110101", "1111111112101"),
-             LINEA_PARTIDO_FABRICA.replace("1111111110101", "11111111101011"),     # (un bit 14: hoy es ROTA)
+             LINEA_PARTIDO_FABRICA.replace(" interruptores=" + bits, "") + " interruptores=" + bits + " x=1",
+             LINEA_PARTIDO_FABRICA.replace(bits, bits[:-1]),
+             LINEA_PARTIDO_FABRICA.replace(bits, bits[:9] + "2" + bits[10:]),
+             LINEA_PARTIDO_FABRICA.replace(bits, bits + "1"),     # (un bit 14: hoy es ROTA)
              LINEA_PARTIDO_FABRICA.replace("umbralBlanco=425", "umbralBlanco=abc"),
              LINEA_PARTIDO_FABRICA.replace("umbralBlanco=425", "umbralBlanco=٤٢٥"),
              LINEA_PARTIDO_FABRICA.replace("giro=1", "giro=2"),
              "#PARTIDO", "#PARTIDO " + hoy, "#PARTIDO version=0921g",
              LINEA_PARTIDO_FABRICA[:60] + S_BUENA, LINEA_PARTIDO_FABRICA + S_BUENA,
-             LINEA_PARTIDO_0921G[:70], LINEA_PARTIDO_0921G.replace("version=0921g ", ""))
-    verificar(LINEA_PARTIDO_FABRICA not in rotas and LINEA_PARTIDO_0921G not in rotas
+             LINEA_PARTIDO_0921G[:70], LINEA_PARTIDO_0921G.replace("version=0921g ", ""),
+             LINEA_PARTIDO_0921J[:80], LINEA_PARTIDO_0921I.replace(" interruptores=" + INTERRUPTORES_ANTES, ""))
+    verificar(not {LINEA_PARTIDO_FABRICA, LINEA_PARTIDO_0921J, LINEA_PARTIDO_0921I, LINEA_PARTIDO_0921G} & set(rotas)
               and len(set(rotas)) == len(rotas), "versión: las rotas son todas distintas (y no son las buenas)")
     for r in rotas:
         verificar(interpretar(r)["tipo"] == "ROTA", "versión: ROTA %r" % r[:70])
@@ -12170,15 +13395,36 @@ def _autoprueba_linea_version(verificar):
     # (2026-11-09) la 0921g, la ANTERIOR: se entiende igual y se dice "versión ANTERIOR"
     mg = interpretar(LINEA_PARTIDO_0921G)
     verificar(mg["tipo"] == "PARTIDO" and mg["version"] == "0921g" and mg["sello"] == "fabrica"
-              and mg["llaves"] == m["llaves"], "0921g: su línea se sigue entendiendo (%r)" % mg.get("motivo"))
+              and mg["llaves"] == dict(m["llaves"], patrullarSinPelota=True),
+              "0921g: su línea se sigue entendiendo (%r)" % mg.get("motivo"))
     verificar(linea_partido_de(fabrica_de("0921g"), "0921g") == LINEA_PARTIDO_0921G,
               "0921g: su línea es la que imprimía con sus valores de fábrica")
-    verificar(comparar_con_robot(mg, lec) == ("OTRA_VERSION", [("MS_QUIETO_PARA_PATRULLAR", 10000, 20000)]),
-              "0921g: contra el archivo 0921i es OTRA_VERSION (%r)" % (comparar_con_robot(mg, lec),))
-    lec_g = leer_partido(_ino_sintetico(sin=NUEVOS_EN_LA_0921I, version="0921g", valores=fabrica_de("0921g")))
+    verificar(comparar_con_robot(mg, lec) == ("OTRA_VERSION", [("msAdelante", 533, 666), ("potenciaDespeje", 200, 160),
+                                                              ("MS_QUIETO_PARA_PATRULLAR", 10000, 20000),
+                                                              ("patrullarSinPelota", True, False)]),
+              "0921g: contra el archivo 0921k es OTRA_VERSION (%r)" % (comparar_con_robot(mg, lec),))
+    lec_g = leer_partido(_ino_sintetico(sin=filas_que_no_tenia("0921g"), version="0921g", valores=fabrica_de("0921g")))
     verificar(comparar_con_robot(mg, lec_g) == ("IGUAL", []) and comparar_con_robot(m, lec_g)[0] == "OTRA_VERSION",
-              "0921g: contra un archivo 0921g es IGUAL (y la 0921i contra ese, OTRA_VERSION)")
+              "0921g: contra un archivo 0921g es IGUAL (y la 0921k contra ese, OTRA_VERSION)")
+    # (2026-11-12) la 0921j y la 0921i, ANTERIORES: se entienden igual, y contra la 0921k dicen lo que cambió
+    for version, linea, difs in (("0921j", LINEA_PARTIDO_0921J, [("patrullarSinPelota", True, False)]),
+                                 ("0921i", LINEA_PARTIDO_0921I, [("msAdelante", 533, 666), ("potenciaDespeje", 200, 160),
+                                                                 ("patrullarSinPelota", True, False)])):
+        mv = interpretar(linea)
+        verificar(mv["tipo"] == "PARTIDO" and mv["version"] == version and mv["sello"] == "fabrica"
+                  and linea_partido_de(fabrica_de(version), version) == linea,
+                  "%s: su línea se entiende y es la que imprimía con sus valores de fábrica" % version)
+        verificar(comparar_con_robot(mv, lec) == ("OTRA_VERSION", difs),
+                  "%s: contra el archivo 0921k es OTRA_VERSION (%r)" % (version, comparar_con_robot(mv, lec)))
+        lec_v = leer_partido(_ino_sintetico(sin=filas_que_no_tenia(version), version=version,
+                                            valores=fabrica_de(version)))
+        verificar(comparar_con_robot(mv, lec_v) == ("IGUAL", []) and comparar_con_robot(m, lec_v)[0] == "OTRA_VERSION",
+                  "%s: contra un archivo %s es IGUAL" % (version, version))
+        t_v = texto_otra_version(version, VERSION_PARTIDO_HOY)
+        verificar("VERSIÓN ANTERIOR" in t_v and version in t_v and VERSION_PARTIDO_HOY in t_v
+                  and "ANTERIOR" in nombre_de_version(version), "%s: se dice VERSIÓN ANTERIOR" % version)
     verificar(que_version_es(VERSION_PARTIDO_HOY) == "HOY" and que_version_es("0921g") == "ANTERIOR"
+              and que_version_es("0921i") == "ANTERIOR" and que_version_es("0921j") == "ANTERIOR"
               and que_version_es("0921h") == "OTRA" and que_version_es(None) == "OTRA", "versión: que_version_es")
     t_g = texto_otra_version("0921g", VERSION_PARTIDO_HOY)
     verificar("VERSIÓN ANTERIOR" in t_g and "0921g" in t_g and VERSION_PARTIDO_HOY in t_g
@@ -12448,7 +13694,7 @@ def _autoprueba_pestana_partido(verificar, carpeta):
         v._partido_paso("VEL_MEDIO_MEDIR", +1)
         verificar("VEL_MEDIO_MEDIR" not in v.pendientes_partido, "pestaña: VEL_MEDIO_MEDIR es solo para ver")
         v._partido_descartar()
-        # (2026-11-09) la patrulla de la 0921i: en el grupo 5, se cambia y se ve gris como la usa el robot
+        # (2026-11-09) la patrulla de la 0921i: en el grupo 6 (2026-11-12), se cambia y se ve gris como la usa el robot
         verificar(all(n in v.filas_partido for n in NUEVOS_EN_LA_0921I)
                   and all(n in v.lectura["valores"] for n in NUEVOS_EN_LA_0921I),
                   "0921i: las filas de la patrulla están y se leen del archivo")
@@ -12469,13 +13715,84 @@ def _autoprueba_pestana_partido(verificar, carpeta):
         v._partido_poner("VEL_LINEA")
         verificar("VEL_LINEA" not in v.pendientes_partido and v.ultimo_aviso[1] == ROJO,
                   "0921i: VEL_LINEA 70 no entra (no menos de 75)")
-        # de fábrica: la patrulla al lateral (a los dos lados) y la vuelta con la línea; la de la línea, gris
+        # (2026-11-12) de fábrica (la 0921k): la BARRIDA prendida y la patrulla vieja gris; la vuelta con la línea
+        # (ir al medio y el límite lateral), el despeje de la 0921j y la barrida a tres ruedas, NO
         valores = v._valores_partido()
-        verificar(v._fila_no_aplica("MS_TOPE_PUNTA", valores) and v._fila_no_aplica("MS_QUIETO_PARA_MIRAR", valores)
+        verificar(v.lectura["valores"]["barridaActivada"] == "true" and v.lectura["valores"]["patrullarSinPelota"] == "false"
+                  and all(n in v.filas_partido and n in v.lectura["valores"]
+                          for n in NUEVOS_EN_LA_0921J + NUEVOS_EN_LA_0921K)
+                  and all(v._fila_no_aplica(n, valores) for n in ("patrullarSinPelota", "MS_QUIETO_PARA_PATRULLAR",
+                                                                   "alternarLadoPatrulla", "patrullaPorElLateral",
+                                                                   "MS_TOPE_PUNTA", "PWM_BARRIDA", "pisoRampaIda",
+                                                                   "rampaAlVolver"))
+                  and not any(v._fila_no_aplica(n, valores) for n in ("VEL_LINEA", "PWM_BARRIDA_TRES", "GRADOS_DERECHO",
+                                                                       "PASO_RAMPA_RUEDA", "potenciaVueltaDespeje",
+                                                                       "MS_EXTRA_EMPUJON_DESPEJE", "barridaActivada",
+                                                                       "MS_SIN_PELOTA_PARA_BARRER"))
+                  and not any(c in ("O18", "E8", "O13", "O2", "O14") for _, _, _, c in v._reglas_de_ahora()),
+                  "0921k: de fábrica, la barrida prendida y la patrulla vieja gris (sin O13 ni O2)")
+        # [+] y [−] en lo nuevo, con su paso; y lo que no entra
+        v._partido_paso("potenciaVueltaDespeje", +1)
+        verificar(v.pendientes_partido == {"potenciaVueltaDespeje": "85"}, "0921k: [+] en potenciaVueltaDespeje va de a 5 "
+                                                                          "(%r)" % (v.pendientes_partido,))
+        v._partido_descartar()
+        v._partido_paso("MS_SIN_PELOTA_PARA_BARRER", -1)
+        verificar(v.pendientes_partido == {"MS_SIN_PELOTA_PARA_BARRER": "3500"},
+                  "0921k: [−] en MS_SIN_PELOTA_PARA_BARRER va de a 500 (%r)" % (v.pendientes_partido,))
+        v._partido_descartar()
+        v._partido_paso("GRADOS_PASO_BARRIDA", -1)
+        verificar(list(v.pendientes_partido) == ["GRADOS_PASO_BARRIDA"]
+                  and mismo_valor("GRADOS_PASO_BARRIDA", v.pendientes_partido["GRADOS_PASO_BARRIDA"], "14")
+                  and any(c == "O23" for _, _, _, c in v._reglas_de_ahora()),
+                  "0921k: [−] en GRADOS_PASO_BARRIDA: 14, y el OJO O23 (los pasos no llegan a ±45) %r" % (
+                      v.pendientes_partido,))
+        v._partido_descartar()
+        v.filas_partido["PWM_BARRIDA_TRES"]["entrada"].get.return_value = "65"
+        v._partido_poner("PWM_BARRIDA_TRES")
+        verificar("PWM_BARRIDA_TRES" not in v.pendientes_partido and v.ultimo_aviso[1] == ROJO,
+                  "0921k: PWM_BARRIDA_TRES 65 no entra (no menos de 70)")
+        v._partido_elegir("barridaConTresRuedas", "false")
+        valores = v._valores_partido()
+        verificar(not v._fila_no_aplica("PWM_BARRIDA", valores) and v._fila_no_aplica("PWM_BARRIDA_TRES", valores),
+                  "0921k: con barridaConTresRuedas NO, se usa PWM_BARRIDA (y PWM_BARRIDA_TRES gris)")
+        v._partido_descartar()
+        v._partido_elegir("rampaEnCadaMotor", "false")
+        valores = v._valores_partido()
+        verificar(not v._fila_no_aplica("pisoRampaIda", valores) and not v._fila_no_aplica("rampaAlVolver", valores)
+                  and any(c == "O7" for _, _, _, c in v._reglas_de_ahora()),
+                  "0921k: con rampaEnCadaMotor NO, vuelve la rampa general (y avisa O7: la ida llega a otro lado)")
+        v._partido_descartar()
+        v._partido_poner_valor("PWM_MIN_GIRO", "100")
+        v._partido_poner_valor("PWM_MAX_GIRO", "90")
+        verificar(any(c == "E9" for _, _, _, c in v._reglas_de_ahora()) and not v._partido_guardar()
+                  and "ERROR" in v._puede_cargar("partido")[1], "0921k: PWM_MIN_GIRO > PWM_MAX_GIRO da E9 y no deja guardar")
+        v._partido_descartar()
+        # apagar la barrida pide confirmar; sin barrida y sin patrulla, el OJO O13 (quieto para siempre)
+        caja.askyesno.return_value = False
+        v._partido_elegir("barridaActivada", "false")
+        verificar("barridaActivada" not in v.pendientes_partido, "0921k: apagar la barrida pide confirmar (NO)")
+        caja.askyesno.return_value = True
+        v._partido_elegir("barridaActivada", "false")
+        valores = v._valores_partido()
+        verificar(v.pendientes_partido == {"barridaActivada": "false"}
+                  and all(v._fila_no_aplica(n, valores) for n in NUEVOS_EN_LA_0921K[2:])
+                  and not v._fila_no_aplica("patrullarSinPelota", valores)
+                  and v._fila_no_aplica("MS_QUIETO_PARA_PATRULLAR", valores)
+                  and not v._fila_no_aplica("buscarLineaDelAreaAlVolver", valores)
+                  and any(c == "O13" for _, _, _, c in v._reglas_de_ahora()),
+                  "0921k: sin barrida (y patrullarSinPelota NO): la barrida gris, la patrulla también, y el OJO O13")
+        v._pintar_partido()
+        # con la patrulla vieja prendida otra vez (como la 0921j): lo de la 0921i
+        v._partido_elegir("patrullarSinPelota", "true")
+        base = {"barridaActivada": "false", "patrullarSinPelota": "true"}
+        valores = v._valores_partido()
+        verificar(v.pendientes_partido == base and v._fila_no_aplica("MS_TOPE_PUNTA", valores)
+                  and v._fila_no_aplica("MS_QUIETO_PARA_MIRAR", valores)
                   and not v._fila_no_aplica("VEL_LINEA", valores) and not v._fila_no_aplica("alternarLadoPatrulla", valores)
                   and not v._fila_no_aplica("patrullaPorElLateral", valores)
-                  and not any(c in ("O18", "E8") for _, _, _, c in v._reglas_de_ahora()),
-                  "0921i: de fábrica, lo de la línea gris y la del lateral y la vuelta no (y sin O18)")
+                  and not v._fila_no_aplica("MS_QUIETO_PARA_PATRULLAR", valores)
+                  and not any(c in ("O18", "E8", "O13") for _, _, _, c in v._reglas_de_ahora()),
+                  "0921i: con la patrulla vieja, lo de la línea gris y la del lateral y la vuelta no (y sin O18)")
         # prender la patrulla por la línea pide confirmar
         caja.askyesno.return_value = False
         v._partido_elegir("patrullaPorLaLinea", "true")
@@ -12483,13 +13800,14 @@ def _autoprueba_pestana_partido(verificar, carpeta):
         caja.askyesno.return_value = True
         v._partido_elegir("patrullaPorLaLinea", "true")
         valores = v._valores_partido()
-        verificar(v.pendientes_partido == {"patrullaPorLaLinea": "true"} and not v._fila_no_aplica("MS_TOPE_PUNTA", valores)
+        verificar(v.pendientes_partido == dict(base, patrullaPorLaLinea="true")
+                  and not v._fila_no_aplica("MS_TOPE_PUNTA", valores)
                   and v._fila_no_aplica("patrullaPorElLateral", valores) and v._fila_no_aplica("alternarLadoPatrulla",
                                                                                                valores)
                   and any(c == "O18" for _, _, _, c in v._reglas_de_ahora()),
                   "0921i: con patrullaPorLaLinea SÍ, la del lateral gris y el OJO O18 (bajar MS_QUIETO_PARA_MIRAR)")
         v._partido_elegir("patrullaPorLaLinea", "false")
-        verificar(v.pendientes_partido == {}, "0921i: volver a NO deja el editor vacío (es lo del archivo)")
+        verificar(v.pendientes_partido == base, "0921i: volver a NO lo saca del editor (es lo del archivo)")
         v._partido_elegir("buscarLineaDelAreaAlVolver", "false")
         valores = v._valores_partido()
         verificar(all(v._fila_no_aplica(n, valores) for n in ("MS_AVANCE_10CM", "VEL_LINEA", "MS_PUNTA_A_PUNTA_FIJO")),
@@ -12502,13 +13820,6 @@ def _autoprueba_pestana_partido(verificar, carpeta):
         v._partido_elegir("buscarLineaDelAreaAlVolver", "false")
         verificar(not any(c == "E8" for _, _, _, c in v._reglas_de_ahora()),
                   "0921i: con buscarLineaDelAreaAlVolver NO, el 0 ya no es error")
-        v._partido_descartar()
-        v._partido_elegir("patrullarSinPelota", "false")
-        valores = v._valores_partido()
-        verificar(v._fila_no_aplica("patrullaPorLaLinea", valores) and v._fila_no_aplica("alternarLadoPatrulla", valores)
-                  and not v._fila_no_aplica("buscarLineaDelAreaAlVolver", valores)
-                  and any(c == "O13" for _, _, _, c in v._reglas_de_ahora()),
-                  "0921i: sin patrulla, la patrulla gris (la vuelta del límite lateral no) y el OJO O13")
         v._pintar_partido()
         v._partido_descartar()
         # un ERROR no deja guardar ni cargar
@@ -12760,7 +14071,9 @@ def _autoprueba_pestana_partido(verificar, carpeta):
         verificar("NO la de jugar" in v._texto_robot_partido()[0], "pestaña: la 0.1103 en rojo")
         # ---- 43: pasar de CANCHA ----
         v.cancha["lineas"] = [interpretar(LINEAS_DE_MENTIRA[f]) for f in ("v", "i", "d")]
-        v.cancha["idas"] = [[400, 30.0], [600, 48.0]]
+        # (2026-11-12, revisión) con la fuerza de PARTIDO (las de otra fuerza no valen)
+        fz = v._fuerza_ida_de_partido()
+        v.cancha["idas"] = [[400, 30.0, fz], [600, 48.0, fz]]
         filas = {f["nombre"]: f for f in v._medido_para_partido()}
         verificar(filas["umbralBlanco"]["tildado"] and filas["umbralBlanco"]["medido"] == "425"
                   and filas["umbralBlanco"]["hoy"] == leer_partido_archivo(ruta)["valores"]["umbralBlanco"] != "425",

@@ -1244,16 +1244,41 @@ bool barridaActivada = true;     // false = sin barrida (y vuelve a mandar patru
 //   Si sale a barrer cuando un rival le tapa la pelota un rato: subir (9000).
 const unsigned long MS_SIN_PELOTA_PARA_BARRER = 4000;   // 10/11: 7000 -> 4000, pedido del equipo ("que sea 4 seg")
 
-// Los pasos, en "pasos de GRADOS_PASO_BARRIDA" desde el rumbo del arranque:
-// +15, +30, +45 (derecha), -15, -30, -45 (izquierda), 0, y vuelta a empezar
-// mientras no la vea. (+ = a la derecha, como el rumbo.)
-const int PASOS_BARRIDA[] = { 1, 2, 3, -1, -2, -3, 0 };
+// 🎯 2026-11-17, PEDIDO DEL EQUIPO: SIN PASITOS, DE CORRIDO HASTA 90 GRADOS
+// PARA CADA LADO.
+//
+// Antes eran 7 pasitos de 15 grados ({1,2,3,-1,-2,-3,0}), frenando y mirando
+// 200 ms en cada uno. El equipo vio en cancha dos cosas: que iba a la derecha
+// y NUNCA a la izquierda, y que cada tantos segundos se cortaba y empezaba
+// de nuevo.
+//
+// LAS DOS ERAN EL MISMO BUG, y estaba en el limite:
+//
+//      if (fabs(rel) > GRADOS_MAX_BARRIDA + GRADOS_MARGEN_BARRIDA)
+//                            45           +        15          = 60
+//
+// El tercer paso apuntaba a +45, que ERA el limite. Girando a PWM 80 con
+// tolerancia de 3 grados es normal pasarse unos cuantos; al cruzar los 60 el
+// programa daba GIRO_FUERA_DE_LIMITE, cortaba la barrida, se enderezaba y
+// esperaba 7 s. O sea que moria justo antes del cuarto paso, que era el
+// primero de la izquierda.
+//
+// Ahora es un vaiven: +90, -90, +90, -90... mientras no la vea.
+//
+// ⚠️ Y POR ESO EL LIMITE SUBE MAS QUE EL OBJETIVO (ver GRADOS_MAX_BARRIDA y
+// GRADOS_MARGEN_BARRIDA abajo): si el objetivo queda pegado al limite, el
+// mismo bug vuelve en el borde nuevo.
+//
+// (6 x 15 = 90. Se escriben en pasos de GRADOS_PASO_BARRIDA porque asi lo
+// multiplica empezarPasoBarrida.)
+const int PASOS_BARRIDA[] = { 6, -6 };
 const int CANT_PASOS_BARRIDA = sizeof(PASOS_BARRIDA) / sizeof(PASOS_BARRIDA[0]);
 //   Si la pelota se le escapa entre un paso y otro: bajar (10).
 //   Si cada vuelta tarda demasiado: subir (20).
 const float GRADOS_PASO_BARRIDA = 15.0;
 // Nunca mas que esto para cada lado (aunque alguien ponga un paso de mas).
-const float GRADOS_MAX_BARRIDA = 45.0;
+// 17/11: 45 -> 90, el barrido nuevo.
+const float GRADOS_MAX_BARRIDA = 90.0;
 
 // La fuerza de la rueda de atras al girar. Con rampaEnCadaMotor (prendida)
 // sube de a poco, igual que en el despeje.
@@ -1279,18 +1304,55 @@ const float GRADOS_TOL_PASO_BARRIDA = 3.0;
 //   Si corta los pasos antes de llegar (gira lento): subir.
 const unsigned long MS_TOPE_PASO_BARRIDA = 1200;
 
-// Cuanto se queda QUIETO mirando en cada paso (ya frenado).
-//   Si pasa por la pelota y no la ve: subir (300).
-//   Si la barrida es muy lenta: bajar (150).
+// ⚠️ ESTOS DOS YA NO SE USAN (17/11). Eran la parada de 200 ms en cada
+// pasito, y 500 ms en el 0. El barrido nuevo no para a mirar: mira MIENTRAS
+// gira, en cada vuelta del lazo (siempre lo hizo, ver BARRIDA_GIRAR).
 const unsigned long MS_MIRAR_BARRIDA = 200;
-// En el 0, al terminar cada vuelta, mira un poco mas.
 const unsigned long MS_MIRAR_CENTRO_BARRIDA = 500;
+
+// 🚨 LO UNICO QUE QUEDA DE FRENO, Y NO ES UNA PARADA PARA MIRAR.
+//
+// Al llegar a +90 el robot tiene que girar para el otro lado. Si arranca el
+// giro contrario con la inercia del anterior encima, el rumbo sigue yendo
+// para el lado viejo un instante — y girarHaciaObjetivo() lee eso como
+// "gire para el lado contrario" (GIRO_AL_REVES) y puede cortar la barrida.
+//
+// Un cuarto de segundo de freno en cada punta mata la inercia y el vaiven
+// sale limpio. Desde afuera sigue siendo de corrido: 90 grados seguidos, un
+// pestaneo, y 180 seguidos para el otro lado.
+//   Si al cambiar de lado se corta la barrida: subir (400).
+//   Si lo quieren sin NINGUNA pausa: 0 (y ojo con lo de arriba).
+const unsigned long MS_FRENO_INVERTIR_BARRIDA = 250;
 
 // "La vio" = la pelota en este numero de cuadros SEGUIDOS (~26 por segundo:
 // 3 son ~0,12 s). Un reflejo suelto no alcanza.
 //   Si sale para un lado por un reflejo: subir (4, 5).
 //   Si la tiene enfrente y no reacciona: bajar (2) o subir MS_MIRAR_BARRIDA.
-const int CUADROS_PARA_VER_BARRIDA = 3;
+//
+// 🎯 2026-11-17: 3 -> 1, pedido del equipo, "bajala a un cuadro en el barrido".
+//
+// POR QUE AHORA SI: con el barrido nuevo el robot gira DE CORRIDO y no para
+// a mirar. Y girando la camara ve la pelota en ~45% de los cuadros (medido
+// por la otra mesa el 29/09; frenado ve el 98%). Pedir 3 cuadros SEGUIDOS
+// girando es muy exigente: lo mas probable es barrer por delante de la
+// pelota y no tomarla.
+//
+// ⚠️ EL RIESGO, Y ES REAL: con 1 cuadro, un reflejo naranja suelto alcanza
+// para que salga para ese lado.
+//
+// LO QUE LO HACE ACEPTABLE: un error aca NO termina en un despeje malo. Al
+// verla, el robot vuelve a 0 y el despeje JUNTA SUS CUADROS DE NUEVO desde
+// cero (vecesSeguidas = 0 en llegarACeroBarrida, para no despejar nunca
+// torcido). Asi que un reflejo cuesta un viaje al vacio, no una pelota
+// pateada para el lado equivocado.
+//
+//   Si sale para un lado por un reflejo: subir (2).
+//   Si la tiene enfrente y no reacciona: ya esta en el minimo; el problema
+//   es otro (mirar PWM_BARRIDA_TRES, o que la camara no la vea de lejos).
+//
+// ⚠️ OJO: esto es SOLO la barrida. El despeje sigue pidiendo sus propios
+// cuadros (VECES_PARA_CREERLE), que no se toco.
+const int CUADROS_PARA_VER_BARRIDA = 1;
 
 // Volver a 0 despues de verla: hasta quedar a esto o menos del rumbo del
 // arranque. Frena, se asienta y mide; si quedo lejos, reintenta.
@@ -1321,7 +1383,16 @@ const float GRADOS_AL_REVES_BARRIDA = 10.0;
 const int MAX_VUELTAS_SIGNO_BARRIDA = 3;
 // - si se pasa de GRADOS_MAX_BARRIDA + esto (lo empujaron, o se paso de
 //   largo), corta la barrida y se endereza con las tres ruedas (ACOMODANDO).
-const float GRADOS_MARGEN_BARRIDA = 15.0;
+//
+// 🚨 17/11: 15 -> 30, Y ES EL ARREGLO DEL BUG, no un ajuste de gusto.
+// Con 15, el objetivo de +45 quedaba a 15 grados del limite y pasarse de
+// largo mataba la barrida (ver PASOS_BARRIDA). Ahora el objetivo es +-90 y el
+// limite real son 120: quedan 30 grados de aire para pasarse de largo sin que
+// se corte nada. Sigue protegiendo de lo que tiene que proteger — que alguien
+// lo levante o lo empuje — porque pasarse 30 grados de largo girando solo no
+// pasa.
+//   Si en cancha igual se corta al llegar a los 90: subir (40).
+const float GRADOS_MARGEN_BARRIDA = 30.0;
 
 
 // ---- estado ----
@@ -3007,10 +3078,10 @@ void loop() {
         pelotaVistaEnBarrida(ahora, diferencia(r, rumboBase));
         break;
       }
-      // En el 0 (el final de cada vuelta) mira un poco mas.
-      unsigned long msMirar = (PASOS_BARRIDA[pasoBarrida] == 0)
-                              ? MS_MIRAR_CENTRO_BARRIDA : MS_MIRAR_BARRIDA;
-      if (ahora - t_fase >= msMirar) {
+      // 17/11: ya no es una parada para mirar, es el freno corto de la punta
+      // para matar la inercia antes de girar para el otro lado. La camara se
+      // sigue mirando igual, arriba de este mismo bloque y en BARRIDA_GIRAR.
+      if (ahora - t_fase >= MS_FRENO_INVERTIR_BARRIDA) {
         pasoBarrida = (pasoBarrida + 1) % CANT_PASOS_BARRIDA;   // y vuelta a empezar, mientras no la vea
         empezarPasoBarrida(ahora);
       }

@@ -49,11 +49,48 @@ const int VEL_RETROCESO                = 110;              // despues del golpe,
 const int MS_RETROCESO                 = 700;              // ...durante esto (ms), y vuelve a buscar
 
 // ---- PUNTERIA (con el arco lejos, que es casi siempre) ----
-const float TOL_ANG_LEJOS_PELOTA       = 12.0;             // grados, pelota adelante, con el arco lejos. Tambien para patear al rumbo cero
+// 12 -> 8 el 17/11, pedido del equipo: las DOS tolerancias en 8. Esta dice
+// cuanto puede estar corrida la PELOTA respecto de donde apunta el robot.
+// A la distancia de patear (32 cm): 8 grados son 4,5 cm de corrimiento, 12 eran
+// 6,8 cm. La pelota mide ~4,3 cm, asi que con 12 podia estar corrida mas de una
+// pelota y media y salia escupida de costado en vez de derecho.
+//
+// ⚠️ ES LA MAS CARA DE APRETAR. El 25/08 se midio que ESTA es la condicion que
+// BLOQUEA la patada: se vieron casos con el arco perfecto (0,3 y 0,8 grados) y
+// la pelota a 21 y 29 grados. Apretarla hace que la patada se cumpla menos
+// seguido. Si el robot orbita y NO patea, esta es la primera que hay que
+// aflojar (volver a 12), no la del rumbo.
+const float TOL_ANG_LEJOS_PELOTA       = 10.0;             // grados, pelota adelante, con el arco lejos. Tambien para patear al rumbo cero. 12 -> 8 -> 10 (17/11)
 const float TOL_ANG_LEJOS_ARCO         = 8.0;              // grados, punteria con el arco lejos. Si orbita y no patea: subir a 10 o 12
 
 // ---- RUMBO CERO (plan B: el cero es hacia donde mira AL PRENDER la bateria) ----
-const float VUELTAS_PARA_RUMBO0        = 1.0;              // vueltas alrededor de la pelota sin patear antes del plan B
+// 2026-11-17: 1 -> 0 VUELTAS. Pedido del equipo despues de la Roboliga (3 puntos,
+// tercer puesto): "los equipos mejores patean rapidisimo y nosotros nos demoramos
+// orbitando". Con 0 vueltas el robot NO espera a dar la vuelta: apenas llega a la
+// pelota ya busca quedar mirando al cero y patea.
+//
+// LA LOGICA QUE QUEDA ES LA QUE PENSO EL EQUIPO, y ya estaba programada: lo unico
+// que sobraba era la espera.
+//   1. ve la pelota y va a ella
+//   2. se alinea al CERO con la pelota al frente (TOL_RUMBO 8 grados, con
+//      tolerancia a proposito: pidiendo el cero exacto no llega nunca)
+//   3. si VE el arco alineado, patea al arco — esa condicion se revisa ANTES
+//   4. si no lo ve, patea al cero, salvo que este viendo NUESTRO arco
+//      (VETO_ARCO_PROPIO)
+//
+// ⚠️ ESTO CARGA TODO EL PESO SOBRE EL CERO. Antes, con el cero mal, el robot no
+// pateaba (se quedaba esperando ver el arco); ahora patea convencido hacia donde
+// el cero diga. El 12/10 el cero se corrio en un partido y pateo casi hacia
+// nuestro arco. Por eso VETO_ARCO_PROPIO queda ENCENDIDO, y por eso el ritual
+// pesa: apoyarlo DERECHO mirando al arco rival y recien ahi prender la bateria.
+//
+// SE DESCARTO corregir el cero con la camara: el angulo al arco depende de DONDE
+// ESTA PARADO el robot en la cancha (desde el corner el arco queda al costado,
+// desde el medio al frente), asi que no mide la direccion fija de la cancha que
+// el cero representa. Lo noto el equipo el 17/11.
+//
+// Para volver a lo de la Roboliga: VUELTAS_PARA_RUMBO0 = 1.0
+const float VUELTAS_PARA_RUMBO0        = 0.0;              // 0 = no espera: busca el cero desde que llega a la pelota
 
 // ---- LINEA BLANCA (UMBRAL_LINEA se MIDE en cada cancha con grabar-linea: 1 DER, 2 IZQ, 3 DEL) ----
 int UMBRAL_LINEA[3]                    = { 300, 300, 440 }; // [09/11: DER e IZQ bajados a 300 por el equipo; eran 424/434 del 20/10] desde que lectura cada sensor dice "esto es blanco". En el verde tienen que leer MENOS que esto
@@ -82,6 +119,27 @@ const bool ELEGIR_ARCO_AL_ENCENDER     = true;             // true: al prenderse
 const int RAMPA_GIRO_PASO              = 10;               // el giro arranca suave: sube esto de fuerza...
 const unsigned long RAMPA_GIRO_MS      = 10;               // ...cada esta cantidad de ms
 const unsigned long MS_FRENO_AL_VER    = 200;              // al verla frena esto (ms), para no pasarse de largo
+// Al quedar mirando al cero, FRENA esto antes de patear. [17/11, pedido del equipo]
+// Por que hace falta: llega al cero ORBITANDO, o sea empujando de costado con la
+// rueda trasera. Si patea desde ahi, arranca con velocidad lateral y la pelota
+// sale torcida. Frenando primero, el golpe arranca desde quieto y derecho. Y de
+// paso, cuando termina de frenar vuelve a mirar si sigue alineado: si el envion
+// lo paso de los 8 grados, no patea y sigue acomodandose.
+// En 0 se saca el freno y patea en el acto, como antes.
+const unsigned long MS_FRENO_PRE_PATADA = 300;
+// PRIORIDAD DE LA CAMARA SOBRE EL CERO. [17/11, pedido del equipo]
+// Si el robot VE el arco, apuntarle al arco es mejor que apuntarle al cero: el
+// arco es el dato real y el cero es una estimacion a ciegas. Asi que mientras
+// vea el arco, NO patea al cero y sigue acomodandose al arco.
+//
+// PERO CON LIMITE, y no por capricho: el 25/08 se midio que se puede ver el
+// arco perfecto (0,3 grados) y tener la pelota a 29 grados, o sea no poder
+// alinear nunca. Con prioridad absoluta el robot orbitaria hasta que se le
+// acaben los MS_RUMBO0_MAX y volveria a buscar SIN PATEAR, que es peor que
+// patear al cero. Entonces: la camara manda MS_PRIORIDAD_ARCO; si en ese rato
+// no logro apuntarle, se habilita el cero igual.
+// En 0 se saca la prioridad: gana la condicion que se cumple primero, como antes.
+const unsigned long MS_PRIORIDAD_ARCO   = 2000;
 const int VEL_GIRO                     = 95;               // fuerza buscando A PULSOS (solo si BUSCA_CONTINUO = false)
 const int MS_PULSO_BUSC                = 60;               // a pulsos: cuanto dura cada empujon (ms)
 const int MS_ESPERA_BUSC               = 200;              // a pulsos: pausa frenada entre empujones (ms). Menos = barre mas rapido
@@ -118,7 +176,18 @@ const int RESTA_MAX                    = 120;              // tope de la correcc
 
 // ---- RUMBO CERO (finos) ----
 const unsigned long MS_RUMBO0_MAX      = 15000;            // si en este tiempo (ms) no queda mirando al cero, vuelve a buscar
-const float TOL_RUMBO                  = 12.0;             // grados: "ya estoy mirando al cero"
+// 12 -> 8 el 17/11, pedido del equipo. Es cuanto error de rumbo se acepta para
+// decir "ya estoy mirando al cero" y patear. MAS CHICO = patea mas derecho pero
+// tarda mas en cumplirse; mas grande = patea antes pero mas torcido.
+//
+// Apretarlo tiene sentido justo ahora: con VUELTAS_PARA_RUMBO0 = 0 el robot
+// patea al cero A CIEGAS, sin ver el arco, asi que el angulo con el que sale es
+// el angulo con el que la pelota viaja. 8 grados a 2 metros son unos 28 cm de
+// desvio; 12 grados eran 42 cm, y el arco mide ~45.
+//
+// OJO que este numero tambien lo usa APUNTA_RUMBO0 (el plan B viejo, que gira
+// en el lugar): apretarlo lo hace tardar mas ahi tambien.
+const float TOL_RUMBO                  = 8.0;              // grados: "ya estoy mirando al cero". 12 -> 8 (17/11)
 const unsigned long MS_APUNTAR_MAX     = 6000;             // solo con RUMBO0_ORBITANDO = false: cuanto gira en el lugar buscando el cero (ms)
 
 // ---- LINEA (finos) ----
@@ -241,6 +310,8 @@ float giradoOrbita   = 0;          // grados de rumbo girados en esta orbita (co
 float rumboOrbPrevio = 0;          // ultima lectura del rumbo, orbitando
 unsigned long t_muestraOrb  = 0;   // cuando se leyo el rumbo por ultima vez, orbitando
 unsigned long t_buscaRumbo0 = 0;   // 0 = espera al arco; si no, desde cuando busca el rumbo cero
+unsigned long t_frenoPrePatada = 0;  // 0 = no esta frenando antes de patear al cero
+unsigned long t_viendoArcoOrb  = 0;  // desde cuando ve el arco orbitando (0 = no lo ve)
 int  mejorXp    = 0;               // lo mas cerca que estuvo en este intento
 int  nDestrabes = 0;
 
@@ -634,6 +705,7 @@ void cambiarA(Estado nuevo) {
   if (nuevo == ORBITANDO) { sentidoOrbita = sentidoParaOrbitar();
                             recentrandoOrbita = false; t_orbSinVerla = 0;
                             giradoOrbita = 0; t_buscaRumbo0 = 0; t_muestraOrb = millis();
+                            t_frenoPrePatada = 0; t_viendoArcoOrb = 0;
                             if (hayGiroscopo) rumboOrbPrevio = rumboActual(); }
   if (nuevo == ESCAPA_LINEA) t_sinAcercarse = 0;
   estado = nuevo;
@@ -693,9 +765,26 @@ void setup() {
   Serial.print(" ms  ->  crucero "); Serial.print(VEL_ORB_TRASERA);
   Serial.print("   (max "); Serial.print(MS_ORBITA_MAX / 1000); Serial.println(" s)");
   if (RUMBO0_ORBITANDO && PATEAR_AL_RUMBO0) {
-    Serial.print("orbita: a las "); Serial.print(VUELTAS_PARA_RUMBO0, 0);
-    Serial.print(" vueltas (o "); Serial.print(MS_ORBITA_MAX / 1000);
-    Serial.println(" s) sin patear, patea al quedar mirando al RUMBO CERO");
+    if (VUELTAS_PARA_RUMBO0 <= 0.0) {
+      Serial.print("al llegar a la pelota NO espera: busca el RUMBO CERO ya (");
+      Serial.print(TOL_RUMBO, 0); Serial.print(" grados) con la pelota a ");
+      Serial.print(TOL_ANG_LEJOS_PELOTA, 0); Serial.println(" grados del frente");
+      Serial.println("   si ve el arco alineado patea al ARCO: esa va primero");
+      if (MS_PRIORIDAD_ARCO > 0) {
+        Serial.print("   y mientras VEA el arco no patea al cero por ");
+        Serial.print(MS_PRIORIDAD_ARCO); Serial.println(" ms: manda el arco");
+      }
+      if (MS_FRENO_PRE_PATADA > 0) {
+        Serial.print("   al quedar mirando al cero frena ");
+        Serial.print(MS_FRENO_PRE_PATADA); Serial.println(" ms antes de patear");
+      }
+      if (VETO_ARCO_PROPIO)
+        Serial.println("   y NO patea al cero si la camara ve NUESTRO arco");
+    } else {
+      Serial.print("orbita: a las "); Serial.print(VUELTAS_PARA_RUMBO0, 0);
+      Serial.print(" vueltas (o "); Serial.print(MS_ORBITA_MAX / 1000);
+      Serial.println(" s) sin patear, patea al quedar mirando al RUMBO CERO");
+    }
   }
   Serial.print("orbita, no perder la pelota: aguanta ");
   Serial.print(MS_AGUANTE_ORBITA); Serial.print(" ms sin verla FRENADA, y recentra");
@@ -811,6 +900,24 @@ void setup() {
 }
 
 // Para que lado orbitar: segun el arco si lo ve; si no, segun el rumbo cero.
+// FRENA ANTES DE PATEAR AL CERO. Devuelve true mientras falta frenar, asi la
+// rama de la patada no se dispara todavia; cuando termina devuelve false y la
+// patada sale. Es un ESTADO y no un delay(): la linea blanca se sigue mirando.
+// El reloj se pone en cero desde afuera cuando la condicion deja de cumplirse,
+// para que un freno a medias no cuente como terminado la proxima vez.
+bool frenandoAntesDePatear() {
+  if (MS_FRENO_PRE_PATADA == 0) return false;
+  if (t_frenoPrePatada == 0) {
+    t_frenoPrePatada = millis();
+    Serial.print("*** mirando al cero -> freno ");
+    Serial.print(MS_FRENO_PRE_PATADA);
+    Serial.println(" ms antes de patear");
+  }
+  if (millis() - t_frenoPrePatada < MS_FRENO_PRE_PATADA) { frenar(); return true; }
+  t_frenoPrePatada = 0;
+  return false;
+}
+
 bool sentidoParaOrbitar() {
   bool porDefecto = !ORBITA_INVERTIDA;
   if (!ORBITA_CAMINO_CORTO) return porDefecto;
@@ -972,6 +1079,8 @@ void loop() {
       Serial.print(recentrandoOrbita ? "  RECENTRANDO" : "  orbitando");
       Serial.print("  girado="); Serial.print(giradoOrbita, 0);
       if (t_buscaRumbo0 != 0) Serial.print(" BUSCA EL CERO");
+      if (MS_PRIORIDAD_ARCO > 0 && veoArco
+          && millis() - t_viendoArcoOrb < MS_PRIORIDAD_ARCO) Serial.print(" MANDA EL ARCO");
       if (veoArcoPropio) Serial.print(" VEO NUESTRO ARCO");
       Serial.print("  sin verla=");
       Serial.print(t_orbSinVerla ? (long)(millis() - t_orbSinVerla) : 0L);
@@ -980,6 +1089,27 @@ void loop() {
       if (veoArco) { Serial.print(angArco, 1); Serial.println(" grados"); }
       else         { Serial.println("no lo veo"); }
     }
+
+    // EL RELOJ DEL FRENO PRE-PATADA SOLO CORRE MIENTRAS SE CUMPLE LA CONDICION
+    // DEL CERO. Si se deja de cumplir en medio del freno (la pelota se corrio de
+    // los TOL_ANG_LEJOS_PELOTA grados, o aparecio nuestro arco), vuelve a cero.
+    // Sin esto, un freno a medias contaria como terminado y la proxima vez que
+    // se alinee patearia SIN frenar. Es el mismo error de reloj que ya mordio
+    // cuatro veces en este programa: la cuenta tiene que medir tiempo SEGUIDO.
+    // Cuanto lleva viendo el arco sin haber podido patearle. Se reinicia en
+    // cuanto lo pierde de vista, asi los 2 segundos cuentan tiempo SEGUIDO
+    // mirandolo y no la suma de pedacitos.
+    if (veoArco) { if (t_viendoArcoOrb == 0) t_viendoArcoOrb = millis(); }
+    else         { t_viendoArcoOrb = 0; }
+    bool arcoManda = (MS_PRIORIDAD_ARCO > 0 && veoArco
+                      && millis() - t_viendoArcoOrb < MS_PRIORIDAD_ARCO);
+
+    bool listoParaCero = (t_buscaRumbo0 != 0 && giroscopoSano()
+                          && !arcoManda
+                          && fabs(angPelota) <= TOL_ANG_LEJOS_PELOTA
+                          && fabs(diferencia(rumboCero, rumboOrbPrevio)) <= TOL_RUMBO
+                          && !(VETO_ARCO_PROPIO && veoArcoPropio));
+    if (!listoParaCero) t_frenoPrePatada = 0;
 
     // Si deja de verla: frena y la espera MS_AGUANTE_ORBITA sin salir de la orbita.
     if (!laVeo) {                                   // no la ve AHORA
@@ -1005,10 +1135,7 @@ void loop() {
       Serial.println(")  -> PATADA");
       cambiarA(PATEA_ADEL);
     }
-    else if (t_buscaRumbo0 != 0 && giroscopoSano()
-             && fabs(angPelota) <= TOL_ANG_LEJOS_PELOTA
-             && fabs(diferencia(rumboCero, rumboOrbPrevio)) <= TOL_RUMBO
-             && !(VETO_ARCO_PROPIO && veoArcoPropio)) {
+    else if (listoParaCero && !frenandoAntesDePatear()) {
       Serial.print("*** mirando al rumbo cero con la pelota adelante (rumbo ");
       Serial.print(rumboOrbPrevio, 0); Serial.print(", cero "); Serial.print(rumboCero, 0);
       Serial.print(", pelota a "); Serial.print(angPelota, 1);

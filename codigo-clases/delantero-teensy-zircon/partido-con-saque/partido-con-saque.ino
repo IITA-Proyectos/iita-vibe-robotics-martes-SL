@@ -45,7 +45,7 @@
 
 // ---- [saque] SAQUE AL ARRANCAR (lo nuevo de esta copia, 09/11) ----
 const bool SAQUE_AL_ARRANCAR           = true;             // false = juega igual que el de partido, sin saque
-const float GRADOS_SAQUE               = 60.0;             // [09/11: era 45] cuanto se tuerce del arco hacia la pared para patear (grados). Cuenta del rebote desde el centro: pared a ~91 cm, arco a ~110 -> ~59. Si rebota antes del arco: subir. Si se pasa: bajar
+const float GRADOS_SAQUE               = 45.0;             // [13/11 en la Roboliga: 60 -> 45, pedido por el equipo] [09/11: era 45] cuanto se tuerce del arco hacia la pared para patear (grados). Cuenta del rebote desde el centro: pared a ~91 cm, arco a ~110 -> ~59. Si rebota antes del arco: subir. Si se pasa: bajar
 const bool DECIDIR_SACA_O_DEFIENDE     = true;             // [10/11] al arrancar mira si ve la pelota: si la VE, esta lejos (saca el rival) -> DEFIENDE: patea derecho al frente. Si NO la ve, esta pegada -> SACA (el sorteo de abajo). false = siempre saca
 const unsigned long MS_MIRAR_PELOTA    = 300;              // [10/11] cuanto mira (ms), con la camara ya andando, para decidir si saca o defiende
 const bool SAQUE_AL_AZAR               = true;             // [09/11] cada vez que se prende SORTEA para donde va el saque (los % de abajo). false = siempre para el lado de SAQUE_A_LA_DERECHA
@@ -54,7 +54,7 @@ const int  PROB_SAQUE_IZQUIERDA        = 40;               // [09/11] % de las v
 const bool SAQUE_A_LA_DERECHA          = true;             // solo con SAQUE_AL_AZAR = false: hacia que pared. [medido 15/09: girando a la DERECHA el rumbo SUBE]. Si se tuerce para el otro lado: cambiar
 const float TOL_SAQUE                  = 8.0;              // grados: "ya mira hacia la pared"
 const unsigned long MS_SAQUE_MAX       = 8000;             // si en este tiempo no pateo el saque, se olvida del saque y juega normal (ms)
-const int VEL_SAQUE                    = 255;              // [09/11: era 215] fuerza del golpe del SAQUE (probado en el TABLERO). Si se vuelca: bajar de a 10 o bajar RAMPA_SAQUE_PASO
+const int VEL_SAQUE                    = 230;              // [13/11 en la Roboliga: 255 -> 230, pedido por el equipo] [09/11: era 215] fuerza del golpe del SAQUE (probado en el TABLERO). Si se vuelca: bajar de a 10 o bajar RAMPA_SAQUE_PASO
 const int MS_SAQUE                     = 900;              // [09/11: era 500] cuanto dura el golpe del saque (ms). Mas = la pelota sale mas fuerte, y el robot llega mas cerca de la linea
 const int RAMPA_SAQUE_PASO             = 15;               // [09/11: era 8] el golpe del saque sube de a esto cada RAMPA_PATADA_MS. 15 = como en el TABLERO, donde se probaron estos numeros. Si se vuelca: 8
 // [09/11] numeros PROPIOS del saque (probados en el TABLERO). La patada normal usa los suyos, mas abajo
@@ -66,22 +66,22 @@ const int MS_RETROCESO_SAQUE           = 300;              // ...durante esto (m
 const int MS_FRENO_SAQUE               = 200;              // [10/11] al llegar a los grados del saque FRENA esto (ms) y recien ahi patea: sin el envion de la orbita, el golpe no se desvia. 0 = sin freno
 
 // ---- BUSCAR, CENTRAR Y AVANZAR ----
-const int VEL_GIRO_CONTINUO            = 42;                // [09/11: era 35, +20% pedido por el equipo, SOLO en esta copia] fuerza del giro buscando. Si zumba y no gira: subir a 45 o 50
-const int VEL_CENT                     = 94;                // [09/11: era 78, +20% pedido por el equipo, SOLO en esta copia] fuerza de cada pulsito. Tambien al recentrarla orbitando y al apuntar al cero
-const int VEL_AVANCE                   = 114;               // [09/11: era 95, +20% pedido por el equipo, SOLO en esta copia] fuerza yendo hacia la pelota cuando esta LEJOS
-const int VEL_AVANCE_CERCA             = 84;                // [09/11: era 70, +20% pedido por el equipo, SOLO en esta copia] fuerza al llegar. Si la empuja al llegar: bajar de a 5, pero debajo de ~70 puede quedarse plantado
-const int XP_FRENAR                    = 70;               // desde estos cm empieza a aflojar, de VEL_AVANCE a VEL_AVANCE_CERCA
+const int VEL_GIRO_CONTINUO            = 35;                 // [13/11 en la Roboliga: 42 -> 50 -> 42 -> 35 = la del principal, "chocaba la pelota, no frenaba a tiempo"] fuerza del giro buscando. Si zumba y no gira: subir a 45 o 50
+const int VEL_CENT                     = 78;                 // [13/11 en la Roboliga: 94 -> 113 -> 94 -> 78 = la del principal, "chocaba la pelota, no frenaba a tiempo"] fuerza de cada pulsito. Tambien al recentrarla orbitando y al apuntar al cero
+const int VEL_AVANCE                   = 95;                 // [13/11 en la Roboliga: 114 -> 137 -> 114 -> 95 = la del principal, "chocaba la pelota, no frenaba a tiempo"] fuerza yendo hacia la pelota cuando esta LEJOS
+const int VEL_AVANCE_CERCA             = 70;                 // [13/11 en la Roboliga: 84 -> 101 -> 84 -> 70 = la del principal, "chocaba la pelota, no frenaba a tiempo"] fuerza al llegar. Si la empuja al llegar: bajar de a 5, pero debajo de ~70 puede quedarse plantado
+const int XP_FRENAR                    = 90;               // [13/11 en la Roboliga: era 70, "chocaba la pelota, no frenaba a tiempo"] desde estos cm empieza a aflojar, de VEL_AVANCE a VEL_AVANCE_CERCA
 
 // ---- RODEAR LA PELOTA (ORBITA) ----
 const int XP_ORBITA                    = 32;               // a estos cm deja de avanzar y empieza a rodearla. Si la choca al empezar: subir
 const int XP_SUELTA                    = 55;               // si se aleja mas que esto (cm) vuelve a avanzar. Siempre MAYOR que XP_ORBITA
 const int VEL_ORB_IMPULSO              = 120;              // golpe de la rueda trasera para arrancar la orbita
-const int VEL_ORB_TRASERA              = 80;                // [09/11: era 67, +20% pedido por el equipo, SOLO en esta copia] fuerza de la vuelta, y al rearrancar despues de recentrar (ahi no hay golpe). Mas = mas rapida. Si se planta: subir
+const int VEL_ORB_TRASERA              = 67;                 // [13/11 en la Roboliga: 80 -> 96 -> 80 -> 67 = la del principal, "chocaba la pelota, no frenaba a tiempo"] fuerza de la vuelta, y al rearrancar despues de recentrar (ahi no hay golpe). Mas = mas rapida. Si se planta: subir
 const unsigned long MS_ORBITA_MAX      = 10000;            // cuanto orbita buscando el arco antes de pasar al plan B (ms)
 
 // ---- PATEAR ----
 const int MS_FRENO_PATADA              = 200;              // [10/11] antes de la patada normal (despues de rodear) FRENA esto (ms): sin el envion de la orbita no se desvia. Mas = mas derecha, pero le da tiempo al rival. 0 = sin freno
-const int VEL_PATADA                   = 190;                // [10/11: era 235, pedido por el equipo, SOLO en esta copia] fuerza del golpe. Mas = llega mas lejos, pero se levanta y vuelca mas facil
+const int VEL_PATADA                   = 190;                // [13/11 en la Roboliga: 190 -> 210 -> 225 -> 240 -> 210 -> 190 (el 09/11 llego a 235), pedido por el equipo, SOLO en esta copia] fuerza del golpe. Mas = llega mas lejos, pero se levanta y vuelca mas facil
 const int MS_PATADA                    = 500;                // [10/11: era 525, pedido por el equipo, SOLO en esta copia] cuanto dura el golpe (ms). Mas = llega mas lejos y se pasa mas cerca de la linea
 const int TRIM_PATADA                  = 6;                  // [10/11: era 9, pedido por el equipo, SOLO en esta copia] compensacion fija. Si se va siempre a la DERECHA: subir. A la IZQUIERDA: bajar
 const float KP_PATADA                  = 5.0;                // [10/11: era 6.5, pedido por el equipo, SOLO en esta copia] corrige por GRADO torcido. Mas = corrige mas fuerte (y puede zigzaguear)
@@ -97,7 +97,7 @@ const float TOL_ANG_LEJOS_ARCO         = 12.0;             // [09/11: era 8; se 
 const float VUELTAS_PARA_RUMBO0        = 1.0;              // vueltas alrededor de la pelota sin patear antes del plan B
 
 // ---- LINEA BLANCA (UMBRAL_LINEA se MIDE en cada cancha con grabar-linea: 1 DER, 2 IZQ, 3 DEL) ----
-int UMBRAL_LINEA[3]                    = { 300, 300, 440 }; // [09/11: DER e IZQ bajados a 300 por el equipo; eran 424/434 del 20/10] desde que lectura cada sensor dice "esto es blanco". En el verde tienen que leer MENOS que esto
+int UMBRAL_LINEA[3]                    = { 437, 443, 447 }; // [MEDIDO 13/11 en la Roboliga con grabar-linea: verde hasta 123/128/143, blanco desde 751/758/752. Antes 300/300/440] desde que lectura cada sensor dice "esto es blanco". En el verde tienen que leer MENOS que esto
 const unsigned long MS_RETROCESO_LINEA = 210;              // al verla, retrocede esto (ms)...
 const int VEL_ESCAPE_FUERTE            = 155;               // [09/11: era 135, pedido por el equipo, SOLO en esta copia] ...con esta fuerza. Mas = se despega mas rapido, pero se levanta
 const unsigned long MS_CIEGO_LINEA     = 300;              // despues de verla no la mira durante esto (ms). NUNCA menos que MS_RETROCESO_LINEA

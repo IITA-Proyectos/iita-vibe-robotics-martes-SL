@@ -54,7 +54,7 @@ r = 13.5/(2*math.pi)  # radio pelota (cm)
 # B (Canal de color azul–amarillo) : 20 a 70 → tonos amarillos moderados
 
 naranja_threshold = (21, 67, 18, 79, -32, 127)    # Pelota naranja
-amarillo_threshold = (60, 99, -25, -3, 50, 85) # Arco amarillo [09/11: el que tiene la camara hoy]
+amarillo_threshold = (20, 45, -10, 5, 20, 50) # Arco amarillo [09/11: el que tiene la camara hoy]
 azul_threshold = (4, 36, -13, 57, -64, -4)    # Arco azul
 
 # ----- Horizonte [09/11] -----
